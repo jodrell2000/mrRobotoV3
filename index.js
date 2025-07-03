@@ -86,10 +86,6 @@ async function sendGroupMessage() {
 
 async function fetchPrivateMessages() {
 
-  // https://appid.api-us.cometchat.io/v3/messages?receiverType=user&id=12345&category=message&hideDeleted=true&limit=50';
-  // https://193427bb5702bab7.apiclient-us.cometchat.io/v3/messages?receiverType=user&id=25323881&category=message&hideDeleted=true&limit=50
-  
-  // https://193427bb5702bab7.api-us.cometchat.io/v3/messages?receiverType=user&category=message&limit=10&receiver={user_id}
   const paths = [
     'v3',
     'messages'
