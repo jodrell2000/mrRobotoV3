@@ -43,7 +43,7 @@ services.logger.info( '======================================= Application Start
     }
 
     const checkInterval = 1000 * 1; // 1 second
-    
+
     // Start message processing with setInterval
     setInterval( async () => {
       try {
@@ -52,9 +52,8 @@ services.logger.info( '======================================= Application Start
         services.logger.error( `Error in processNewPublicMessages: ${ error?.message || error?.toString() || 'Unknown error' }` );
       }
     }, checkInterval );
-    
-    services.logger.debug( `Started message processing with ${ checkInterval }ms interval` );
 
+    services.logger.debug( `Started message processing with ${ checkInterval }ms interval` );
     services.logger.info( '======================================= Application Started Successfully =======================================' );
 
     // Send startup message to group

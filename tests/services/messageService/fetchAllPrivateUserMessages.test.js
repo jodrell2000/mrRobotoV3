@@ -1,163 +1,154 @@
 // Mock modules before importing messageService
-jest.mock('../../../src/lib/logging.js', () => ({
+jest.mock( '../../../src/lib/logging.js', () => ( {
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn()
   }
-}));
+} ) );
 
-jest.mock('../../../src/lib/buildUrl.js', () => ({
+jest.mock( '../../../src/lib/buildUrl.js', () => ( {
   buildUrl: jest.fn()
-}));
+} ) );
 
-jest.mock('../../../src/services/cometchatApi.js', () => ({
+jest.mock( '../../../src/services/cometchatApi.js', () => ( {
   BASE_URL: 'https://test-api.cometchat.com',
   apiClient: {
     get: jest.fn()
-  }
-}));
+  },
+  fetchMessages: jest.fn()
+} ) );
 
-jest.mock('../../../src/config.js', () => ({
+jest.mock( '../../../src/config.js', () => ( {
   BOT_UID: 'test-bot-uid'
-}));
+} ) );
 
-const { messageService } = require('../../../src/services/messageService.js');
-const { buildUrl } = require('../../../src/lib/buildUrl.js');
-const cometchatApi = require('../../../src/services/cometchatApi.js');
-const config = require('../../../src/config.js');
-const { logger } = require('../../../src/lib/logging.js');
+const { messageService } = require( '../../../src/services/messageService.js' );
+const { buildUrl } = require( '../../../src/lib/buildUrl.js' );
+const cometchatApi = require( '../../../src/services/cometchatApi.js' );
+const config = require( '../../../src/config.js' );
+const { logger } = require( '../../../src/lib/logging.js' );
 
-describe('messageService.fetchAllPrivateUserMessages', () => {
-  beforeEach(() => {
+describe( 'messageService.fetchAllPrivateUserMessages', () => {
+  beforeEach( () => {
     jest.clearAllMocks();
-    buildUrl.mockReturnValue('https://test-api.cometchat.com/v3/users/test-user/messages');
-  });
+    buildUrl.mockReturnValue( 'https://test-api.cometchat.com/v3/users/test-user/messages' );
+  } );
 
-  test('should return simplified messages for user with customData', async () => {
+  test( 'should return simplified messages for user with customData', async () => {
     const mockResponse = {
-      data: {
-        data: [
-          {
-            id: 'msg-1',
-            data: {
-              customData: {
-                message: 'Hello there!'
-              }
-            },
-            readAt: 1640995200, // Unix timestamp
-            sender: 'user-123'
+      data: [
+        {
+          id: 'msg-1',
+          data: {
+            text: 'Hello there!',
+            metadata: {
+              chatMessage: { customField: 'value' }
+            }
           },
-          {
-            id: 'msg-2',
-            data: {
-              text: 'Direct text message'
-            },
-            readAt: null,
-            sender: 'user-456'
-          }
-        ]
-      }
-    };
-    cometchatApi.apiClient.get.mockResolvedValue(mockResponse);
-
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
-
-    expect(buildUrl).toHaveBeenCalledWith(
-      cometchatApi.BASE_URL,
-      ['v3', 'users', 'test-user', 'messages'],
-      [
-        ['limit', 50],
-        ['unread', true],
-        ['uid', config.BOT_UID]
+          sentAt: 1640995200,
+          sender: { uid: 'user-123' }
+        },
+        {
+          id: 'msg-2',
+          data: {
+            text: 'Direct text message'
+          },
+          sentAt: null,
+          sender: { uid: 'user-456' }
+        }
       ]
+    };
+    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
+
+    expect( cometchatApi.fetchMessages ).toHaveBeenCalledWith(
+      'v3/users/test-bot-uid/conversations/test-user/messages'
     );
-    expect(result).toEqual([
+    expect( result ).toEqual( [
       {
         id: 'msg-1',
-        message: 'Hello there!',
-        readAt: '2022-01-01T00:00:00.000Z',
-        sender: 'user-123'
+        text: 'Hello there!',
+        sentAt: 1640995200,
+        sender: 'user-123',
+        customData: { customField: 'value' }
       },
       {
         id: 'msg-2',
-        message: 'Direct text message',
-        readAt: 'unread',
-        sender: 'user-456'
+        text: 'Direct text message',
+        sentAt: null,
+        sender: 'user-456',
+        customData: null
       }
-    ]);
-  });
+    ] );
+  } );
 
-  test('should handle messages with no content gracefully', async () => {
+  test( 'should handle messages with no content gracefully', async () => {
     const mockResponse = {
-      data: {
-        data: [
-          {
-            id: 'msg-empty',
-            data: {},
-            readAt: null,
-            sender: 'user-789'
-          }
-        ]
-      }
+      data: [
+        {
+          id: 'msg-empty',
+          data: {},
+          sentAt: null,
+          sender: { uid: 'user-789' }
+        }
+      ]
     };
-    cometchatApi.apiClient.get.mockResolvedValue(mockResponse);
+    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect(result).toEqual([
+    expect( result ).toEqual( [
       {
         id: 'msg-empty',
-        message: '[No message content]',
-        readAt: 'unread',
-        sender: 'user-789'
+        text: '[No content]',
+        sentAt: null,
+        sender: 'user-789',
+        customData: null
       }
-    ]);
-  });
+    ] );
+  } );
 
-  test('should return empty array when no messages found', async () => {
+  test( 'should return empty array when no messages found', async () => {
     const mockResponse = {
-      data: {
-        data: []
-      }
+      data: []
     };
-    cometchatApi.apiClient.get.mockResolvedValue(mockResponse);
+    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('should return empty array when response data is missing', async () => {
-    const mockResponse = { data: {} };
-    cometchatApi.apiClient.get.mockResolvedValue(mockResponse);
+  test( 'should return empty array when response data is missing', async () => {
+    const mockResponse = { data: null };
+    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('should return empty array when data is not an array', async () => {
+  test( 'should return empty array when data is not an array', async () => {
     const mockResponse = {
-      data: {
-        data: 'not-an-array'
-      }
+      data: 'not-an-array'
     };
-    cometchatApi.apiClient.get.mockResolvedValue(mockResponse);
+    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('should handle API errors gracefully', async () => {
-    const error = new Error('Network error');
-    cometchatApi.apiClient.get.mockRejectedValue(error);
+  test( 'should handle API errors gracefully', async () => {
+    const error = new Error( 'Network error' );
+    cometchatApi.fetchMessages.mockRejectedValue( error );
 
-    const result = await messageService.fetchAllPrivateUserMessages('test-user');
+    const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect(logger.error).toHaveBeenCalledWith('❌ Error fetching all messages: Network error');
-    expect(result).toEqual([]);
-  });
-});
+    expect( logger.error ).toHaveBeenCalledWith( '❌ Error fetching private messages: Network error' );
+    expect( result ).toEqual( [] );
+  } );
+} );

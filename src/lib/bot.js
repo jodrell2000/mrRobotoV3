@@ -71,11 +71,14 @@ class Bot {
       await this.services.dataService.loadData();
       // Add the loaded data to services for global access
       this.services.data = this.services.dataService.getAllData();
-    } catch (error) {
-      this.services.logger.error('Failed to load data.json:', error);
+    } catch ( error ) {
+      this.services.logger.error( 'Failed to load data.json:', error );
       // Continue with empty data object
       this.services.data = {};
     }
+
+    // Initialize lastMessageIDs from service container state
+    this._initializeMessageTracking();
 
     // First create the socket connection
     await this._createSocketConnection();
@@ -96,6 +99,19 @@ class Bot {
   // ========================================================
   // Connection Helper Functions
   // ========================================================
+
+  _initializeMessageTracking () {
+    // Initialize lastMessageIDs from service container state
+    const lastMessageId = this.services.getState( 'lastMessageId' );
+    if ( lastMessageId ) {
+      this.lastMessageIDs.id = lastMessageId;
+      // We don't have fromTimestamp in persistent state, so start fresh
+      this.lastMessageIDs.fromTimestamp = Date.now();
+      this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }` );
+    } else {
+      this.services.logger.debug( 'No previous message ID found, starting fresh' );
+    }
+  }
 
   async _joinCometChat () {
     this.services.logger.debug( 'Joining the chat...' );
@@ -118,7 +134,7 @@ class Bot {
       this.services.logger.debug( '✅ Room joined successfully, setting up state...' );
       this.state = connection.state;
       this.services.hangoutState = connection.state;
-      
+
       // Initialize the state service
       this.services.initializeStateService();
 
@@ -164,8 +180,8 @@ class Bot {
         const { state } = await this.socket.joinRoom( this.services.config.BOT_USER_TOKEN, {
           roomUuid: this.services.config.HANGOUT_ID
         } );
-  this.state = state;
-  this.services.hangoutState = state;
+        this.state = state;
+        this.services.hangoutState = state;
         this.services.logger.debug( '🔄 Reconnected successfully' );
       } catch ( error ) {
         this.services.logger.error( `❌ Reconnection failed: ${ error }` );
@@ -225,18 +241,18 @@ class Bot {
 
       // Handler logic based on message.name
       try {
-        const handlers = require('../handlers');
-        const handlerFn = handlers[message.name];
-        if (typeof handlerFn === 'function') {
-          this.services.logger.debug(`Calling handler for statefulMessage: ${message.name}`);
-          await handlerFn(message, this.state, this.services);
+        const handlers = require( '../handlers' );
+        const handlerFn = handlers[ message.name ];
+        if ( typeof handlerFn === 'function' ) {
+          this.services.logger.debug( `Calling handler for statefulMessage: ${ message.name }` );
+          await handlerFn( message, this.state, this.services );
         } else {
-          this.services.logger.debug(`No handler found for statefulMessage: ${message.name}`);
+          this.services.logger.debug( `No handler found for statefulMessage: ${ message.name }` );
         }
-      } catch (err) {
-        this.services.logger.error(`Error calling handler for statefulMessage ${message.name}: ${err.message}`);
+      } catch ( err ) {
+        this.services.logger.error( `Error calling handler for statefulMessage ${ message.name }: ${ err.message }` );
       }
-    });
+    } );
   }
 
   _setupStatelessMessageListener () {
@@ -300,11 +316,28 @@ class Bot {
   }
 
   async _fetchNewMessages () {
-    return await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
+    this.services.logger.debug( `this.lastMessageIDs?.id: ${ this.lastMessageIDs?.id }` );
+    const messages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
       fromTimestamp: this.lastMessageIDs?.fromTimestamp,
       lastID: this.lastMessageIDs?.id,
-      filterCommands: false // Get all messages, not just commands
+      filterCommands: true // Get command messages for processing
     } );
+
+    // Debug: Log what fetchGroupMessages returns
+    this.services.logger.debug( `fetchGroupMessages returned ${ messages?.length || 0 } messages:` );
+    if ( messages && messages.length > 0 ) {
+      messages.forEach( ( msg, index ) => {
+        try {
+          this.services.logger.debug( `Message ${ index } id: ${ msg?.id }` );
+          this.services.logger.debug( `Message ${ index } sender: ${ JSON.stringify( msg?.sender ) }` );
+          this.services.logger.debug( `Message ${ index } keys: ${ Object.keys( msg || {} ).join( ', ' ) }` );
+        } catch ( err ) {
+          this.services.logger.debug( `Could not log message ${ index }: ${ err.message }` );
+        }
+      } );
+    }
+
+    return messages;
   }
 
   async _processMessageBatch ( messages ) {
@@ -316,10 +349,28 @@ class Bot {
   async _processSingleMessage ( message ) {
     this._updateMessageTracking( message );
 
+    // Debug: Log the message structure safely
+    try {
+      this.services.logger.debug( `Raw message id: ${ message?.id }` );
+      this.services.logger.debug( `Raw message keys: ${ Object.keys( message || {} ).join( ', ' ) }` );
+      this.services.logger.debug( `Raw message structure: ${ JSON.stringify( message, null, 2 ) }` );
+    } catch ( err ) {
+      this.services.logger.debug( `Could not stringify message: ${ err.message }` );
+      this.services.logger.debug( `Message type: ${ typeof message }, id: ${ message?.id }` );
+    }
+
     const chatMessage = this._extractChatMessage( message );
     if ( !chatMessage ) return;
 
-    const sender = message?.sender ?? '';
+    // Debug: Log sender extraction step by step
+    this.services.logger.debug( `message?.sender: ${ JSON.stringify( message?.sender ) }` );
+    this.services.logger.debug( `message?.sender?.uid: ${ JSON.stringify( message?.sender?.uid ) }` );
+    this.services.logger.debug( `typeof message?.sender: ${ typeof message?.sender }` );
+
+    // Extract sender UUID - handle both direct string and object with uid property
+    const sender = message?.sender?.uid || message?.sender || '';
+
+    this.services.logger.debug( `Final extracted sender: "${ sender }"` );
 
     if ( this._shouldIgnoreMessage( sender ) ) return;
 
@@ -329,9 +380,18 @@ class Bot {
   }
 
   _updateMessageTracking ( message ) {
+    const previousId = this.lastMessageIDs.id;
+    const previousTimestamp = this.lastMessageIDs.fromTimestamp;
+
     this.services.updateLastMessageId( message.id );
     this.lastMessageIDs.fromTimestamp = message.sentAt + 1;
     this.lastMessageIDs.id = message.id;
+
+    // Debug: Log tracking updates
+    this.services.logger.debug( `[Bot] Message tracking updated:` );
+    this.services.logger.debug( `[Bot] - Previous ID: ${ previousId } -> New ID: ${ message.id }` );
+    this.services.logger.debug( `[Bot] - Previous timestamp: ${ previousTimestamp } -> New timestamp: ${ message.sentAt + 1 }` );
+    this.services.logger.debug( `[Bot] - Message sentAt: ${ message.sentAt }` );
   }
 
   _extractChatMessage ( message ) {
@@ -422,9 +482,9 @@ class Bot {
       this.socket = null;
     }
 
-  this.state = null;
-  this.services.hangoutState = null;
-  this.services.logger.debug( '✅ Bot disconnected' );
+    this.state = null;
+    this.services.hangoutState = null;
+    this.services.logger.debug( '✅ Bot disconnected' );
   }
 }
 
