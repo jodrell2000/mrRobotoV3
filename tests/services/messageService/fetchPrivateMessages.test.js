@@ -15,7 +15,7 @@ const { messageService } = require('../../../src/services/messageService.js');
 const cometchatApi = require('../../../src/services/cometchatApi');
 const { logger } = require('../../../src/lib/logging.js');
 
-describe('fetchPrivateMessages', () => {
+describe('fetchPrivateMessagesForUUID', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -46,7 +46,7 @@ describe('fetchPrivateMessages', () => {
       })
     };
 
-    await messageService.fetchPrivateMessages();
+    await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
 
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('📥 Private message from abcdef-ccd3-4c1b-9846-5336fbd3b415: Hello Mr. Roboto version 3!')
@@ -69,7 +69,7 @@ describe('fetchPrivateMessages', () => {
       })
     };
 
-    await messageService.fetchPrivateMessages();
+    await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
 
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('📥 Private message from user-123: [No Text]')
@@ -87,7 +87,7 @@ describe('fetchPrivateMessages', () => {
       })
     };
 
-    await messageService.fetchPrivateMessages();
+    await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
 
     expect(logger.debug).toHaveBeenCalledWith('📥 No private messages found.');
   });
@@ -97,7 +97,7 @@ describe('fetchPrivateMessages', () => {
       get: jest.fn().mockRejectedValue(new Error('Request failed'))
     };
 
-    await messageService.fetchPrivateMessages();
+    await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('❌ Error fetching private messages:')
@@ -125,20 +125,20 @@ describe('fetchPrivateMessages', () => {
       })
     };
 
-    const result = await messageService.fetchPrivateMessages();
+    const result = await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
 
     // Function currently doesn't return anything (return statement is commented out)
     expect(result).toBeUndefined();
   });
 
-  test('fetchPrivateMessages does not return array if message does not start with switch', async () => {
+  test('fetchPrivateMessagesForUUID does not return array if message does not start with switch', async () => {
     cometchatApi.apiClient = {
       get: jest.fn().mockResolvedValue({
         data: { data: { lastMessage: { sender: 'u1', data: { text: 'hello world' } } } }
       })
     };
 
-    const result = await messageService.fetchPrivateMessages();
+    const result = await messageService.fetchPrivateMessagesForUUID('test-user-uuid');
     expect(result).toBeUndefined(); // no return
   });
 });

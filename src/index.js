@@ -1,6 +1,5 @@
 const services = require( './services/serviceContainer.js' );
 const { Bot } = require( './lib/bot.js' );
-const { Chain } = require( 'repeat' );
 
 process.on( 'unhandledRejection', ( reason, promise ) => {
   services.logger.error( `Unhandled Rejection at: ${ promise }, reason: ${ reason }` );
@@ -44,31 +43,17 @@ services.logger.info( '======================================= Application Start
     }
 
     const checkInterval = 1000 * 1; // 1 second
-    try {
-      const repeatedTasks = new Chain();
-      repeatedTasks
-        .add( async () => {
-          try {
-            await roomBot.processNewMessages();
-          } catch ( error ) {
-            services.logger.error( `Error in processNewMessages: ${ error?.message || error?.toString() || 'Unknown error' }` );
-          }
-        } )
-        .every( checkInterval ) // every 1 second
-
-      services.logger.debug( `Started message processing chain with ${ checkInterval }ms interval` );
-    } catch ( chainError ) {
-      services.logger.error( `Error starting message processing chain: ${ chainError }` );
-      // Fallback to setInterval if Chain fails
-      services.logger.info( 'Falling back to setInterval for message processing' );
-      setInterval( async () => {
-        try {
-          await roomBot.processNewMessages();
-        } catch ( error ) {
-          services.logger.error( `Error in processNewMessages (fallback): ${ error?.message || error?.toString() || 'Unknown error' }` );
-        }
-      }, checkInterval );
-    }
+    
+    // Start message processing with setInterval
+    setInterval( async () => {
+      try {
+        await roomBot.processNewPublicMessages();
+      } catch ( error ) {
+        services.logger.error( `Error in processNewPublicMessages: ${ error?.message || error?.toString() || 'Unknown error' }` );
+      }
+    }, checkInterval );
+    
+    services.logger.debug( `Started message processing with ${ checkInterval }ms interval` );
 
     services.logger.info( '======================================= Application Started Successfully =======================================' );
 

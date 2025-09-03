@@ -20,7 +20,7 @@ jest.mock('../../src/lib/buildUrl.js', () => ({
 }));
 
 const { makeRequest } = require('../../src/lib/buildUrl.js');
-const { getUserNicknameByUuid } = require('../../src/services/hangUserService.js');
+const { getUserNicknameByUuid, getAllPresentUsers } = require('../../src/services/hangUserService.js');
 
 describe('hangUserService.getUserNicknameByUuid', () => {
   beforeEach(() => {
@@ -82,6 +82,136 @@ describe('hangUserService.getUserNicknameByUuid', () => {
       .rejects
       .toThrow('Unable to resolve nickname for UUID null: userUuid must be a non-empty string');
     expect(makeRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe('hangUserService.getAllPresentUsers', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('returns array of UUIDs when allUsers contains valid users', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue({
+          allUsers: [
+            { uuid: 'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc', tokenRole: 'globalModerator' },
+            { uuid: 'f3efc54f-1090-4a83-b5e4-73328eb649d1', tokenRole: 'bot' }
+          ]
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([
+      'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc',
+      'f3efc54f-1090-4a83-b5e4-73328eb649d1'
+    ]);
+    expect(mockServices.hangoutState.getCurrentState).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns empty array when services is null or undefined', () => {
+    expect(getAllPresentUsers(null)).toEqual([]);
+    expect(getAllPresentUsers(undefined)).toEqual([]);
+  });
+
+  test('returns empty array when hangoutState service is missing', () => {
+    const mockServices = {};
+    
+    const result = getAllPresentUsers(mockServices);
+    
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when current state is null', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue(null)
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when allUsers is missing from state', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue({
+          settings: { name: 'Test Room' }
+          // allUsers is missing
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when allUsers is not an array', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue({
+          allUsers: "not-an-array"
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([]);
+  });
+
+  test('filters out users with missing or invalid UUIDs', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue({
+          allUsers: [
+            { uuid: 'valid-uuid-1', tokenRole: 'user' },
+            { uuid: '', tokenRole: 'user' }, // empty string
+            { uuid: null, tokenRole: 'user' }, // null
+            { tokenRole: 'user' }, // missing uuid
+            { uuid: 'valid-uuid-2', tokenRole: 'moderator' },
+            { uuid: undefined, tokenRole: 'user' } // undefined
+          ]
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual(['valid-uuid-1', 'valid-uuid-2']);
+  });
+
+  test('returns empty array when allUsers is empty', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockReturnValue({
+          allUsers: []
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([]);
+  });
+
+  test('handles errors gracefully and returns empty array', () => {
+    const mockServices = {
+      hangoutState: {
+        getCurrentState: jest.fn().mockImplementation(() => {
+          throw new Error('State service error');
+        })
+      }
+    };
+
+    const result = getAllPresentUsers(mockServices);
+
+    expect(result).toEqual([]);
   });
 });
 

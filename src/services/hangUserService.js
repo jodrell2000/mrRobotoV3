@@ -75,8 +75,32 @@ async function updateHangNickname(newNickname) {
   }
 }
 
+function getAllPresentUsers(services) {
+  try {
+    if (!services || !services.hangoutState) {
+      logger.debug('hangUserService.getAllPresentUsers: hangoutState service not available');
+      return [];
+    }
+
+    const currentState = services.hangoutState.getCurrentState();
+    if (!currentState || !currentState.allUsers || !Array.isArray(currentState.allUsers)) {
+      logger.debug('hangUserService.getAllPresentUsers: allUsers not found or not an array in current state');
+      return [];
+    }
+
+    const userUuids = currentState.allUsers.map(user => user.uuid).filter(uuid => uuid);
+    
+    logger.debug(`hangUserService.getAllPresentUsers: found ${userUuids.length} users currently in hangout`);
+    return userUuids;
+  } catch (err) {
+    logger.error(`hangUserService.getAllPresentUsers: error -> ${err.message}`);
+    return [];
+  }
+}
+
 module.exports = {
   getUserNicknameByUuid,
-  updateHangNickname
+  updateHangNickname,
+  getAllPresentUsers
 };
 

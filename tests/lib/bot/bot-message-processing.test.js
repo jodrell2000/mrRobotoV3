@@ -49,7 +49,7 @@ describe('Bot - Message Processing', () => {
     bot = new Bot('test-slug', mockServices);
   });
 
-  describe('processNewMessages', () => {
+  describe('processNewPublicMessages', () => {
     test('should process new messages successfully', async () => {
       const mockMessages = [
         { id: 'msg1', sentAt: 1000, sender: 'user1', data: { metadata: { chatMessage: { message: 'Hello' } } } }
@@ -58,7 +58,7 @@ describe('Bot - Message Processing', () => {
       bot._fetchNewMessages = jest.fn().mockResolvedValue(mockMessages);
       bot._processMessageBatch = jest.fn().mockResolvedValue();
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
       expect(bot._fetchNewMessages).toHaveBeenCalled();
       expect(bot._processMessageBatch).toHaveBeenCalledWith(mockMessages);
@@ -68,7 +68,7 @@ describe('Bot - Message Processing', () => {
       bot._fetchNewMessages = jest.fn().mockResolvedValue([]);
       bot._processMessageBatch = jest.fn();
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
       expect(bot._fetchNewMessages).toHaveBeenCalled();
       expect(bot._processMessageBatch).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe('Bot - Message Processing', () => {
       bot._fetchNewMessages = jest.fn().mockResolvedValue(null);
       bot._processMessageBatch = jest.fn();
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
       expect(bot._processMessageBatch).not.toHaveBeenCalled();
     });
@@ -87,9 +87,9 @@ describe('Bot - Message Processing', () => {
       const error = new Error('Fetch failed');
       bot._fetchNewMessages = jest.fn().mockRejectedValue(error);
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
-      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewMessages: Fetch failed');
+      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewPublicMessages: Fetch failed');
       expect(mockServices.logger.error).toHaveBeenCalledWith(`Error stack: ${error.stack}`);
     });
 
@@ -97,17 +97,17 @@ describe('Bot - Message Processing', () => {
       const errorObj = { custom: 'error', message: 'Custom error message' };
       bot._fetchNewMessages = jest.fn().mockRejectedValue(errorObj);
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
-      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewMessages: Custom error message');
+      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewPublicMessages: Custom error message');
     });
 
     test('should handle primitive error values', async () => {
       bot._fetchNewMessages = jest.fn().mockRejectedValue('String error');
       
-      await bot.processNewMessages();
+      await bot.processNewPublicMessages();
       
-      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewMessages: String error');
+      expect(mockServices.logger.error).toHaveBeenCalledWith('Error in processNewPublicMessages: String error');
     });
   });
 

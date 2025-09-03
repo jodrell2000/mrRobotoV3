@@ -116,4 +116,88 @@ describe('fetchGroupMessages', () => {
 
     expect(result).toEqual([]);
   });
+
+  test('returns all messages when filterCommands is false', async () => {
+    const { COMMAND_SWITCH } = process.env;
+    const mockMessages = [
+      {
+        id: '25324828',
+        sentAt: undefined,
+        sender: 'user-123',
+        data: { text: `${COMMAND_SWITCH}escortme` }
+      },
+      {
+        id: '25324848',
+        sentAt: undefined,
+        sender: 'user-789',
+        data: { text: `regular message` }
+      },
+      {
+        id: '25324829',
+        sentAt: undefined,
+        sender: 'user-456',
+        data: { text: `${COMMAND_SWITCH}hello` }
+      }
+    ];
+
+    cometchatApi.apiClient = {
+      get: jest.fn().mockResolvedValue({ data: { data: mockMessages } })
+    };
+
+    const result = await messageService.fetchGroupMessages(null, { filterCommands: false });
+
+    expect(result).toEqual([
+      {
+        id: '25324828',
+        sentAt: undefined,
+        sender: 'user-123',
+        data: { text: `${COMMAND_SWITCH}escortme` }
+      },
+      {
+        id: '25324848',
+        sentAt: undefined,
+        sender: 'user-789',
+        data: { text: `regular message` }
+      },
+      {
+        id: '25324829',
+        sentAt: undefined,
+        sender: 'user-456',
+        data: { text: `${COMMAND_SWITCH}hello` }
+      }
+    ]);
+  });
+
+  test('filters command messages by default (filterCommands defaults to true)', async () => {
+    const { COMMAND_SWITCH } = process.env;
+    const mockMessages = [
+      {
+        id: '25324828',
+        sentAt: undefined,
+        sender: 'user-123',
+        data: { text: `${COMMAND_SWITCH}escortme` }
+      },
+      {
+        id: '25324848',
+        sentAt: undefined,
+        sender: 'user-789',
+        data: { text: `regular message` }
+      }
+    ];
+
+    cometchatApi.apiClient = {
+      get: jest.fn().mockResolvedValue({ data: { data: mockMessages } })
+    };
+
+    const result = await messageService.fetchGroupMessages();
+
+    expect(result).toEqual([
+      {
+        id: '25324828',
+        sentAt: undefined,
+        sender: 'user-123',
+        data: { text: `${COMMAND_SWITCH}escortme` }
+      }
+    ]);
+  });
 });

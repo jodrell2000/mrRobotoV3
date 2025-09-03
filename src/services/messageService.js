@@ -26,6 +26,18 @@ function getLatestGroupMessageId () {
   return latestGroupMessageId;
 }
 
+function filterMessagesForCommands ( messages ) {
+  if ( !Array.isArray( messages ) ) {
+    return [];
+  }
+
+  const commandSwitch = process.env.COMMAND_SWITCH || config.COMMAND_SWITCH;
+  return messages.filter( msg => {
+    const text = msg?.data?.text;
+    return text && text.startsWith( commandSwitch );
+  } );
+}
+
 async function buildCustomData ( theMessage, services ) {
   // Log only necessary service properties to avoid circular references
   if ( services.dataService ) {
@@ -69,6 +81,7 @@ const messageService = {
   buildPayload,
   getLatestGroupMessageId,
   setLatestGroupMessageId,
+  filterMessagesForCommands,
 
   joinChat: async function ( roomId ) {
     try {
@@ -283,13 +296,13 @@ const messageService = {
     }
   },
 
-  fetchAllPrivateUserMessages: async function ( userID ) {
+  fetchAllPrivateUserMessages: async function ( userUUID ) {
     // https://api-explorer.cometchat.com/reference/user-list-user-messages
     try {
       const url = buildUrl( cometchatApi.BASE_URL, [
         'v3',
         'users',
-        userID,
+        userUUID,
         'messages'
       ], [
         [ 'limit', 50 ],
@@ -326,12 +339,68 @@ const messageService = {
     }
   },
 
-  fetchPrivateMessages: async function () {
+  fetchPrivateMessagesForPresentUsers: async function ( services ) {
+    try {
+      // Use hangUserService from the service container
+      const hangUserService = services.hangUserService;
+      
+      if (!hangUserService || typeof hangUserService.getAllPresentUsers !== 'function') {
+        logger.error('fetchPrivateMessagesForPresentUsers: hangUserService not available in services container');
+        return [];
+      }
+      
+      // Get all users currently in the hangout
+      const allUserUUIDs = hangUserService.getAllPresentUsers( services );
+      
+      if ( !Array.isArray( allUserUUIDs ) || allUserUUIDs.length === 0 ) {
+        logger.debug( 'fetchPrivateMessagesForPresentUsers: No users found in hangout' );
+        return [];
+      }
+
+      // Filter out the bot's own UUID
+      const otherUserUUIDs = allUserUUIDs.filter( uuid => uuid !== config.BOT_UID );
+      
+      if ( otherUserUUIDs.length === 0 ) {
+        logger.debug( 'fetchPrivateMessagesForPresentUsers: No other users found (only bot in hangout)' );
+        return [];
+      }
+
+      logger.debug( `fetchPrivateMessagesForPresentUsers: Fetching messages for ${ otherUserUUIDs.length } users` );
+
+      // Fetch private messages from all present users (excluding the bot)
+      const allMessages = [];
+      for ( const userUUID of otherUserUUIDs ) {
+        try {
+          const userMessages = await this.fetchAllPrivateUserMessages( userUUID );
+          if ( Array.isArray( userMessages ) && userMessages.length > 0 ) {
+            // Add user UUID to each message for context
+            const messagesWithUser = userMessages.map( msg => ( {
+              ...msg,
+              userUUID: userUUID
+            } ) );
+            allMessages.push( ...messagesWithUser );
+          }
+        } catch ( err ) {
+          logger.error( `fetchPrivateMessagesForPresentUsers: Error fetching messages for user ${ userUUID }: ${ err.message }` );
+          // Continue with other users even if one fails
+        }
+      }
+
+      logger.debug( `fetchPrivateMessagesForPresentUsers: Found ${ allMessages.length } total private messages from ${ otherUserUUIDs.length } users` );
+      return allMessages;
+
+    } catch ( err ) {
+      logger.error( `❌ Error in fetchPrivateMessagesForPresentUsers: ${ err.message }` );
+      return [];
+    }
+  },
+
+  fetchPrivateMessagesForUUID: async function ( userUUID ) {
     try {
       const url = buildUrl( cometchatApi.BASE_URL, [
         'v3',
         'users',
-        config.COMETCHAT_RECEIVER_UID,
+        userUUID,
         'conversation'
       ], [
         [ 'conversationType', 'user' ],
@@ -387,15 +456,7 @@ const messageService = {
       }
 
       // Filter for command messages only if requested
-      let filteredMessages = messages;
-      if ( filterCommands ) {
-        const commandSwitch = process.env.COMMAND_SWITCH || config.COMMAND_SWITCH;
-
-        filteredMessages = messages.filter( msg => {
-          const text = msg?.data?.text;
-          return text && text.startsWith( commandSwitch );
-        } );
-      }
+      const filteredMessages = filterCommands ? filterMessagesForCommands( messages ) : messages;
 
       // if (filteredMessages.length > 0) {
       //   logger.debug(`📥 Group ${filterCommands ? 'command ' : ''}messages: ${JSON.stringify(filteredMessages)}`);

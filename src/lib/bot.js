@@ -276,7 +276,7 @@ class Bot {
   // Message Processing
   // ========================================================
 
-  async processNewMessages () {
+  async processNewPublicMessages () {
     try {
       const messages = await this._fetchNewMessages();
 
@@ -291,7 +291,7 @@ class Bot {
         ? ( error.message || error.toString() || 'Unknown error object' )
         : ( error || 'Unknown error' );
 
-      this.services.logger.error( `Error in processNewMessages: ${ errorMessage }` );
+      this.services.logger.error( `Error in processNewPublicMessages: ${ errorMessage }` );
 
       if ( error && error.stack ) {
         this.services.logger.error( `Error stack: ${ error.stack }` );
@@ -397,7 +397,7 @@ class Bot {
         this.services.logger.error( `Error stack: ${ error.stack }` );
       }
 
-      throw error; // Re-throw so processNewMessages can catch it
+      throw error; // Re-throw so processNewPublicMessages can catch it
     }
   }
 
