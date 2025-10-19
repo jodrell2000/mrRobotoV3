@@ -2,8 +2,8 @@ const config = require( '../../config.js' );
 
 // Set required role level for this command - requires moderator or higher
 const requiredRole = 'OWNER';
-const description = 'Edit editable message/question templates, eg. welcomeMessage, nowPlayingMessage, popfactsQuestion';
-const example = 'edit nowPlayingMessage {username} is now playing {trackName} by {artistName}';
+const description = 'Manage editable message/question templates';
+const example = 'edit list | edit show popfactsQuestion | edit nowPlayingMessage {username} is now playing {trackName}';
 const hidden = false;
 
 // Define which messages are editable
@@ -53,6 +53,107 @@ const EDITABLE_MESSAGES = {
 };
 
 /**
+ * Handles listing all editable messages and questions
+ */
+async function handleListCommand ( services, context, responseChannel ) {
+    const { messageService } = services;
+
+    // Separate messages and questions
+    const messages = [];
+    const questions = [];
+
+    Object.entries( EDITABLE_MESSAGES ).forEach( ( [ key, info ] ) => {
+        if ( info.dataKey.startsWith( 'editableMessages.' ) ) {
+            messages.push( `• **${ key }** - ${ info.name }` );
+        } else if ( info.dataKey.startsWith( 'mlQuestions.' ) ) {
+            questions.push( `• **${ key }** - ${ info.name }` );
+        }
+    } );
+
+    const response = `**📝 Editable Messages and Questions**\n\n**Messages:**\n${ messages.join( '\n' ) }\n\n**AI Questions:**\n${ questions.join( '\n' ) }\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;
+
+    await messageService.sendResponse( response, {
+        responseChannel,
+        isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+        sender: context?.sender,
+        services
+    } );
+
+    return {
+        success: true,
+        shouldRespond: true,
+        response
+    };
+}
+
+/**
+ * Handles showing a specific message template
+ */
+async function handleShowCommand ( messageType, services, context, responseChannel ) {
+    const { messageService, dataService, logger } = services;
+
+    // Validate message type
+    if ( !EDITABLE_MESSAGES[ messageType ] ) {
+        const availableMessages = Object.keys( EDITABLE_MESSAGES ).join( ', ' );
+        const response = `❌ Invalid message type: "${ messageType }"\n\n**Available message types:** ${ availableMessages }`;
+
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return {
+            success: false,
+            shouldRespond: true,
+            response,
+            error: `Invalid message type: ${ messageType }`
+        };
+    }
+
+    try {
+        // Load current data
+        await dataService.loadData();
+        
+        const messageInfo = EDITABLE_MESSAGES[ messageType ];
+        const currentTemplate = dataService.getValue( messageInfo.dataKey );
+        
+        const response = `**${ messageInfo.name } Template:**\n\n\`\`\`\n${ currentTemplate || messageInfo.example }\n\`\`\`\n\n**Available tokens:** ${ messageInfo.availableTokens.join( ', ' ) }\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit ${ messageType } <newTemplate>\``;
+
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+
+        return {
+            success: true,
+            shouldRespond: true,
+            response
+        };
+
+    } catch ( error ) {
+        logger.error( `Error showing template for ${ messageType }: ${ error.message }` );
+        const response = `❌ Failed to show template for ${ messageInfo.name }: ${ error.message }`;
+        
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+
+        return {
+            success: false,
+            shouldRespond: true,
+            response,
+            error: error.message
+        };
+    }
+}
+
+/**
  * Updates an editable message template
  * @param {Object} commandParams - Standard command parameters
  * @param {string} commandParams.command - The command name
@@ -69,7 +170,7 @@ async function handleEditCommand ( commandParams ) {
     // Parse arguments
     if ( !args || args.trim().length === 0 ) {
         const availableMessages = Object.keys( EDITABLE_MESSAGES ).join( ', ' );
-        const response = `❌ Please specify a message type and new content.\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit <messageType> <newMessage>\`\n\n**Available message types:** ${ availableMessages }\n\n**Example:** \`${ config.COMMAND_SWITCH }edit nowPlayingMessage {username} is now playing {trackName} by {artistName}\``;
+        const response = `❌ Please specify a command and parameters.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit list\` - Show all editable messages and questions\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template\n\n**Available message types:** ${ availableMessages }`;
 
         await messageService.sendResponse( response, {
             responseChannel,
@@ -84,8 +185,36 @@ async function handleEditCommand ( commandParams ) {
         };
     }
 
-    // Split args into messageType and newMessage
+    // Split args into command and parameters
     const argParts = args.split( ' ' );
+    const subCommand = argParts[ 0 ];
+
+    // Handle list command
+    if ( subCommand === 'list' ) {
+        return await handleListCommand( services, context, responseChannel );
+    }
+
+    // Handle show command
+    if ( subCommand === 'show' ) {
+        if ( argParts.length < 2 ) {
+            const response = `❌ Please specify a message type to show.\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit show <messageType>\``;
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return {
+                success: false,
+                shouldRespond: true,
+                response
+            };
+        }
+        const messageType = argParts[ 1 ];
+        return await handleShowCommand( messageType, services, context, responseChannel );
+    }
+
+    // Handle update command (original functionality)
     const messageType = argParts[ 0 ];
     const newMessage = argParts.slice( 1 ).join( ' ' );
 
