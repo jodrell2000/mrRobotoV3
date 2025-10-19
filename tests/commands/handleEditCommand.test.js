@@ -58,7 +58,7 @@ describe( 'handleEditCommand', () => {
 
   describe( 'command metadata', () => {
     it( 'should have correct metadata', () => {
-      expect( handleEditCommand.requiredRole ).toBe( 'MODERATOR' );
+      expect( handleEditCommand.requiredRole ).toBe( 'OWNER' );
       expect( handleEditCommand.description ).toBeDefined();
       expect( handleEditCommand.example ).toBeDefined();
       expect( handleEditCommand.hidden ).toBe( false );

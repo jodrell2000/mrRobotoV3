@@ -1,8 +1,8 @@
 const config = require( '../../config.js' );
 
 // Set required role level for this command - requires moderator or higher
-const requiredRole = 'MODERATOR';
-const description = 'Edit editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, popfactsMessage)';
+const requiredRole = 'OWNER';
+const description = 'Edit editable message/question templates, eg. welcomeMessage, nowPlayingMessage, popfactsQuestion';
 const example = 'edit nowPlayingMessage {username} is now playing {trackName} by {artistName}';
 const hidden = false;
 
