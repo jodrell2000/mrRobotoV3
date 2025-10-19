@@ -148,7 +148,7 @@ jest.doMock('../../src/commands/Debug Commands/handleStateCommand.js', () => ({
 
 jest.doMock('../../src/commands/Edit Commands/handleEditCommand.js', () => ({
     requiredRole: 'MODERATOR',
-    description: 'Edit editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, popfactsMessage)',
+    description: 'Edit editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, popfactsQuestion)',
     example: 'edit welcomeMessage',
     hidden: false
 }));

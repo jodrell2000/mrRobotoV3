@@ -66,7 +66,7 @@ describe( 'Vote count updating across handlers', () => {
         } );
     } );
 
-    test.skip( 'should reset vote counts to 0 for new songs during normal operation', () => {
+    test( 'should reset vote counts to 0 for new songs during normal operation', async () => {
         // NOTE: This test scenario is verified to work in practice via manual testing
         // The test framework setup may not perfectly replicate the live environment
         // Start with a previous song already stored
@@ -89,7 +89,7 @@ describe( 'Vote count updating across handlers', () => {
         services.hangoutState.voteCounts = { likes: 10, dislikes: 3, stars: 5 }; // Old vote counts
         services.hangoutState.djs = [ { uuid: 'dj-uuid-456' } ]; // New DJ
 
-        playedSong( newMessage, {}, services );
+        await playedSong( newMessage, {}, services );
 
         // Should reset both stored song vote counts and hangout state vote counts
         expect( global.previousPlayedSong ).toEqual( {

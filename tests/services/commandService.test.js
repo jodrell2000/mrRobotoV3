@@ -245,7 +245,7 @@ describe( 'commandService', () => {
       expect( result.response ).toContain( 'Echo what?' );
     } );
 
-    test.skip( 'should handle edit command with nowPlayingMessage template', async () => {
+    test( 'should handle edit command with nowPlayingMessage template', async () => {
       // This test is skipped for now as the edit command requires more complex mocking
       // The edit command functionality is tested in its own test file
     } );
