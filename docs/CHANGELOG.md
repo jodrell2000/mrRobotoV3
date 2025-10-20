@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `edit show <messageType>` command to view current templates with available tokens
   - Enhanced command help and usage information with better user guidance
 
-
 ## [0.8.0_beta] - 2025-10-17
 ### Added
 - **Machine Learning Commands (optional)**: New AI-powered song information commands providing you add a Google Gemini API key
