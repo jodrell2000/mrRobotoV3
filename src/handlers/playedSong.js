@@ -151,6 +151,8 @@ async function announceSong ( songInfo, services ) {
   }
 }
 
+
+
 async function playedSong ( message, state, services ) {
   try {
     services.logger.debug( `[playedSong] Handler called with message patches: ${ message.statePatch?.length || 0 } patches` );
@@ -286,29 +288,39 @@ async function playedSong ( message, state, services ) {
       services.logger.debug( `[playedSong] Stored current song for next comparison: ${ JSON.stringify( global.previousPlayedSong, null, 2 ) }` );
     }
 
+    // Determine song info for both announcements and triggers
+    let songForProcessing = currentSongInfo;
+    
+    // If no song info was extracted from patch but playId changed,
+    // get song info from current hangout state (same song being replayed)
+    if ( !songForProcessing && playIdChanged && services.hangoutState?.nowPlaying?.song ) {
+      const hangoutSong = services.hangoutState.nowPlaying.song;
+      const currentDj = services.hangoutState?.djs?.[0]?.uuid;
+      
+      if ( hangoutSong.artistName && hangoutSong.trackName && currentDj ) {
+        songForProcessing = {
+          djUuid: currentDj,
+          artistName: hangoutSong.artistName,
+          trackName: hangoutSong.trackName
+        };
+        services.logger.debug( '[playedSong] Using hangout state for song processing (playId changed, same song)' );
+      }
+    }
+
     // Announce the new song if the feature is enabled (after justPlayed announcement)
-    if ( services.featuresService.isFeatureEnabled( 'nowPlayingMessage' ) ) {
-      let songToAnnounce = currentSongInfo;
-      
-      // If no song info was extracted from patch but playId changed,
-      // get song info from current hangout state (same song being replayed)
-      if ( !songToAnnounce && playIdChanged && services.hangoutState?.nowPlaying?.song ) {
-        const hangoutSong = services.hangoutState.nowPlaying.song;
-        const currentDj = services.hangoutState?.djs?.[0]?.uuid;
-        
-        if ( hangoutSong.artistName && hangoutSong.trackName && currentDj ) {
-          songToAnnounce = {
-            djUuid: currentDj,
-            artistName: hangoutSong.artistName,
-            trackName: hangoutSong.trackName
-          };
-          services.logger.debug( '[playedSong] Using hangout state for nowPlaying announcement (playId changed, same song)' );
+    if ( services.featuresService.isFeatureEnabled( 'nowPlayingMessage' ) && songForProcessing ) {
+      await announceSong( songForProcessing, services );
+    }
+
+    // Process 'newSong' triggers after all announcements (independent of nowPlayingMessage feature)
+    if ( services.triggerService && songForProcessing ) {
+      const triggerContext = {
+        eventData: {
+          songInfo: songForProcessing,
+          triggerType: 'newSong'
         }
-      }
-      
-      if ( songToAnnounce ) {
-        await announceSong( songToAnnounce, services );
-      }
+      };
+      await services.triggerService.executeTrigger( 'newSong', triggerContext );
     }
 
     const nowPlaying = services.hangoutState?.nowPlaying;

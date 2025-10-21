@@ -106,7 +106,7 @@ describe('MachineLearningService', () => {
       
       await service.askGoogleAI('Test question');
       
-      expect(mockGetGenerativeModel).toHaveBeenCalledWith({ model: "gemini-2.0-flash" });
+      expect(mockGetGenerativeModel).toHaveBeenCalledWith({ model: "gemini-2.5-flash" });
     });
   });
 });

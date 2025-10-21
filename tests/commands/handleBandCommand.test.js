@@ -92,7 +92,7 @@ describe( 'handleBandCommand', () => {
 
             // Check band response
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                '🎵 **Queen**\n\nQueen formed in London in 1970. The band consisted of Freddie Mercury, Brian May, Roger Taylor, and John Deacon. They are one of the most successful rock bands of all time.',
+                'Queen formed in London in 1970. The band consisted of Freddie Mercury, Brian May, Roger Taylor, and John Deacon. They are one of the most successful rock bands of all time.',
                 expect.any( Object )
             );
         } );
@@ -286,7 +286,7 @@ describe( 'handleBandCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Queen**\n\nQueen is a British rock band formed in London in 1970. The original lineup consisted of lead vocalist and pianist Freddie Mercury, guitarist and vocalist Brian May, bass guitarist John Deacon, and drummer and vocalist Roger Taylor.' );
+            expect( result.response ).toBe( 'Queen is a British rock band formed in London in 1970. The original lineup consisted of lead vocalist and pianist Freddie Mercury, guitarist and vocalist Brian May, bass guitarist John Deacon, and drummer and vocalist Roger Taylor.' );
         } );
 
         it( 'should handle different artists', async () => {
@@ -315,7 +315,7 @@ describe( 'handleBandCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Led Zeppelin**\n\nLed Zeppelin were an English rock band formed in London in 1968.' );
+            expect( result.response ).toBe( 'Led Zeppelin were an English rock band formed in London in 1968.' );
         } );
 
         it( 'should use default template when dataService returns null', async () => {

@@ -92,7 +92,7 @@ describe( 'handleIntroCommand', () => {
 
             // Check intro response format (artist only, no song title)
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                '🎵 **Queen**\n\nQueen is a British rock band formed in London in 1970. Known for their theatrical live performances and operatic style, they became one of the most popular bands in the world.',
+                'Queen is a British rock band formed in London in 1970. Known for their theatrical live performances and operatic style, they became one of the most popular bands in the world.',
                 expect.any( Object )
             );
         } );
@@ -286,7 +286,7 @@ describe( 'handleIntroCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Queen**\n\nPink Floyd were an English rock band formed in London in 1965. They are known for their progressive and psychedelic music, philosophical lyrics, and elaborate live shows.' );
+            expect( result.response ).toBe( 'Pink Floyd were an English rock band formed in London in 1965. They are known for their progressive and psychedelic music, philosophical lyrics, and elaborate live shows.' );
         } );
 
         it( 'should handle different artists', async () => {
@@ -315,7 +315,7 @@ describe( 'handleIntroCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Led Zeppelin**\n\nLed Zeppelin were an English rock band formed in London in 1968. They are one of the most influential rock bands in history.' );
+            expect( result.response ).toBe( 'Led Zeppelin were an English rock band formed in London in 1968. They are one of the most influential rock bands in history.' );
         } );
 
         it( 'should use default template when dataService returns null', async () => {
