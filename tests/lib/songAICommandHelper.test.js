@@ -19,19 +19,34 @@ describe( 'songAICommandHelper', () => {
                         trackName: 'Test Song',
                         artistName: 'Test Artist'
                     }
-                }
+                },
+                djs: [
+                    { uuid: 'test-dj-uuid' }
+                ]
             },
             logger: {
                 debug: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
-                getValue: jest.fn()
+                getValue: jest.fn().mockImplementation( ( key ) => {
+                    if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                    return null;
+                } )
+            },
+            stateService: {
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+            },
+            hangUserService: {
+                getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
             }
         };
 
         mockContext = {
-            sender: { uuid: 'test-user-uuid' },
+            sender: {
+                uuid: 'test-user-uuid',
+                username: 'TestUser'
+            },
             fullMessage: { isPrivateMessage: false }
         };
 
@@ -48,11 +63,15 @@ describe( 'songAICommandHelper', () => {
         it( 'should execute successfully with basic config', async () => {
             const config = {
                 templateKey: 'editableMessages.testMessage',
-                defaultTemplate: 'Test question about ${trackName} by ${artistName}',
+                defaultTemplate: 'Test question about {trackName} by {artistName}',
                 commandName: 'test'
             };
 
-            mockServices.dataService.getValue.mockReturnValue( 'Custom template: ${trackName} by ${artistName}' );
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                if ( key === 'editableMessages.testMessage' ) return 'Custom template: {trackName} by {artistName}';
+                return null;
+            } );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'AI response' );
 
             const result = await executeSongAICommand( mockCommandParams, config );
@@ -70,11 +89,15 @@ describe( 'songAICommandHelper', () => {
         it( 'should use default template when dataService returns null', async () => {
             const config = {
                 templateKey: 'editableMessages.testMessage',
-                defaultTemplate: 'Default template: ${trackName} by ${artistName}',
+                defaultTemplate: 'Default template: {trackName} by {artistName}',
                 commandName: 'test'
             };
 
-            mockServices.dataService.getValue.mockReturnValue( null );
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                if ( key === 'editableMessages.testMessage' ) return null;
+                return null;
+            } );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'AI response' );
 
             const result = await executeSongAICommand( mockCommandParams, config );

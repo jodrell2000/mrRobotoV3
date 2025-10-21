@@ -20,7 +20,7 @@ const hidden = false;
 async function handleWhatyearCommand ( commandParams ) {
   const config = {
     templateKey: 'mlQuestions.whatyearQuestion',
-    defaultTemplate: 'In what year was the song ${trackName} by ${artistName} originally released?',
+    defaultTemplate: 'In what year was the song {trackName} by {artistName} originally released?',
     commandName: 'whatyear',
     errorMessage: '🎵 Sorry, I couldn\'t find the release year for the current song right now. Please try again later.',
     noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',

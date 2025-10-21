@@ -18,19 +18,34 @@ describe( 'handleMeaningCommand', () => {
                         trackName: 'Bohemian Rhapsody',
                         artistName: 'Queen'
                     }
-                }
+                },
+                djs: [
+                    { uuid: 'test-dj-uuid' }
+                ]
             },
             logger: {
                 debug: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
-                getValue: jest.fn()
+                getValue: jest.fn().mockImplementation( ( key ) => {
+                    if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                    return null;
+                } )
+            },
+            stateService: {
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+            },
+            hangUserService: {
+                getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
             }
         };
 
         mockContext = {
-            sender: { uuid: 'test-user-uuid' },
+            sender: {
+                uuid: 'test-user-uuid',
+                username: 'TestUser'
+            },
             fullMessage: { isPrivateMessage: false }
         };
 
@@ -52,7 +67,7 @@ describe( 'handleMeaningCommand', () => {
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
             // Mock the template from dataService
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const result = await handleMeaningCommand( {
@@ -86,7 +101,7 @@ describe( 'handleMeaningCommand', () => {
             const mockAIResponse = 'The song explores deep themes of personal struggle.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const privateContext = {
@@ -183,7 +198,7 @@ describe( 'handleMeaningCommand', () => {
         } );
 
         it( 'should handle AI service errors', async () => {
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockRejectedValue( new Error( 'AI service error' ) );
 
@@ -199,7 +214,7 @@ describe( 'handleMeaningCommand', () => {
         } );
 
         it( 'should handle "No response" from AI', async () => {
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'An error occurred while connecting to Google Gemini. Please wait a minute and try again' );
 
@@ -218,7 +233,7 @@ describe( 'handleMeaningCommand', () => {
         } );
 
         it( 'should handle AI service throwing an error', async () => {
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockImplementation( () => {
                 throw new Error( 'Network error' );
@@ -258,7 +273,7 @@ describe( 'handleMeaningCommand', () => {
             const mockAIResponse = 'This song explores themes of love and loss through metaphorical imagery.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const result = await handleMeaningCommand( {
@@ -275,7 +290,7 @@ describe( 'handleMeaningCommand', () => {
             const mockAIResponse = 'A powerful anthem about breaking free from constraints.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const differentSongServices = {
@@ -324,7 +339,7 @@ describe( 'handleMeaningCommand', () => {
             const mockAIResponse = 'Test meaning response';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.';
+            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             await handleMeaningCommand( {

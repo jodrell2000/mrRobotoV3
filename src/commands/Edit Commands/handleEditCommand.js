@@ -10,45 +10,51 @@ const hidden = false;
 const EDITABLE_MESSAGES = {
     'welcomeMessage': {
         name: 'Welcome Message',
-        availableTokens: [ '{username}', '{hangoutName}' ],
+        availableTokens: [ '{username}', '{hangoutName}', '{botName}' ],
         example: 'Hi {username}, welcome to {hangoutName}!',
         dataKey: 'editableMessages.welcomeMessage'
     },
     'nowPlayingMessage': {
         name: 'Now Playing Message',
-        availableTokens: [ '{username}', '{trackName}', '{artistName}' ],
+        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{botName}' ],
         example: '{username} is now playing {trackName} by {artistName}',
         dataKey: 'editableMessages.nowPlayingMessage'
     },
     'justPlayedMessage': {
         name: 'Just Played Message',
-        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{likes}', '{dislikes}', '{stars}' ],
+        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{likes}', '{dislikes}', '{stars}', '{botName}' ],
         example: '{username} played...\n{trackName} by {artistName}\nStats: 👍 {likes} 👎 {dislikes} ❤️ {stars}',
         dataKey: 'editableMessages.justPlayedMessage'
     },
     'popfactsQuestion': {
         name: 'Popfacts AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'Tell me about the song ${trackName} by ${artistName}. Please provide interesting facts.',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Tell me about the song {trackName} by {artistName}. Please provide interesting facts.',
         dataKey: 'mlQuestions.popfactsQuestion'
     },
     'whatyearQuestion': {
         name: 'What Year AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'In what year was the song ${trackName} by ${artistName} originally released?',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'In what year was the song {trackName} by {artistName} originally released?',
         dataKey: 'mlQuestions.whatyearQuestion'
     },
     'meaningQuestion': {
         name: 'Meaning AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'What is the meaning behind the lyrics of ${trackName} by ${artistName}?',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'What is the meaning behind the lyrics of {trackName} by {artistName}?',
         dataKey: 'mlQuestions.meaningQuestion'
     },
     'bandQuestion': {
         name: 'Band AI Question Template',
-        availableTokens: [ '${artistName}' ],
-        example: 'Tell me about ${artistName}?',
+        availableTokens: [ '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Tell me about {artistName}?',
         dataKey: 'mlQuestions.bandQuestion'
+    },
+    'introQuestion': {
+        name: 'Intro AI Question Template',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Give me a brief introduction to {artistName}. What should I know about them?',
+        dataKey: 'mlQuestions.introQuestion'
     }
 };
 
@@ -114,10 +120,10 @@ async function handleShowCommand ( messageType, services, context, responseChann
     try {
         // Load current data
         await dataService.loadData();
-        
+
         const messageInfo = EDITABLE_MESSAGES[ messageType ];
         const currentTemplate = dataService.getValue( messageInfo.dataKey );
-        
+
         const response = `**${ messageInfo.name } Template:**\n\n\`\`\`\n${ currentTemplate || messageInfo.example }\n\`\`\`\n\n**Available tokens:** ${ messageInfo.availableTokens.join( ', ' ) }\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit ${ messageType } <newTemplate>\``;
 
         await messageService.sendResponse( response, {
@@ -136,7 +142,7 @@ async function handleShowCommand ( messageType, services, context, responseChann
     } catch ( error ) {
         logger.error( `Error showing template for ${ messageType }: ${ error.message }` );
         const response = `❌ Failed to show template for ${ messageInfo.name }: ${ error.message }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,

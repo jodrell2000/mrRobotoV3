@@ -20,7 +20,7 @@ const hidden = false;
 async function handleMeaningCommand ( commandParams ) {
     const config = {
         templateKey: 'mlQuestions.meaningQuestion',
-        defaultTemplate: 'Tell me the meaning of the lyrics of the song ${trackName} by ${artistName} in less than 200 words.',
+        defaultTemplate: 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.',
         commandName: 'meaning',
         errorMessage: '🎵 Sorry, I couldn\'t find the meaning of the current song right now. Please try again later.',
         noSongMessage: '🎵 No song is currently playing. Start a song first and try again!'
