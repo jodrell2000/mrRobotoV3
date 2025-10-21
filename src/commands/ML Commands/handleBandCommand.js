@@ -20,12 +20,12 @@ const hidden = false;
 async function handleBandCommand ( commandParams ) {
     const config = {
         templateKey: 'mlQuestions.bandQuestion',
-        defaultTemplate: 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words',
+        defaultTemplate: 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words',
         commandName: 'band',
         errorMessage: '🎵 Sorry, I couldn\'t get facts about that artist right now. Please try again later.',
         noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',
         responseFormatter: ( trackName, artistName, aiResponse ) => {
-            return `🎵 **${ artistName }**\n\n${ aiResponse }`;
+            return `${ aiResponse }`;
         }
     };
 

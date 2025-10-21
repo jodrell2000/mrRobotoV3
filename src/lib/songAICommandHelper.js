@@ -67,9 +67,32 @@ async function executeSongAICommand ( commandParams, config ) {
         }
         questionTemplate = questionTemplate || config.defaultTemplate;
 
+        // Get additional context for token replacement
+        const currentDjUuid = services.hangoutState?.djs?.[ 0 ]?.uuid;
+        let username = 'Someone';
+
+        if ( currentDjUuid ) {
+            try {
+                username = await services.hangUserService.getUserNicknameByUuid( currentDjUuid );
+            } catch ( error ) {
+                logger.debug( `[${ config.commandName }] Could not get DJ username for UUID ${ currentDjUuid }: ${ error.message }` );
+                // Fallback to command sender if DJ username lookup fails
+                username = context?.sender?.username || 'Someone';
+            }
+        } else {
+            // Fallback to command sender if no current DJ
+            username = context?.sender?.username || 'Someone';
+        }
+
+        const hangoutName = services.stateService.getHangoutName();
+        const botName = dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
+
         const theQuestion = questionTemplate
-            .replace( /\${trackName}/g, trackName )
-            .replace( /\${artistName}/g, artistName );
+            .replace( /\{trackName\}/g, trackName )
+            .replace( /\{artistName\}/g, artistName )
+            .replace( /\{username\}/g, username )
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
 
         logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
@@ -81,7 +104,13 @@ async function executeSongAICommand ( commandParams, config ) {
         if ( aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" ) ) {
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
-                response = config.responseFormatter( trackName, artistName, aiResponse );
+                // Pass additional data to the responseFormatter for mention replacement
+                const additionalData = {
+                    djUuid: currentDjUuid,
+                    djUsername: username,
+                    services: services
+                };
+                response = config.responseFormatter( trackName, artistName, aiResponse, additionalData );
             } else {
                 response = `🎵 **${ trackName }** by **${ artistName }**\n\n${ aiResponse }`;
             }

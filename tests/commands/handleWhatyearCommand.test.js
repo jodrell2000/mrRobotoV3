@@ -18,19 +18,34 @@ describe( 'handleWhatyearCommand', () => {
                         trackName: 'Bohemian Rhapsody',
                         artistName: 'Queen'
                     }
-                }
+                },
+                djs: [
+                    { uuid: 'test-dj-uuid' }
+                ]
             },
             logger: {
                 debug: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
-                getValue: jest.fn()
+                getValue: jest.fn().mockImplementation( ( key ) => {
+                    if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                    return null;
+                } )
+            },
+            stateService: {
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+            },
+            hangUserService: {
+                getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
             }
         };
 
         mockContext = {
-            sender: { uuid: 'test-user-uuid' },
+            sender: {
+                uuid: 'test-user-uuid',
+                username: 'TestUser'
+            },
             fullMessage: { isPrivateMessage: false }
         };
 
@@ -48,7 +63,7 @@ describe( 'handleWhatyearCommand', () => {
 
     describe( 'successful execution', () => {
         it( 'should get release year about currently playing song', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1975 - Bohemian Rhapsody was released as part of Queen\'s album "A Night at the Opera"' );
 
             const result = await handleWhatyearCommand( {
@@ -77,7 +92,7 @@ describe( 'handleWhatyearCommand', () => {
 
         it( 'should work with private messages', async () => {
             mockContext.fullMessage.isPrivateMessage = true;
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1975' );
 
             const result = await handleWhatyearCommand( {
@@ -184,7 +199,7 @@ describe( 'handleWhatyearCommand', () => {
         } );
 
         it( 'should handle AI service errors', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'error occurred' );
 
             const result = await handleWhatyearCommand( {
@@ -202,7 +217,7 @@ describe( 'handleWhatyearCommand', () => {
         } );
 
         it( 'should handle "No response" from AI', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'No response' );
 
             const result = await handleWhatyearCommand( {
@@ -220,7 +235,7 @@ describe( 'handleWhatyearCommand', () => {
         } );
 
         it( 'should handle AI service throwing an error', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockRejectedValue( new Error( 'Network error' ) );
 
             const result = await handleWhatyearCommand( {
@@ -261,7 +276,7 @@ describe( 'handleWhatyearCommand', () => {
 
     describe( 'response formatting', () => {
         it( 'should format successful response with song title and artist', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1975' );
 
             const result = await handleWhatyearCommand( {
@@ -279,7 +294,7 @@ describe( 'handleWhatyearCommand', () => {
                 trackName: 'Imagine',
                 artistName: 'John Lennon'
             };
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1971' );
 
             const result = await handleWhatyearCommand( {
@@ -316,7 +331,7 @@ describe( 'handleWhatyearCommand', () => {
 
     describe( 'logging', () => {
         it( 'should log debug information about the song being queried', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song ${trackName} by ${artistName} originally released?' );
+            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1975' );
 
             await handleWhatyearCommand( {
