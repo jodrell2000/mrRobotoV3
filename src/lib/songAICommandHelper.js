@@ -7,7 +7,7 @@
  * Executes a song-based AI command with standardized error handling and response formatting
  * @param {Object} commandParams - Standard command parameters
  * @param {Object} config - Command-specific configuration
- * @param {string} config.templateKey - Key in dataService for the question template (e.g., 'editableMessages.popfactsMessage')
+ * @param {string} config.templateKey - Key in dataService for the question template (e.g., 'editableMessages.popfactsQuestion')
  * @param {string} config.defaultTemplate - Default template if dataService key not found
  * @param {string} config.commandName - Command name for logging (e.g., 'popfacts', 'whatyear')
  * @param {string} config.errorMessage - Custom error message for AI failures

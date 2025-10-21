@@ -58,7 +58,7 @@ describe( 'handleEditCommand', () => {
 
   describe( 'command metadata', () => {
     it( 'should have correct metadata', () => {
-      expect( handleEditCommand.requiredRole ).toBe( 'MODERATOR' );
+      expect( handleEditCommand.requiredRole ).toBe( 'OWNER' );
       expect( handleEditCommand.description ).toBeDefined();
       expect( handleEditCommand.example ).toBeDefined();
       expect( handleEditCommand.hidden ).toBe( false );
@@ -75,7 +75,63 @@ describe( 'handleEditCommand', () => {
       } );
 
       expect( result.success ).toBe( false );
-      expect( result.response ).toContain( 'Please specify a message type' );
+      expect( result.response ).toContain( 'Please specify a command and parameters' );
+    } );
+
+    it( 'should handle list command', async () => {
+      const result = await handleEditCommand( {
+        args: 'list',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'Editable Messages and Questions' );
+      expect( result.response ).toContain( 'Messages:' );
+      expect( result.response ).toContain( 'AI Questions:' );
+      expect( result.response ).toContain( 'welcomeMessage' );
+      expect( result.response ).toContain( 'popfactsQuestion' );
+    } );
+
+    it( 'should handle show command with valid message type', async () => {
+      mockServices.dataService.getValue.mockReturnValue( 'Hey {username}, welcome to {hangoutName}' );
+
+      const result = await handleEditCommand( {
+        args: 'show welcomeMessage',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'Welcome Message Template:' );
+      expect( result.response ).toContain( 'Hey {username}, welcome to {hangoutName}' );
+      expect( result.response ).toContain( 'Available tokens:' );
+    } );
+
+    it( 'should handle show command without message type', async () => {
+      const result = await handleEditCommand( {
+        args: 'show',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( false );
+      expect( result.response ).toContain( 'Please specify a message type to show' );
+    } );
+
+    it( 'should handle show command with invalid message type', async () => {
+      const result = await handleEditCommand( {
+        args: 'show invalidMessage',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( false );
+      expect( result.response ).toContain( 'Invalid message type' );
     } );
 
     it( 'should validate message type', async () => {

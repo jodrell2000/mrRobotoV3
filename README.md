@@ -24,7 +24,6 @@ This code is provided free of charge with the licensing above attached, however 
 
 - **Node.js** v16+ (tested on v20)
 - **npm** v8+ (installed with Node)
-- A CometChat application or developer account (to get required API details)
 
 ---
 

@@ -3,6 +3,7 @@ const requiredRole = 'OWNER';
 const description = 'Manage bot features "list" to see all or "enable/disable/status" to modify';
 const example = 'feature <feature name> enable|disable|status>';
 const hidden = false;
+const config = require('../../config');
 
 /**
  * Handle the !feature command for managing bot features
@@ -57,17 +58,18 @@ async function handleFeatureCommand( commandParams ) {
         return await handleFeatureStatus( featureName, featuresService, messageService, responseChannel, context, services );
       
       default:
+        const cmdSwitch = config.COMMAND_SWITCH || '!';
         const response = 
           '📋 **Feature Management Usage:**\n\n' +
-          '`!feature list` - Show all features and their status\n' +
-          '`!feature enable <featureName>` - Enable a feature\n' +
-          '`!feature disable <featureName>` - Disable a feature\n' +
-          '`!feature status <featureName>` - Check feature status\n\n' +
+          `\`${cmdSwitch}feature list\` - Show all features and their status\n` +
+          `\`${cmdSwitch}feature enable <featureName>\` - Enable a feature\n` +
+          `\`${cmdSwitch}feature disable <featureName>\` - Disable a feature\n` +
+          `\`${cmdSwitch}feature status <featureName>\` - Check feature status\n\n` +
           '**Examples:**\n' +
-          '`!feature list`\n' +
-          '`!feature enable welcomeMessage`\n' +
-          '`!feature disable nowPlayingMessage`\n' +
-          '`!feature status welcomeMessage`';
+          `\`${cmdSwitch}feature list\`\n` +
+          `\`${cmdSwitch}feature enable welcomeMessage\`\n` +
+          `\`${cmdSwitch}feature disable nowPlayingMessage\`\n` +
+          `\`${cmdSwitch}feature status welcomeMessage\``;
 
         await messageService.sendResponse( response, {
           responseChannel,
@@ -147,7 +149,8 @@ async function handleListFeatures( featuresService, messageService, responseChan
  */
 async function handleEnableFeature( featureName, featuresService, messageService, responseChannel, context, services ) {
   if ( !featureName ) {
-    const response = '❌ Please specify a feature name. Usage: `!feature enable <featureName>`';
+    const cmdSwitch = config.COMMAND_SWITCH || '!';
+    const response = `❌ Please specify a feature name. Usage: \`${cmdSwitch}feature enable <featureName>\``;
     await messageService.sendResponse( response, {
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -199,7 +202,8 @@ async function handleEnableFeature( featureName, featuresService, messageService
  */
 async function handleDisableFeature( featureName, featuresService, messageService, responseChannel, context, services ) {
   if ( !featureName ) {
-    const response = '❌ Please specify a feature name. Usage: `!feature disable <featureName>`';
+    const cmdSwitch = config.COMMAND_SWITCH || '!';
+    const response = `❌ Please specify a feature name. Usage: \`${cmdSwitch}feature disable <featureName>\``;
     await messageService.sendResponse( response, {
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -251,7 +255,8 @@ async function handleDisableFeature( featureName, featuresService, messageServic
  */
 async function handleFeatureStatus( featureName, featuresService, messageService, responseChannel, context, services ) {
   if ( !featureName ) {
-    const response = '❌ Please specify a feature name. Usage: `!feature status <featureName>`';
+    const cmdSwitch = config.COMMAND_SWITCH || '!';
+    const response = `❌ Please specify a feature name. Usage: \`${cmdSwitch}feature status <featureName>\``;
     await messageService.sendResponse( response, {
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
