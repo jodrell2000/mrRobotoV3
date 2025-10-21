@@ -25,7 +25,7 @@ async function handleWhatyearCommand ( commandParams ) {
     errorMessage: '🎵 Sorry, I couldn\'t find the release year for the current song right now. Please try again later.',
     noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',
     responseFormatter: ( trackName, artistName, aiResponse ) => {
-      return `📅 **${ trackName }** by **${ artistName }**\n\n${ aiResponse }`;
+      return `${ aiResponse }`;
     }
   };
 

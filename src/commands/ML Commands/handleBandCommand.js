@@ -25,7 +25,7 @@ async function handleBandCommand ( commandParams ) {
         errorMessage: '🎵 Sorry, I couldn\'t get facts about that artist right now. Please try again later.',
         noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',
         responseFormatter: ( trackName, artistName, aiResponse ) => {
-            return `🎵 **${ artistName }**\n\n${ aiResponse }`;
+            return `${ aiResponse }`;
         }
     };
 

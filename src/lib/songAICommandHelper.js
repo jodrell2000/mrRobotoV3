@@ -104,7 +104,13 @@ async function executeSongAICommand ( commandParams, config ) {
         if ( aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" ) ) {
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
-                response = config.responseFormatter( trackName, artistName, aiResponse );
+                // Pass additional data to the responseFormatter for mention replacement
+                const additionalData = {
+                    djUuid: currentDjUuid,
+                    djUsername: username,
+                    services: services
+                };
+                response = config.responseFormatter( trackName, artistName, aiResponse, additionalData );
             } else {
                 response = `🎵 **${ trackName }** by **${ artistName }**\n\n${ aiResponse }`;
             }
