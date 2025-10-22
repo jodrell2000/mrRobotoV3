@@ -25,6 +25,7 @@ describe( 'handleIntroCommand', () => {
             },
             logger: {
                 debug: jest.fn(),
+                warn: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
@@ -128,6 +129,46 @@ describe( 'handleIntroCommand', () => {
                     isPrivateMessage: true,
                     responseChannel: 'request'
                 } )
+            );
+        } );
+
+        it( 'should handle username with special characters correctly', async () => {
+            const mockAIResponse = 'Alice In Chains is an American rock band formed in Seattle, Washington, in 1987. Known for their distinctive vocal harmonies and heavy, grinding guitar sound.';
+            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
+
+            // Mock template that includes {username} token
+            const mockTemplate = 'I\'m listening to {artistName} with DJ {username}. Give me a brief introduction to this artist. Include when they started, their genre, and why they\'re notable. Keep it under 150 words.';
+            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
+
+            // Update mock to have Alice In Chains as artist
+            mockServices.hangoutState.nowPlaying.song.artistName = 'Alice In Chains';
+            mockServices.hangoutState.nowPlaying.song.trackName = 'Rain When I Die';
+
+            // Mock the special character username
+            mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( '𝖓𝖎𝖓𝖆🌙' );
+
+            const result = await handleIntroCommand( {
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.shouldRespond ).toBe( true );
+
+            // Check that AI was called with correct question including actual DJ name
+            expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
+                "I'm listening to Alice In Chains with DJ 𝖓𝖎𝖓𝖆🌙. Give me a brief introduction to this artist. Include when they started, their genre, and why they're notable. Keep it under 150 words."
+            );
+
+            // Check that getUserNicknameByUuid was called to get the actual name
+            expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'test-dj-uuid' );
+
+            // Check response was sent
+            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );
+            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+                'Alice In Chains is an American rock band formed in Seattle, Washington, in 1987. Known for their distinctive vocal harmonies and heavy, grinding guitar sound.',
+                expect.any( Object )
             );
         } );
     } );
