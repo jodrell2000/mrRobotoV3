@@ -24,24 +24,9 @@ async function handleIntroCommand ( commandParams ) {
         commandName: 'intro',
         errorMessage: '🎵 Sorry, I couldn\'t get an introduction to that artist right now. Please try again later.',
         noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',
-        responseFormatter: ( trackName, artistName, aiResponse, additionalData ) => {
-            // Get the current DJ info for mention replacement
-            const { djUuid, djUsername, services } = additionalData || {};
-            
-            let formattedResponse = aiResponse;
-            
-            // Replace DJ name with mention if we have the DJ info and it appears in the response
-            if ( djUuid && djUsername && services?.messageService?.formatMention ) {
-                // Create the mention format
-                const djMention = services.messageService.formatMention( djUuid );
-                
-                // Replace any occurrence of the DJ's username in the AI response with the mention
-                // Use word boundaries to avoid partial replacements
-                const djNameRegex = new RegExp( `\\b${ djUsername.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }\\b`, 'gi' );
-                formattedResponse = formattedResponse.replace( djNameRegex, djMention );
-            }
-            
-            return formattedResponse;
+        responseFormatter: ( trackName, artistName, aiResponse ) => {
+            // Just return the AI response as-is since mention replacement is handled in songAICommandHelper
+            return aiResponse;
         }
     };
 

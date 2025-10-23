@@ -12,6 +12,7 @@ const StateService = require( './stateService.js' );
 const DataService = require( './dataService.js' );
 const FeaturesService = require( './featuresService.js' );
 const MachineLearningService = require( './machineLearningService.js' );
+const TriggerService = require( './triggerService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -33,6 +34,9 @@ const featuresService = new FeaturesService( dataService );
 
 // Initialize machineLearningService
 const machineLearningService = new MachineLearningService();
+
+// Note: triggerService will be initialized after services object is created
+// to avoid circular dependency issues
 
 // Load data and make it available in the services container
 const initializeData = async () => {
@@ -59,6 +63,7 @@ const services = {
   dataService,
   featuresService,
   machineLearningService,
+  triggerService: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -118,6 +123,9 @@ const services = {
     this.logger.debug( 'StateService initialized with valid hangout state' );
   }
 };
+
+// Initialize triggerService after services object is created to avoid circular dependencies
+services.triggerService = new TriggerService( services );
 
 // Initialize data asynchronously
 initializeData();

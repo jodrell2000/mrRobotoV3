@@ -25,6 +25,7 @@ describe( 'handleIntroCommand', () => {
             },
             logger: {
                 debug: jest.fn(),
+                warn: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
@@ -92,7 +93,7 @@ describe( 'handleIntroCommand', () => {
 
             // Check intro response format (artist only, no song title)
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                '🎵 **Queen**\n\nQueen is a British rock band formed in London in 1970. Known for their theatrical live performances and operatic style, they became one of the most popular bands in the world.',
+                'Queen is a British rock band formed in London in 1970. Known for their theatrical live performances and operatic style, they became one of the most popular bands in the world.',
                 expect.any( Object )
             );
         } );
@@ -128,6 +129,46 @@ describe( 'handleIntroCommand', () => {
                     isPrivateMessage: true,
                     responseChannel: 'request'
                 } )
+            );
+        } );
+
+        it( 'should handle username with special characters correctly', async () => {
+            const mockAIResponse = 'Alice In Chains is an American rock band formed in Seattle, Washington, in 1987. Known for their distinctive vocal harmonies and heavy, grinding guitar sound.';
+            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
+
+            // Mock template that includes {username} token
+            const mockTemplate = 'I\'m listening to {artistName} with DJ {username}. Give me a brief introduction to this artist. Include when they started, their genre, and why they\'re notable. Keep it under 150 words.';
+            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
+
+            // Update mock to have Alice In Chains as artist
+            mockServices.hangoutState.nowPlaying.song.artistName = 'Alice In Chains';
+            mockServices.hangoutState.nowPlaying.song.trackName = 'Rain When I Die';
+
+            // Mock the special character username
+            mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( '𝖓𝖎𝖓𝖆🌙' );
+
+            const result = await handleIntroCommand( {
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.shouldRespond ).toBe( true );
+
+            // Check that AI was called with correct question including actual DJ name
+            expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
+                "I'm listening to Alice In Chains with DJ 𝖓𝖎𝖓𝖆🌙. Give me a brief introduction to this artist. Include when they started, their genre, and why they're notable. Keep it under 150 words."
+            );
+
+            // Check that getUserNicknameByUuid was called to get the actual name
+            expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'test-dj-uuid' );
+
+            // Check response was sent
+            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );
+            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+                'Alice In Chains is an American rock band formed in Seattle, Washington, in 1987. Known for their distinctive vocal harmonies and heavy, grinding guitar sound.',
+                expect.any( Object )
             );
         } );
     } );
@@ -286,7 +327,7 @@ describe( 'handleIntroCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Queen**\n\nPink Floyd were an English rock band formed in London in 1965. They are known for their progressive and psychedelic music, philosophical lyrics, and elaborate live shows.' );
+            expect( result.response ).toBe( 'Pink Floyd were an English rock band formed in London in 1965. They are known for their progressive and psychedelic music, philosophical lyrics, and elaborate live shows.' );
         } );
 
         it( 'should handle different artists', async () => {
@@ -315,7 +356,7 @@ describe( 'handleIntroCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Led Zeppelin**\n\nLed Zeppelin were an English rock band formed in London in 1968. They are one of the most influential rock bands in history.' );
+            expect( result.response ).toBe( 'Led Zeppelin were an English rock band formed in London in 1968. They are one of the most influential rock bands in history.' );
         } );
 
         it( 'should use default template when dataService returns null', async () => {

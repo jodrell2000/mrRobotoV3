@@ -51,15 +51,15 @@ async function announceJustPlayed ( previousSongInfo, services ) {
  * @param {Object} message - The stateful message containing patch data
  * @returns {Object|null} The new nowPlaying value or undefined if not found in patch
  */
-function extractNowPlayingFromPatch( message ) {
+function extractNowPlayingFromPatch ( message ) {
   const statePatch = message.statePatch || [];
-  
+
   for ( const patch of statePatch ) {
     if ( patch.op === 'replace' && patch.path === '/nowPlaying' ) {
       return patch.value;
     }
   }
-  
+
   return undefined; // Not found in patch
 }
 
@@ -68,15 +68,15 @@ function extractNowPlayingFromPatch( message ) {
  * @param {Object} message - The stateful message containing patch data
  * @returns {boolean} True if playId has changed
  */
-function hasPlayIdChanged( message ) {
+function hasPlayIdChanged ( message ) {
   const statePatch = message.statePatch || [];
-  
+
   for ( const patch of statePatch ) {
     if ( patch.op === 'replace' && patch.path === '/nowPlaying/playId' ) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -112,7 +112,7 @@ function extractSongInfo ( message, services ) {
   // If we have song info but no DJ UUID from patch, try to get it from full state
   if ( !djUuid && ( artistName || trackName ) ) {
     if ( services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
-      djUuid = services.hangoutState.djs[0].uuid;
+      djUuid = services.hangoutState.djs[ 0 ].uuid;
     }
   }
 
@@ -151,14 +151,16 @@ async function announceSong ( songInfo, services ) {
   }
 }
 
+
+
 async function playedSong ( message, state, services ) {
   try {
     services.logger.debug( `[playedSong] Handler called with message patches: ${ message.statePatch?.length || 0 } patches` );
 
     // Log all the patches for debugging
-    if ( message.statePatch && message.statePatch.length > 0 ) {
-      services.logger.debug( `[playedSong] State patches: ${ JSON.stringify( message.statePatch.map( p => ( { op: p.op, path: p.path, hasValue: !!p.value } ) ), null, 2 ) }` );
-    }
+    // if ( message.statePatch && message.statePatch.length > 0 ) {
+    //   services.logger.debug( `[playedSong] State patches: ${ JSON.stringify( message.statePatch.map( p => ( { op: p.op, path: p.path, hasValue: !!p.value } ) ), null, 2 ) }` );
+    // }
 
     // Extract current song information from the patches
     const currentSongInfo = extractSongInfo( message, services );
@@ -207,9 +209,9 @@ async function playedSong ( message, state, services ) {
 
         // Check if playId changed - this indicates a new song play even if song details are the same
         const songPlayIdChanged = hasPlayIdChanged( message );
-        
+
         services.logger.debug( `[playedSong] Song changed: ${ songChanged }, PlayId changed: ${ songPlayIdChanged }` );
-        
+
         if ( songChanged ) {
           const comparison = {
             newTrack: currentSongInfo.trackName,
@@ -286,29 +288,39 @@ async function playedSong ( message, state, services ) {
       services.logger.debug( `[playedSong] Stored current song for next comparison: ${ JSON.stringify( global.previousPlayedSong, null, 2 ) }` );
     }
 
+    // Determine song info for both announcements and triggers
+    let songForProcessing = currentSongInfo;
+
+    // If no song info was extracted from patch but playId changed,
+    // get song info from current hangout state (same song being replayed)
+    if ( !songForProcessing && playIdChanged && services.hangoutState?.nowPlaying?.song ) {
+      const hangoutSong = services.hangoutState.nowPlaying.song;
+      const currentDj = services.hangoutState?.djs?.[ 0 ]?.uuid;
+
+      if ( hangoutSong.artistName && hangoutSong.trackName && currentDj ) {
+        songForProcessing = {
+          djUuid: currentDj,
+          artistName: hangoutSong.artistName,
+          trackName: hangoutSong.trackName
+        };
+        services.logger.debug( '[playedSong] Using hangout state for song processing (playId changed, same song)' );
+      }
+    }
+
     // Announce the new song if the feature is enabled (after justPlayed announcement)
-    if ( services.featuresService.isFeatureEnabled( 'nowPlayingMessage' ) ) {
-      let songToAnnounce = currentSongInfo;
-      
-      // If no song info was extracted from patch but playId changed,
-      // get song info from current hangout state (same song being replayed)
-      if ( !songToAnnounce && playIdChanged && services.hangoutState?.nowPlaying?.song ) {
-        const hangoutSong = services.hangoutState.nowPlaying.song;
-        const currentDj = services.hangoutState?.djs?.[0]?.uuid;
-        
-        if ( hangoutSong.artistName && hangoutSong.trackName && currentDj ) {
-          songToAnnounce = {
-            djUuid: currentDj,
-            artistName: hangoutSong.artistName,
-            trackName: hangoutSong.trackName
-          };
-          services.logger.debug( '[playedSong] Using hangout state for nowPlaying announcement (playId changed, same song)' );
+    if ( services.featuresService.isFeatureEnabled( 'nowPlayingMessage' ) && songForProcessing ) {
+      await announceSong( songForProcessing, services );
+    }
+
+    // Process 'newSong' triggers after all announcements (independent of nowPlayingMessage feature)
+    if ( services.triggerService && songForProcessing ) {
+      const triggerContext = {
+        eventData: {
+          songInfo: songForProcessing,
+          triggerType: 'newSong'
         }
-      }
-      
-      if ( songToAnnounce ) {
-        await announceSong( songToAnnounce, services );
-      }
+      };
+      await services.triggerService.executeTrigger( 'newSong', triggerContext );
     }
 
     const nowPlaying = services.hangoutState?.nowPlaying;

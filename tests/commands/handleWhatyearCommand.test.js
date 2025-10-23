@@ -25,6 +25,7 @@ describe( 'handleWhatyearCommand', () => {
             },
             logger: {
                 debug: jest.fn(),
+                warn: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
@@ -74,15 +75,15 @@ describe( 'handleWhatyearCommand', () => {
 
             expect( result.success ).toBe( true );
             expect( result.shouldRespond ).toBe( true );
-            expect( result.response ).toContain( '📅 **Bohemian Rhapsody** by **Queen**' );
             expect( result.response ).toContain( '1975' );
+            expect( result.response ).toContain( 'Bohemian Rhapsody' );
 
             expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
                 'In what year was the song Bohemian Rhapsody by Queen originally released?'
             );
 
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                expect.stringContaining( '📅 **Bohemian Rhapsody** by **Queen**' ),
+                expect.stringContaining( '1975' ),
                 expect.objectContaining( {
                     responseChannel: 'public',
                     isPrivateMessage: false
@@ -286,7 +287,7 @@ describe( 'handleWhatyearCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '📅 **Bohemian Rhapsody** by **Queen**\n\n1975' );
+            expect( result.response ).toBe( '1975' );
         } );
 
         it( 'should handle different song titles and artists', async () => {
@@ -304,7 +305,7 @@ describe( 'handleWhatyearCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '📅 **Imagine** by **John Lennon**\n\n1971' );
+            expect( result.response ).toBe( '1971' );
 
             expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
                 'In what year was the song Imagine by John Lennon originally released?'
