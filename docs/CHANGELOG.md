@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- **Command Trigger System**: Comprehensive automation system for bot events
+  - New `trigger` command for owners to configure commands that execute automatically on specific events
+  - Support for 5 trigger types: `newSong`, `userJoined`, `userLeft`, `djAdded`, `djRemoved`
+  - Trigger management subcommands: `list`, `add`, `remove`, `clear`
+  - Persistent trigger configuration stored in data.json
+  - Automatic command execution with proper context and error handling
+  - System-level command execution for triggers (independent of user permissions)
+
+### Enhanced
+- **Machine Learning Service Reliability**: Significantly improved AI service robustness
+  - Added automatic fallback model support (gemini-2.5-flash → gemini-2.0-flash)
+  - Enhanced error handling with graceful degradation when AI services fail
+  - Comprehensive debugging and logging throughout AI request/response cycle
+  - Improved service reliability for all ML commands (`intro`, `band`, `popfacts`, `whatyear`, `meaning`)
+
+- **Token System Standardization**: Unified and enhanced token replacement system
+  - Standardized all ML commands to use unified `{token}` format (previously mixed `${token}` and `{token}`)
+  - Added support for `{botName}` token across all ML command templates
+  - Enhanced `{username}` token to use current DJ instead of command sender for better context
+  - Added comprehensive token support: `{trackName}`, `{artistName}`, `{username}`, `{hangoutName}`, `{botName}`
+
+- **Mention Format Handling**: Improved user interaction and display
+  - AI receives display names for natural language processing
+  - Bot responses automatically convert display names to proper mention format
+  - Enhanced user experience with proper @mentions in AI-generated responses
+
+- **Testing Infrastructure**: Comprehensive test coverage for AI functionality
+  - Added complete test suite for MachineLearningService fallback scenarios
+  - Enhanced logger mocking across ML command tests
+  - Improved Jest configuration for external dependency mocking
+  - Full coverage of error handling and edge cases
+
+### Fixed
+- **Circular Dependency Resolution**: Resolved logger import issues in serviceContainer
+- **Token Replacement Accuracy**: Fixed token replacement not working correctly in intro command
+- **Service Reliability**: Eliminated AI service failures causing command errors
+
 ## [0.8.1_beta] - 2025-10-21
 ### Enhanced
 - **Edit Command System**: Significantly improved template management capabilities
