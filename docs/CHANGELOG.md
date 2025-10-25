@@ -57,6 +57,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Token Replacement Accuracy**: Fixed token replacement not working correctly in intro command
 - **Service Reliability**: Eliminated AI service failures causing command errors
 
+### Upgrade Instructions
+**IMPORTANT**: If upgrading from a previous version, you must add the new `MLInstructions` field to your local `data.json` file:
+
+1. Copy the `MLInstructions` line from `data.json_example` file
+2. Add it to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
+3. The field should look like:
+   ```json
+   "MLInstructions": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}. When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz",
+   ```
+4. Customize the instructions as desired to match your bot's personality and behavior
+
+Without this field, AI commands may not work correctly or may use default system instructions.
+
+These instructions will be sent with every command. They should not be specific instructions for any individual command, but guidance on how Google Gemini should treat your requests made through all of the other ML questions
+
 ## [0.8.1_beta] - 2025-10-21
 ### Enhanced
 - **Edit Command System**: Significantly improved template management capabilities
