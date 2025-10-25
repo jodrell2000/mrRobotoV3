@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **AI System Instructions**: Customizable AI personality and behavior system
+  - New `MLInstructions` field in data.json for defining AI system instructions
+  - Editable via `!edit MLInstructions <instructions>` command with template variable support
+  - Supports `{hangoutName}` and `{botName}` template variables for dynamic personalization
+  - System instructions automatically sent with every AI request to ensure consistent AI behavior
+  - Instructions displayed in organized "System Settings" section of `!edit list` command
+
 - **Command Trigger System**: Comprehensive automation system for bot events
   - New `trigger` command for owners to configure commands that execute automatically on specific events
   - Support for 5 trigger types: `newSong`, `userJoined`, `userLeft`, `djAdded`, `djRemoved`
@@ -16,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - System-level command execution for triggers (independent of user permissions)
 
 ### Enhanced
+- **Google GenAI SDK Migration**: Updated to latest official Google GenAI SDK
+  - Migrated from deprecated `@google/generative-ai` to official `@google/genai@^1.26.0`
+  - Updated API calls to use new SDK structure and methods
+  - Enhanced system instruction support using official SDK patterns
+  - Improved reliability and future-proofing of AI integrations
+
 - **Machine Learning Service Reliability**: Significantly improved AI service robustness
   - Added automatic fallback model support (gemini-2.5-flash → gemini-2.0-flash)
   - Enhanced error handling with graceful degradation when AI services fail

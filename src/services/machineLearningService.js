@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require( "@google/generative-ai" );
+const { GoogleGenAI } = require( "@google/genai" );
 const { logger } = require( "../lib/logging" );
 
 /**
@@ -6,12 +6,47 @@ const { logger } = require( "../lib/logging" );
  * Provides AI-powered functionality using Google's Generative AI
  */
 class MachineLearningService {
-  constructor () {
+  constructor ( services ) {
     this.googleAIKey = process.env.googleAIKey;
     this.genAI = null;
+    this.services = services;
 
     if ( this.googleAIKey ) {
-      this.genAI = new GoogleGenerativeAI( this.googleAIKey );
+      this.genAI = new GoogleGenAI( { apiKey: this.googleAIKey } );
+    }
+  }
+
+  /**
+   * Get system instructions with template replacement
+   * @returns {string|null} The processed system instructions or null if not available
+   */
+  async getSystemInstructions () {
+    if ( !this.services?.dataService ) {
+      return null;
+    }
+
+    try {
+      await this.services.dataService.loadData();
+      const rawInstructions = this.services.dataService.getValue( 'MLInstructions' );
+
+      if ( !rawInstructions ) {
+        return null;
+      }
+
+      // Get replacement values
+      const hangoutName = this.services.stateService?.getHangoutName?.() || 'Hangout FM';
+      const botName = this.services.getState?.( 'botNickname' ) || 'DJ Bot';
+
+      // Replace template variables
+      const processedInstructions = rawInstructions
+        .replace( /\{hangoutName\}/g, hangoutName )
+        .replace( /\{botName\}/g, botName );
+
+      logger.debug( `🤖 [MachineLearningService] Using system instructions: ${ processedInstructions }` );
+      return processedInstructions;
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error getting system instructions: ${ error.message }` );
+      return null;
     }
   }
 
@@ -33,9 +68,25 @@ class MachineLearningService {
 
     try {
       logger.debug( `🤖 [MachineLearningService] Attempting with primary model: ${ primaryModel }` );
-      const model = this.genAI.getGenerativeModel( { model: primaryModel } );
-      const reply = await model.generateContent( theQuestion );
-      const theResponse = reply?.response?.text?.() || "No response text available";
+
+      // Get system instructions
+      const systemInstruction = await this.getSystemInstructions();
+
+      // Build request config
+      const requestConfig = {
+        model: primaryModel,
+        contents: theQuestion
+      };
+
+      // Add system instruction if available
+      if ( systemInstruction ) {
+        requestConfig.config = {
+          systemInstruction: [ systemInstruction ]
+        };
+      }
+
+      const response = await this.genAI.models.generateContent( requestConfig );
+      const theResponse = response?.text || "No response text available";
 
       if ( theResponse !== "No response text available" ) {
         logger.debug( `🤖 [MachineLearningService] askGoogleAI - Response from ${ primaryModel }: ${ theResponse }` );
@@ -61,9 +112,25 @@ class MachineLearningService {
   async tryFallbackModel ( theQuestion, fallbackModel ) {
     try {
       logger.debug( `🤖 [MachineLearningService] Attempting with fallback model: ${ fallbackModel }` );
-      const model = this.genAI.getGenerativeModel( { model: fallbackModel } );
-      const reply = await model.generateContent( theQuestion );
-      const theResponse = reply?.response?.text?.() || "No response text available";
+
+      // Get system instructions
+      const systemInstruction = await this.getSystemInstructions();
+
+      // Build request config
+      const requestConfig = {
+        model: fallbackModel,
+        contents: theQuestion
+      };
+
+      // Add system instruction if available
+      if ( systemInstruction ) {
+        requestConfig.config = {
+          systemInstruction: [ systemInstruction ]
+        };
+      }
+
+      const response = await this.genAI.models.generateContent( requestConfig );
+      const theResponse = response?.text || "No response text available";
 
       if ( theResponse !== "No response text available" ) {
         logger.debug( `🤖 [MachineLearningService] askGoogleAI - Response from ${ fallbackModel }: ${ theResponse }` );

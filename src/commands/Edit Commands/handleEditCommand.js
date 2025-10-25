@@ -55,6 +55,12 @@ const EDITABLE_MESSAGES = {
         availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
         example: 'Give me a brief introduction to {artistName}. What should I know about them?',
         dataKey: 'mlQuestions.introQuestion'
+    },
+    'MLInstructions': {
+        name: 'AI System Instructions',
+        availableTokens: [ '{hangoutName}', '{botName}' ],
+        example: 'You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.',
+        dataKey: 'MLInstructions'
     }
 };
 
@@ -64,19 +70,29 @@ const EDITABLE_MESSAGES = {
 async function handleListCommand ( services, context, responseChannel ) {
     const { messageService } = services;
 
-    // Separate messages and questions
+    // Separate messages, questions, and system settings
     const messages = [];
     const questions = [];
+    const systemSettings = [];
 
     Object.entries( EDITABLE_MESSAGES ).forEach( ( [ key, info ] ) => {
         if ( info.dataKey.startsWith( 'editableMessages.' ) ) {
             messages.push( `• **${ key }** - ${ info.name }` );
         } else if ( info.dataKey.startsWith( 'mlQuestions.' ) ) {
             questions.push( `• **${ key }** - ${ info.name }` );
+        } else {
+            // Handle other items like MLInstructions
+            systemSettings.push( `• **${ key }** - ${ info.name }` );
         }
     } );
 
-    const response = `**📝 Editable Messages and Questions**\n\n**Messages:**\n${ messages.join( '\n' ) }\n\n**AI Questions:**\n${ questions.join( '\n' ) }\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;
+    let response = `**📝 Editable Messages and Questions**\n\n**Messages:**\n${ messages.join( '\n' ) }\n\n**AI Questions:**\n${ questions.join( '\n' ) }`;
+
+    if ( systemSettings.length > 0 ) {
+        response += `\n\n**System Settings:**\n${ systemSettings.join( '\n' ) }`;
+    }
+
+    response += `\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;
 
     await messageService.sendResponse( response, {
         responseChannel,
