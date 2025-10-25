@@ -32,10 +32,7 @@ const dataService = require( './dataService.js' );
 // Initialize featuresService with dataService dependency
 const featuresService = new FeaturesService( dataService );
 
-// Initialize machineLearningService
-const machineLearningService = new MachineLearningService();
-
-// Note: triggerService will be initialized after services object is created
+// Note: machineLearningService and triggerService will be initialized after services object is created
 // to avoid circular dependency issues
 
 // Load data and make it available in the services container
@@ -62,7 +59,7 @@ const services = {
   config,
   dataService,
   featuresService,
-  machineLearningService,
+  machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
@@ -75,10 +72,10 @@ const services = {
     if ( !this.hangoutState ) this.hangoutState = {};
     this.hangoutState[ key ] = value;
     if ( this.state ) this.state[ key ] = value;
-    
+
     // Properly log objects by stringifying them
-    const valueToLog = typeof value === 'object' && value !== null 
-      ? JSON.stringify( value, null, 2 ) 
+    const valueToLog = typeof value === 'object' && value !== null
+      ? JSON.stringify( value, null, 2 )
       : value;
     this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
   },
@@ -124,7 +121,8 @@ const services = {
   }
 };
 
-// Initialize triggerService after services object is created to avoid circular dependencies
+// Initialize triggerService and machineLearningService after services object is created to avoid circular dependencies
+services.machineLearningService = new MachineLearningService( services );
 services.triggerService = new TriggerService( services );
 
 // Initialize data asynchronously

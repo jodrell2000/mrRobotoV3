@@ -90,8 +90,10 @@ describe( 'handleEditCommand', () => {
       expect( result.response ).toContain( 'Editable Messages and Questions' );
       expect( result.response ).toContain( 'Messages:' );
       expect( result.response ).toContain( 'AI Questions:' );
+      expect( result.response ).toContain( 'System Settings:' );
       expect( result.response ).toContain( 'welcomeMessage' );
       expect( result.response ).toContain( 'popfactsQuestion' );
+      expect( result.response ).toContain( 'MLInstructions' );
     } );
 
     it( 'should handle show command with valid message type', async () => {
@@ -302,6 +304,26 @@ describe( 'handleEditCommand', () => {
 
       expect( result.success ).toBe( true );
       expect( result.response ).toContain( 'Intro AI Question Template updated to' );
+    } );
+
+    it( 'should update MLInstructions', async () => {
+      const expectedMessage = 'You are an AI assistant called {botName} hosting {hangoutName}. Be helpful and friendly.';
+
+      // Set up getValue mock to return the new message during verification
+      mockServices.dataService.getValue.mockImplementation( ( key ) => {
+        if ( key === 'MLInstructions' ) return expectedMessage;
+        return undefined;
+      } );
+
+      const result = await handleEditCommand( {
+        args: `MLInstructions ${ expectedMessage }`,
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'AI System Instructions updated to' );
     } );
   } );
 

@@ -148,7 +148,7 @@ async function executeSongAICommand ( commandParams, config ) {
                 response = config.responseFormatter( trackName, artistName, processedAiResponse );
                 logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
             } else {
-                response = `🎵 **${ trackName }** by **${ artistName }**\n\n${ processedAiResponse }`;
+                response = `${ processedAiResponse }`;
                 logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
             }
         } else {
