@@ -10,6 +10,7 @@ class MachineLearningService {
     this.googleAIKey = process.env.googleAIKey;
     this.genAI = null;
     this.services = services;
+    this.currentChat = null; // Store the active chat session
 
     if ( this.googleAIKey ) {
       this.genAI = new GoogleGenAI( { apiKey: this.googleAIKey } );
@@ -17,19 +18,153 @@ class MachineLearningService {
   }
 
   /**
-   * Get system instructions with template replacement
-   * @returns {string|null} The processed system instructions or null if not available
+   * Load conversation history from data service
+   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   * @returns {Array} Array of conversation entries within the last hour
    */
-  async getSystemInstructions () {
+  async loadConversationHistory ( skipDataLoad = false ) {
+    try {
+      if ( !this.services?.dataService ) {
+        return [];
+      }
+
+      if ( !skipDataLoad ) {
+        await this.services.dataService.loadData();
+      }
+      const allHistory = this.services.dataService.getValue( 'conversationHistory' ) || [];
+
+      // Filter to only include entries from the last hour
+      const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
+      const recentHistory = allHistory.filter( entry => 
+        new Date( entry.timestamp ).getTime() > oneHourAgo 
+      );
+
+      // Return all entries from the last hour (no limit on count)
+      return recentHistory;
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error loading conversation history: ${ error.message }` );
+      return [];
+    }
+  }
+
+  /**
+   * Save conversation entry to data service
+   * @param {string} question - The question asked
+   * @param {string} response - The AI's response
+   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   */
+  async saveConversationEntry ( question, response, skipDataLoad = false ) {
+    try {
+      if ( !this.services?.dataService ) {
+        return;
+      }
+
+      if ( !skipDataLoad ) {
+        await this.services.dataService.loadData();
+      }
+      
+      // Load existing history
+      let allHistory = this.services.dataService.getValue( 'conversationHistory' ) || [];
+
+      // Add new entry
+      const newEntry = {
+        timestamp: new Date().toISOString(),
+        question: question,
+        response: response
+      };
+      allHistory.push( newEntry );
+
+      // Filter to keep only entries from the last hour
+      const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
+      const filteredHistory = allHistory.filter( entry => 
+        new Date( entry.timestamp ).getTime() > oneHourAgo 
+      );
+
+      // Save back to data service
+      await this.services.dataService.setValue( 'conversationHistory', filteredHistory );
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error saving conversation entry: ${ error.message }` );
+    }
+  }
+
+  /**
+   * Convert conversation history to Google AI chat history format
+   * @param {Array} history - Array of conversation entries
+   * @returns {Array} Array of Google AI chat history objects
+   */
+  formatChatHistory ( history ) {
+    const chatHistory = [];
+    
+    for ( const entry of history ) {
+      // Add user message
+      chatHistory.push( {
+        role: 'user',
+        parts: [ { text: entry.question } ]
+      } );
+      
+      // Add model response
+      chatHistory.push( {
+        role: 'model',
+        parts: [ { text: entry.response } ]
+      } );
+    }
+    
+    return chatHistory;
+  }
+
+  /**
+   * Get or create a chat session with current conversation history
+   * @param {string} model - The model to use for the chat
+   * @param {Array} conversationHistory - The conversation history
+   * @param {string} systemInstruction - System instructions for the chat
+   * @returns {Object} The chat instance
+   */
+  async getOrCreateChat ( model, conversationHistory, systemInstruction ) {
+    // Format the conversation history for the chat API
+    const formattedHistory = this.formatChatHistory( conversationHistory );
+    
+    // Create chat configuration
+    const config = {
+      history: formattedHistory
+    };
+
+    // Add system instruction if available
+    if ( systemInstruction ) {
+      config.systemInstruction = systemInstruction;
+    }
+
+    logger.debug( `🤖 [MachineLearningService] chatConfig: ${JSON.stringify({ config })}` );
+
+    // Always create a new chat session with the current history and context
+    // This ensures we have the most up-to-date conversation context
+    this.currentChat = this.genAI.chats.create( {
+      model: model,
+      config
+    } );
+
+    return this.currentChat;
+  }
+
+  /**
+   * Create comprehensive system instruction by combining MLPersonality and MLInstructions
+   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   * @returns {string|null} The processed system instruction or null if not available
+   */
+  async createSystemInstruction ( skipDataLoad = false ) {
     if ( !this.services?.dataService ) {
       return null;
     }
 
     try {
-      await this.services.dataService.loadData();
-      const rawInstructions = this.services.dataService.getValue( 'MLInstructions' );
+      if ( !skipDataLoad ) {
+        await this.services.dataService.loadData();
+      }
 
-      if ( !rawInstructions ) {
+      const personality = this.services.dataService.getValue( 'Instructions.MLPersonality' );
+      const instructions = this.services.dataService.getValue( 'Instructions.MLInstructions' );
+
+      // If neither personality nor instructions exist, return null
+      if ( !personality && !instructions ) {
         return null;
       }
 
@@ -37,62 +172,100 @@ class MachineLearningService {
       const hangoutName = this.services.stateService?.getHangoutName?.() || 'Hangout FM';
       const botName = this.services.getState?.( 'botNickname' ) || 'DJ Bot';
 
-      // Replace template variables
-      const processedInstructions = rawInstructions
-        .replace( /\{hangoutName\}/g, hangoutName )
-        .replace( /\{botName\}/g, botName );
+      let combinedSystemInstruction = '';
 
-      logger.debug( `🤖 [MachineLearningService] Using system instructions: ${ processedInstructions }` );
-      return processedInstructions;
+      // Add personality if available
+      if ( personality ) {
+        const processedPersonality = personality
+          .replace( /\{hangoutName\}/g, hangoutName )
+          .replace( /\{botName\}/g, botName );
+        combinedSystemInstruction += processedPersonality;
+      }
+
+      // Add instructions if available
+      if ( instructions ) {
+        const processedInstructions = instructions
+          .replace( /\{hangoutName\}/g, hangoutName )
+          .replace( /\{botName\}/g, botName );
+        
+        // Add a separator if we have both personality and instructions
+        if ( personality ) {
+          combinedSystemInstruction += '\n\n';
+        }
+        combinedSystemInstruction += processedInstructions;
+      }
+
+      return combinedSystemInstruction || null;
     } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error getting system instructions: ${ error.message }` );
+      logger.error( `🤖 [MachineLearningService] Error creating system instruction: ${ error.message }` );
       return null;
     }
   }
 
   /**
-   * Ask Google AI a question and get a response
+   * Get system instructions with template replacement (deprecated - use createSystemInstruction)
+   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   * @returns {string|null} The processed system instructions or null if not available
+   */
+  async getSystemInstructions ( skipDataLoad = false ) {
+    // Delegate to the new createSystemInstruction method for backward compatibility
+    return await this.createSystemInstruction( skipDataLoad );
+  }
+
+  /**
+   * Ask Google AI a question and get a response using conversation context
    * @param {string} theQuestion - The question to ask the AI
    * @param {Object} chatFunctions - Optional chat functions (reserved for future use)
    * @returns {Promise<string>} The AI's response or error message
    */
   async askGoogleAI ( theQuestion, chatFunctions ) {
-    logger.debug( `🤖 [MachineLearningService] askGoogleAI - Question: ${ theQuestion }` );
     if ( !this.genAI ) {
       return "Google AI service is not configured. Please check your googleAIKey environment variable.";
     }
 
+    // Load data once at the start
+    if ( this.services?.dataService ) {
+      await this.services.dataService.loadData();
+    }
+
     // Try primary model first
     const primaryModel = "gemini-2.5-flash";
-    const fallbackModel = "gemini-2.0-flash";
+    const fallbackModel = "gemini-1.5-pro";
 
     try {
-      logger.debug( `🤖 [MachineLearningService] Attempting with primary model: ${ primaryModel }` );
+      // Load conversation history (skip data load since we already loaded)
+      const conversationHistory = await this.loadConversationHistory( true );
+      
+      // Get system instructions (skip data load since we already loaded)
+      const systemInstruction = await this.createSystemInstruction( true );
 
-      // Get system instructions
-      const systemInstruction = await this.getSystemInstructions();
+      // Get or create chat session with conversation history
+      const chat = await this.getOrCreateChat( primaryModel, conversationHistory, systemInstruction );
 
-      // Build request config
-      const requestConfig = {
+      // Log the full request being sent to AI
+      logger.debug( `🤖 [MachineLearningService] The Question: ${JSON.stringify({
+        theQuestion
+      }, null, 2)}` );
+
+      // Send the message to the chat
+      const response = await chat.sendMessage( {
+        message: theQuestion
+      } );
+      const theResponse = response.text;
+
+      // Log the raw response from AI
+      logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${JSON.stringify({
         model: primaryModel,
-        contents: theQuestion
-      };
+        response: theResponse,
+        fullResponseObject: response
+      }, null, 2)}` );
 
-      // Add system instruction if available
-      if ( systemInstruction ) {
-        requestConfig.config = {
-          systemInstruction: [ systemInstruction ]
-        };
-      }
-
-      const response = await this.genAI.models.generateContent( requestConfig );
-      const theResponse = response?.text || "No response text available";
-
-      if ( theResponse !== "No response text available" ) {
-        logger.debug( `🤖 [MachineLearningService] askGoogleAI - Response from ${ primaryModel }: ${ theResponse }` );
+      if ( theResponse && theResponse !== "No response text available" ) {
+        // Save this conversation entry (skip data load since we already loaded)
+        await this.saveConversationEntry( theQuestion, theResponse, true );
+        
         return theResponse;
       } else {
-        logger.warn( `🤖 [MachineLearningService] No response from ${ primaryModel }, trying fallback model: ${ fallbackModel }` );
         // Primary model failed, try fallback
         return await this.tryFallbackModel( theQuestion, fallbackModel );
       }
@@ -111,29 +284,40 @@ class MachineLearningService {
    */
   async tryFallbackModel ( theQuestion, fallbackModel ) {
     try {
-      logger.debug( `🤖 [MachineLearningService] Attempting with fallback model: ${ fallbackModel }` );
+      // Load conversation history (skip data load since we already loaded in main method)
+      const conversationHistory = await this.loadConversationHistory( true );
 
-      // Get system instructions
-      const systemInstruction = await this.getSystemInstructions();
+      // Get system instructions (skip data load since we already loaded in main method)
+      const systemInstruction = await this.createSystemInstruction( true );
 
-      // Build request config
-      const requestConfig = {
+      // Get or create chat session with fallback model
+      const chat = await this.getOrCreateChat( fallbackModel, conversationHistory, systemInstruction );
+
+      // Log the full fallback request being sent to AI
+      logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${JSON.stringify({
         model: fallbackModel,
-        contents: theQuestion
-      };
+        systemInstruction: systemInstruction,
+        message: theQuestion,
+        conversationHistory: conversationHistory
+      }, null, 2)}` );
 
-      // Add system instruction if available
-      if ( systemInstruction ) {
-        requestConfig.config = {
-          systemInstruction: [ systemInstruction ]
-        };
-      }
+      // Send the message to the fallback chat
+      const response = await chat.sendMessage( {
+        message: theQuestion
+      } );
+      const theResponse = response.text;
 
-      const response = await this.genAI.models.generateContent( requestConfig );
-      const theResponse = response?.text || "No response text available";
+      // Log the raw response from fallback AI
+      logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${JSON.stringify({
+        model: fallbackModel,
+        response: theResponse,
+        fullResponseObject: response
+      }, null, 2)}` );
 
-      if ( theResponse !== "No response text available" ) {
-        logger.debug( `🤖 [MachineLearningService] askGoogleAI - Response from ${ fallbackModel }: ${ theResponse }` );
+      if ( theResponse && theResponse !== "No response text available" ) {
+        // Save this conversation entry (skip data load since we already loaded in main method)
+        await this.saveConversationEntry( theQuestion, theResponse, true );
+        
         return theResponse;
       } else {
         logger.error( `🤖 [MachineLearningService] No response from fallback model ${ fallbackModel }` );

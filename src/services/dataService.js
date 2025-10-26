@@ -20,7 +20,7 @@ class DataService {
             try {
                 this.data = JSON.parse(fileContent);
                 logger.info('Successfully loaded data from data.json');
-                logger.debug(`data: ${JSON.stringify(this.data, null, 2)}`);
+                // logger.debug(`data: ${JSON.stringify(this.data, null, 2)}`);
                 return this.data;
             } catch (parseError) {
                 logger.error(`Failed to parse data.json: ${parseError.message}`);

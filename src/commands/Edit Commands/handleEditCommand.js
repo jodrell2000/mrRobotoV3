@@ -59,8 +59,14 @@ const EDITABLE_MESSAGES = {
     'MLInstructions': {
         name: 'AI System Instructions',
         availableTokens: [ '{hangoutName}', '{botName}' ],
+        example: 'When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz',
+        dataKey: 'Instructions.MLInstructions'
+    },
+    'MLPersonality': {
+        name: 'AI Personality',
+        availableTokens: [ '{hangoutName}', '{botName}' ],
         example: 'You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.',
-        dataKey: 'MLInstructions'
+        dataKey: 'Instructions.MLPersonality'
     }
 };
 

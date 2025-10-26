@@ -311,7 +311,7 @@ describe( 'handleEditCommand', () => {
 
       // Set up getValue mock to return the new message during verification
       mockServices.dataService.getValue.mockImplementation( ( key ) => {
-        if ( key === 'MLInstructions' ) return expectedMessage;
+        if ( key === 'Instructions.MLInstructions' ) return expectedMessage;
         return undefined;
       } );
 

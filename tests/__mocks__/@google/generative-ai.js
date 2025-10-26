@@ -1,16 +1,42 @@
-// Mock for @google/generative-ai module
+// Mock for @google/generative-ai module (correct package)
 
-class MockGenerativeModel {
-    constructor ( apiKey, config ) {
+const mockModelsGenerateContent = jest.fn();
+const mockSendMessage = jest.fn();
+const mockStartChat = jest.fn();
+const mockGetGenerativeModel = jest.fn();
+
+// Mock chat object
+const mockChat = {
+    sendMessage: mockSendMessage
+};
+
+// Mock model object
+const mockModel = {
+    startChat: mockStartChat
+};
+
+class MockGoogleGenerativeAI {
+    constructor ( apiKey ) {
         this.apiKey = apiKey;
-        this.config = config;
-        this.generateContent = jest.fn();
+        this.models = {
+            generateContent: mockModelsGenerateContent
+        };
+    }
+
+    getGenerativeModel ( config ) {
+        mockGetGenerativeModel( config );
+        return mockModel;
     }
 }
 
-const MockGoogleGenerativeAI = jest.fn();
+// Configure default behavior
+mockStartChat.mockReturnValue( mockChat );
 
 module.exports = {
     GoogleGenerativeAI: MockGoogleGenerativeAI,
-    GenerativeModel: MockGenerativeModel
+    // Export the mock functions for testing
+    __mockModelsGenerateContent: mockModelsGenerateContent,
+    __mockSendMessage: mockSendMessage,
+    __mockStartChat: mockStartChat,
+    __mockGetGenerativeModel: mockGetGenerativeModel
 };

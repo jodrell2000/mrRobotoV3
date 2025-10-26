@@ -7,12 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- **AI System Instructions**: Customizable AI personality and behavior system
-  - New `MLInstructions` field in data.json for defining AI system instructions
-  - Editable via `!edit MLInstructions <instructions>` command with template variable support
+- **Enhanced AI System Instructions**: Comprehensive AI personality and behavior system
+  - New `createSystemInstruction` method in MachineLearningService that combines both personality and instructions
+  - Reorganized data structure: `MLPersonality` and `MLInstructions` moved to new `Instructions` section in data.json
+  - New data paths: `Instructions.MLPersonality` and `Instructions.MLInstructions` for better organization
+  - Both fields editable via `!edit MLPersonality <personality>` and `!edit MLInstructions <instructions>` commands
   - Supports `{hangoutName}` and `{botName}` template variables for dynamic personalization
-  - System instructions automatically sent with every AI request to ensure consistent AI behavior
-  - Instructions displayed in organized "System Settings" section of `!edit list` command
+  - Combined system instructions automatically sent with every AI request for consistent behavior
+  - Enhanced organization in `!edit list` command with separate personality and instruction management
+
+- **Google GenAI API Migration**: Updated to use chat API for improved conversation handling
+  - Migrated from deprecated `generateContent` API to modern `chats.create()` and `sendMessage()` pattern
+  - Enhanced conversation history support with up to 1 hour of context (increased from 30 minutes)
+  - Improved chat session management with proper history integration
+  - Updated all AI commands to use new chat API structure for better response quality
+
+- **AI Conversation Context Enhancement**: Extended conversation history for richer AI interactions
+  - Conversation history now maintained for the last hour (increased from 30 minutes)
+  - Removed artificial 3-entry limit - now includes all conversations from the last hour
+  - Time-based automatic cleanup of conversations older than 1 hour
+  - Enhanced AI response quality through extended contextual awareness
 
 - **Command Trigger System**: Comprehensive automation system for bot events
   - New `trigger` command for owners to configure commands that execute automatically on specific events
@@ -27,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Migrated from deprecated `@google/generative-ai` to official `@google/genai@^1.26.0`
   - Updated API calls to use new SDK structure and methods
   - Enhanced system instruction support using official SDK patterns
+  - Migrated to chat API for multi-turn conversation support
   - Improved reliability and future-proofing of AI integrations
 
 - **Machine Learning Service Reliability**: Significantly improved AI service robustness
@@ -68,7 +83,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    ```
 4. Customize the instructions as desired to match your bot's personality and behavior
 
-Without this field, AI commands may not work correctly or may use default system instructions.
+**OPTIONAL**: For enhanced AI conversation context, you may also add an empty `conversationHistory` array:
+```json
+"conversationHistory": []
+```
+
+Without the MLInstructions field, AI commands may not work correctly or may use default system instructions.
 
 These instructions will be sent with every command. They should not be specific instructions for any individual command, but guidance on how Google Gemini should treat your requests made through all of the other ML questions
 
