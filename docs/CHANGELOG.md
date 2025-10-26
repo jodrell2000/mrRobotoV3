@@ -5,26 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.5_beta] - 2025-10-21
 ### Added
 - **Enhanced AI System Instructions**: Comprehensive AI personality and behavior system
-  - New `createSystemInstruction` method in MachineLearningService that combines both personality and instructions
-  - Reorganized data structure: `MLPersonality` and `MLInstructions` moved to new `Instructions` section in data.json
-  - New data paths: `Instructions.MLPersonality` and `Instructions.MLInstructions` for better organization
-  - Both fields editable via `!edit MLPersonality <personality>` and `!edit MLInstructions <instructions>` commands
+  - Reorganized data structure to include `MLPersonality` and `MLInstructions` in data.json
+  - Both fields editable via `!edit MLPersonality` and `!edit MLInstructions` commands
   - Supports `{hangoutName}` and `{botName}` template variables for dynamic personalization
-  - Combined system instructions automatically sent with every AI request for consistent behavior
+  - Combined system instructions are automatically sent with every AI request for consistent behavior, simplifying the content of individual questions
   - Enhanced organization in `!edit list` command with separate personality and instruction management
 
-- **Google GenAI API Migration**: Updated to use chat API for improved conversation handling
-  - Migrated from deprecated `generateContent` API to modern `chats.create()` and `sendMessage()` pattern
-  - Enhanced conversation history support with up to 1 hour of context (increased from 30 minutes)
-  - Improved chat session management with proper history integration
-  - Updated all AI commands to use new chat API structure for better response quality
-
 - **AI Conversation Context Enhancement**: Extended conversation history for richer AI interactions
-  - Conversation history now maintained for the last hour (increased from 30 minutes)
-  - Removed artificial 3-entry limit - now includes all conversations from the last hour
+  - Conversation history maintained for the last hour
   - Time-based automatic cleanup of conversations older than 1 hour
   - Enhanced AI response quality through extended contextual awareness
 
@@ -39,16 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - **Google GenAI SDK Migration**: Updated to latest official Google GenAI SDK
   - Migrated from deprecated `@google/generative-ai` to official `@google/genai@^1.26.0`
-  - Updated API calls to use new SDK structure and methods
-  - Enhanced system instruction support using official SDK patterns
-  - Migrated to chat API for multi-turn conversation support
-  - Improved reliability and future-proofing of AI integrations
+  - Migrated to chat API for multi-turn conversation support, including passing history tio give questions context
 
 - **Machine Learning Service Reliability**: Significantly improved AI service robustness
   - Added automatic fallback model support (gemini-2.5-flash → gemini-2.0-flash)
-  - Enhanced error handling with graceful degradation when AI services fail
-  - Comprehensive debugging and logging throughout AI request/response cycle
-  - Improved service reliability for all ML commands (`intro`, `band`, `popfacts`, `whatyear`, `meaning`)
 
 - **Token System Standardization**: Unified and enhanced token replacement system
   - Standardized all ML commands to use unified `{token}` format (previously mixed `${token}` and `{token}`)
@@ -56,39 +41,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced `{username}` token to use current DJ instead of command sender for better context
   - Added comprehensive token support: `{trackName}`, `{artistName}`, `{username}`, `{hangoutName}`, `{botName}`
 
-- **Mention Format Handling**: Improved user interaction and display
-  - AI receives display names for natural language processing
-  - Bot responses automatically convert display names to proper mention format
-  - Enhanced user experience with proper @mentions in AI-generated responses
-
-- **Testing Infrastructure**: Comprehensive test coverage for AI functionality
-  - Added complete test suite for MachineLearningService fallback scenarios
-  - Enhanced logger mocking across ML command tests
-  - Improved Jest configuration for external dependency mocking
-  - Full coverage of error handling and edge cases
-
-### Fixed
-- **Circular Dependency Resolution**: Resolved logger import issues in serviceContainer
-- **Token Replacement Accuracy**: Fixed token replacement not working correctly in intro command
-- **Service Reliability**: Eliminated AI service failures causing command errors
-
 ### Upgrade Instructions
-**IMPORTANT**: If upgrading from a previous version, you must add the new `MLInstructions` field to your local `data.json` file:
+**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` section from the `data.json_example` file to your local `data.json` file:
 
-1. Copy the `MLInstructions` line from `data.json_example` file
+1. Copy the `Instructions` section from `data.json_example` file
 2. Add it to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
-3. The field should look like:
+3. The section should look something like:
    ```json
-   "MLInstructions": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}. When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz",
+  "Instructions": {
+    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
+    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
+  },
    ```
-4. Customize the instructions as desired to match your bot's personality and behavior
+4. Customize the instructions as desired to match your bot's personality and behavior required
 
 **OPTIONAL**: For enhanced AI conversation context, you may also add an empty `conversationHistory` array:
 ```json
 "conversationHistory": []
 ```
 
-Without the MLInstructions field, AI commands may not work correctly or may use default system instructions.
+Without the Instructions section, AI commands may not work correctly or may use default system instructions.
 
 These instructions will be sent with every command. They should not be specific instructions for any individual command, but guidance on how Google Gemini should treat your requests made through all of the other ML questions
 

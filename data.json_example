@@ -5,7 +5,7 @@
     "CHAT_COLOUR": "00ccff"
   },
   "Instructions": {
-    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an angry drunk radio DJ called {botName}.",
+    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
     "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
   },
   "editableMessages": {
@@ -18,7 +18,7 @@
     "whatyearQuestion": "In what year was the song {trackName} by {artistName} originally released? Reply with just the year unless there's something particularly interesting about the release.",
     "meaningQuestion": "Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.",
     "bandQuestion": "I'm currently listening to {artistName}. Using the persona of a radio DJ, tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words",
-    "introQuestion": "Taking on the persona of a radio DJ called {botName}, introduce the song {trackName} by {artistName} as requested by {username}. Keep it under 150 words."
+    "introQuestion": "Introduce the song {trackName} by {artistName} being played by {username}. Keep it under 150 words."
   },
   "disabledCommands": [
   ],
