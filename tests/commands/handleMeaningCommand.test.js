@@ -93,7 +93,7 @@ describe( 'handleMeaningCommand', () => {
 
             // Check meaning response
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                '🎵 **Bohemian Rhapsody** by **Queen**\n\nThis epic song explores themes of fate, mortality, and redemption through its operatic structure.',
+                'This epic song explores themes of fate, mortality, and redemption through its operatic structure.',
                 expect.any( Object )
             );
         } );
@@ -284,7 +284,7 @@ describe( 'handleMeaningCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Bohemian Rhapsody** by **Queen**\n\nThis song explores themes of love and loss through metaphorical imagery.' );
+            expect( result.response ).toBe( 'This song explores themes of love and loss through metaphorical imagery.' );
         } );
 
         it( 'should handle different song titles and artists', async () => {
@@ -313,7 +313,7 @@ describe( 'handleMeaningCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Breaking Free** by **Test Artist**\n\nA powerful anthem about breaking free from constraints.' );
+            expect( result.response ).toBe( 'A powerful anthem about breaking free from constraints.' );
         } );
 
         it( 'should use default template when dataService returns null', async () => {

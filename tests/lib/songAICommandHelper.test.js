@@ -65,7 +65,10 @@ describe( 'songAICommandHelper', () => {
             const config = {
                 templateKey: 'editableMessages.testMessage',
                 defaultTemplate: 'Test question about {trackName} by {artistName}',
-                commandName: 'test'
+                commandName: 'test',
+                responseFormatter: ( trackName, artistName, aiResponse ) => {
+                    return `🎵 **${trackName}** by **${artistName}**\n\n${aiResponse}`;
+                }
             };
 
             mockServices.dataService.getValue.mockImplementation( ( key ) => {

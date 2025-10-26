@@ -93,7 +93,7 @@ describe( 'handlePopfactsCommand', () => {
 
       // Check facts response
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Bohemian Rhapsody** by **Queen**\n\nQueen formed in London in 1970. Bohemian Rhapsody was recorded in 1975. The song has no chorus structure.',
+        'Queen formed in London in 1970. Bohemian Rhapsody was recorded in 1975. The song has no chorus structure.',
         expect.any( Object )
       );
     } );
@@ -274,7 +274,7 @@ describe( 'handlePopfactsCommand', () => {
       } );
 
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Bohemian Rhapsody** by **Queen**\n\nFact 1. Fact 2. Fact 3.',
+        'Fact 1. Fact 2. Fact 3.',
         expect.any( Object )
       );
     } );
@@ -303,7 +303,7 @@ describe( 'handlePopfactsCommand', () => {
       );
 
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Imagine** by **John Lennon**\n\nSome facts about Imagine.',
+        'Some facts about Imagine.',
         expect.any( Object )
       );
     } );
