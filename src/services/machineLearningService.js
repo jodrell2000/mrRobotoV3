@@ -125,6 +125,7 @@ class MachineLearningService {
     
     // Create chat configuration
     const config = {
+      temperature: 0.9,
       history: formattedHistory
     };
 
