@@ -25,5 +25,7 @@
   "disabledFeatures": [
   ],
   "conversationHistory": [
-  ]
+  ],
+  "customTokens": {
+  }
 }
