@@ -59,7 +59,7 @@ async function handleListTokens ( services, context, responseChannel ) {
         response += `• \`{likes}\`, \`{dislikes}\`, \`{stars}\` - Song statistics\n\n`;
 
         response += `**Usage:**\n`;
-        response += `• \`${ config.COMMAND_SWITCH }token add <name> <value> [description]\`\n`;
+        response += `• \`${ config.COMMAND_SWITCH }token add <name> <value>\`\n`;
         response += `• \`${ config.COMMAND_SWITCH }token remove <name>\`\n`;
         response += `• \`${ config.COMMAND_SWITCH }token test <text>\` - Test token replacement`;
 
@@ -95,11 +95,11 @@ async function handleListTokens ( services, context, responseChannel ) {
 /**
  * Handle adding a token
  */
-async function handleAddToken ( tokenName, tokenValue, description, services, context, responseChannel ) {
+async function handleAddToken ( tokenName, tokenValue, services, context, responseChannel ) {
     const { messageService, tokenService } = services;
 
     try {
-        const result = await tokenService.setCustomToken( tokenName, tokenValue, description );
+        const result = await tokenService.setCustomToken( tokenName, tokenValue );
 
         if ( !result.success ) {
             const response = `❌ ${ result.error }`;
@@ -273,7 +273,7 @@ async function handleTokenCommand ( commandParams ) {
 
     // Parse arguments
     if ( !args || args.trim().length === 0 ) {
-        const response = `❌ Please specify a token command.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }token list\` - Show all available tokens\n• \`${ config.COMMAND_SWITCH }token add <name> <value> [description]\` - Add a custom token\n• \`${ config.COMMAND_SWITCH }token remove <name>\` - Remove a custom token\n• \`${ config.COMMAND_SWITCH }token test <text>\` - Test token replacement in text`;
+        const response = `❌ Please specify a token command.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }token list\` - Show all available tokens\n• \`${ config.COMMAND_SWITCH }token add <name> <value>\` - Add a custom token\n• \`${ config.COMMAND_SWITCH }token remove <name>\` - Remove a custom token\n• \`${ config.COMMAND_SWITCH }token test <text>\` - Test token replacement in text`;
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -298,7 +298,7 @@ async function handleTokenCommand ( commandParams ) {
     // Handle add command
     if ( subCommand === 'add' ) {
         if ( argParts.length < 3 ) {
-            const response = `❌ Please specify token name and value.\n\n**Usage:** \`${ config.COMMAND_SWITCH }token add <name> <value> [description]\`\n\n**Example:** \`${ config.COMMAND_SWITCH }token add greeting "Hello everyone!" "A friendly greeting"\``;
+            const response = `❌ Please specify token name and value.\n\n**Usage:** \`${ config.COMMAND_SWITCH }token add <name> <value>\`\n\n**Example:** \`${ config.COMMAND_SWITCH }token add greeting "Hello everyone!"\``;
             await messageService.sendResponse( response, {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -318,9 +318,8 @@ async function handleTokenCommand ( commandParams ) {
         // This handles values with spaces that might be quoted
         const restOfArgs = args.substring( args.indexOf( tokenName ) + tokenName.length ).trim();
 
-        // Simple parsing - look for quoted strings or take everything until description
+        // Simple parsing - look for quoted strings or take everything as the value
         let tokenValue;
-        let description = '';
 
         if ( restOfArgs.startsWith( '"' ) ) {
             // Handle quoted value
@@ -329,25 +328,13 @@ async function handleTokenCommand ( commandParams ) {
                 tokenValue = restOfArgs.substring( 1 ); // No closing quote, take everything
             } else {
                 tokenValue = restOfArgs.substring( 1, endQuote );
-                description = restOfArgs.substring( endQuote + 1 ).trim();
-                // Remove quotes from description if present
-                if ( description.startsWith( '"' ) && description.endsWith( '"' ) ) {
-                    description = description.slice( 1, -1 );
-                }
             }
         } else {
-            // No quotes, split on spaces and guess where value ends
-            const remainingParts = restOfArgs.split( /\s+/ );
-            if ( remainingParts.length === 1 ) {
-                tokenValue = remainingParts[ 0 ];
-            } else {
-                // Assume first part is value, rest is description
-                tokenValue = remainingParts[ 0 ];
-                description = remainingParts.slice( 1 ).join( ' ' );
-            }
+            // No quotes, take everything as the value
+            tokenValue = restOfArgs;
         }
 
-        return await handleAddToken( tokenName, tokenValue, description, services, context, responseChannel );
+        return await handleAddToken( tokenName, tokenValue, services, context, responseChannel );
     }
 
     // Handle remove command
@@ -391,7 +378,7 @@ async function handleTokenCommand ( commandParams ) {
     }
 
     // Invalid subcommand
-    const response = `❌ Invalid subcommand: "${ subCommand }"\n\n**Available subcommands:** list, add, remove, test\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }token list\`\n• \`${ config.COMMAND_SWITCH }token add <name> <value> [description]\`\n• \`${ config.COMMAND_SWITCH }token remove <name>\`\n• \`${ config.COMMAND_SWITCH }token test <text>\``;
+    const response = `❌ Invalid subcommand: "${ subCommand }"\n\n**Available subcommands:** list, add, remove, test\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }token list\`\n• \`${ config.COMMAND_SWITCH }token add <name> <value>\`\n• \`${ config.COMMAND_SWITCH }token remove <name>\`\n• \`${ config.COMMAND_SWITCH }token test <text>\``;
     await messageService.sendResponse( response, {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,

@@ -170,7 +170,7 @@ class TokenService {
      * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
      * @returns {Promise<Object>} Result object
      */
-    async setCustomToken ( tokenName, tokenValue, description = '', skipDataLoad = false ) {
+    async setCustomToken ( tokenName, tokenValue, description = 'Custom token', skipDataLoad = false ) {
         try {
             if ( !this.services?.dataService ) {
                 return { success: false, error: 'DataService not available' };

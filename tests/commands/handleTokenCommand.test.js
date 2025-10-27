@@ -126,7 +126,7 @@ describe( 'handleTokenCommand', () => {
 
             const result = await handleTokenCommand( {
                 command: 'token',
-                args: 'add greeting "Hello World" "A friendly greeting"',
+                args: 'add greeting "Hello World"',
                 services: mockServices,
                 context: defaultContext,
                 responseChannel: 'public'
@@ -136,8 +136,7 @@ describe( 'handleTokenCommand', () => {
             expect( result.shouldRespond ).toBe( true );
             expect( mockServices.tokenService.setCustomToken ).toHaveBeenCalledWith(
                 'greeting',
-                'Hello World',
-                'A friendly greeting'
+                'Hello World'
             );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 expect.stringContaining( 'Token {greeting} added successfully' ),
@@ -300,8 +299,7 @@ describe( 'handleTokenCommand', () => {
 
             expect( mockServices.tokenService.setCustomToken ).toHaveBeenCalledWith(
                 'test',
-                'Hello World with spaces',
-                ''
+                'Hello World with spaces'
             );
         } );
 
@@ -314,7 +312,7 @@ describe( 'handleTokenCommand', () => {
 
             await handleTokenCommand( {
                 command: 'token',
-                args: 'add test HelloWorld Optional description here',
+                args: 'add test Hello World',
                 services: mockServices,
                 context: defaultContext,
                 responseChannel: 'public'
@@ -322,8 +320,7 @@ describe( 'handleTokenCommand', () => {
 
             expect( mockServices.tokenService.setCustomToken ).toHaveBeenCalledWith(
                 'test',
-                'HelloWorld',
-                'Optional description here'
+                'Hello World'
             );
         } );
     } );
