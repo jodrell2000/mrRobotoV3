@@ -330,20 +330,5 @@ describe( 'handleWhatyearCommand', () => {
         } );
     } );
 
-    describe( 'logging', () => {
-        it( 'should log debug information about the song being queried', async () => {
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1975' );
 
-            await handleWhatyearCommand( {
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-                '[whatyear] Asking AI about: Bohemian Rhapsody by Queen'
-            );
-        } );
-    } );
 } );

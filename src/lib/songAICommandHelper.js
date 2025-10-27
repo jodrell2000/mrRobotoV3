@@ -100,19 +100,19 @@ async function executeSongAICommand ( commandParams, config ) {
             .replace( /\{hangoutName\}/g, hangoutName )
             .replace( /\{botName\}/g, botName );
 
-        logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
+        // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
         // Get response from the machine learning service
         const aiResponse = await machineLearningService.askGoogleAI( theQuestion );
 
         // Debug: Log the raw AI response
-        logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
-        logger.debug( `[${ config.commandName }] AI response type: ${ typeof aiResponse }` );
-        logger.debug( `[${ config.commandName }] AI response length: ${ aiResponse ? aiResponse.length : 'null/undefined' }` );
+        // logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
+        // logger.debug( `[${ config.commandName }] AI response type: ${ typeof aiResponse }` );
+        // logger.debug( `[${ config.commandName }] AI response length: ${ aiResponse ? aiResponse.length : 'null/undefined' }` );
 
         // Check response validity
         const isValidResponse = aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" );
-        logger.debug( `[${ config.commandName }] Is valid response: ${ isValidResponse }` );
+        // logger.debug( `[${ config.commandName }] Is valid response: ${ isValidResponse }` );
 
         if ( !isValidResponse ) {
             logger.warn( `[${ config.commandName }] Invalid AI response detected - aiResponse: "${ aiResponse }"` );
@@ -121,39 +121,39 @@ async function executeSongAICommand ( commandParams, config ) {
         // Replace DJ display name with mention format in AI response
         let processedAiResponse = aiResponse;
         if ( aiResponse && username !== 'Someone' && username !== usernameMention ) {
-            logger.debug( `[${ config.commandName }] Attempting mention replacement - username: "${ username }", mention: "${ usernameMention }"` );
+            // logger.debug( `[${ config.commandName }] Attempting mention replacement - username: "${ username }", mention: "${ usernameMention }"` );
 
             // Replace all instances of the display name with the mention format
             const usernameRegex = new RegExp( username.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ), 'g' );
             processedAiResponse = aiResponse.replace( usernameRegex, usernameMention );
 
-            if ( processedAiResponse !== aiResponse ) {
-                logger.debug( `[${ config.commandName }] Mention replacement performed - original: "${ aiResponse }", processed: "${ processedAiResponse }"` );
-            } else {
-                logger.debug( `[${ config.commandName }] No mention replacement needed - username not found in response` );
-            }
+            // if ( processedAiResponse !== aiResponse ) {
+            //     logger.debug( `[${ config.commandName }] Mention replacement performed - original: "${ aiResponse }", processed: "${ processedAiResponse }"` );
+            // } else {
+            //     logger.debug( `[${ config.commandName }] No mention replacement needed - username not found in response` );
+            // }
         } else {
             logger.debug( `[${ config.commandName }] Skipping mention replacement - aiResponse: ${ !!aiResponse }, username: "${ username }", mention: "${ usernameMention }"` );
         }
 
         // Format the response
         let response;
-        logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
+        // logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
 
         if ( processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) ) {
-            logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
+            // logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
 
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
                 response = config.responseFormatter( trackName, artistName, processedAiResponse );
-                logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
+                // logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
             } else {
                 response = `${ processedAiResponse }`;
-                logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
+                // logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
             }
         } else {
             logger.warn( `[${ config.commandName }] AI response failed validation, using error message` );
-            logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
+            // logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
 
             // Create specific error message with song details, customizing based on command
             if ( config.commandName === 'popfacts' ) {

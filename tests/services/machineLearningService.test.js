@@ -251,7 +251,7 @@ describe( 'MachineLearningService', () => {
         }
       } );
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 2, {
-        model: "gemini-1.5-pro",
+        model: "gemini-2.0-flash",
         config: {
           systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
           history: [],
@@ -283,7 +283,7 @@ describe( 'MachineLearningService', () => {
         }
       } );
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 2, {
-        model: "gemini-1.5-pro",
+        model: "gemini-2.0-flash",
         config: {
           systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
           history: [],

@@ -134,7 +134,7 @@ class MachineLearningService {
       config.systemInstruction = systemInstruction;
     }
 
-    logger.debug( `🤖 [MachineLearningService] chatConfig: ${ JSON.stringify( { config } ) }` );
+    // logger.debug( `🤖 [MachineLearningService] chatConfig: ${ JSON.stringify( { config } ) }` );
 
     // Always create a new chat session with the current history and context
     // This ensures we have the most up-to-date conversation context
@@ -222,7 +222,7 @@ class MachineLearningService {
 
     // Try primary model first
     const primaryModel = "gemini-2.5-flash";
-    const fallbackModel = "gemini-1.5-pro";
+    const fallbackModel = "gemini-2.0-flash";
 
     try {
       // Load conversation history (skip data load since we already loaded)
@@ -246,11 +246,11 @@ class MachineLearningService {
       const theResponse = response.text;
 
       // Log the raw response from AI
-      logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${ JSON.stringify( {
-        model: primaryModel,
-        response: theResponse,
-        fullResponseObject: response
-      }, null, 2 ) }` );
+      // logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${ JSON.stringify( {
+      //   model: primaryModel,
+      //   response: theResponse,
+      //   fullResponseObject: response
+      // }, null, 2 ) }` );
 
       if ( theResponse && theResponse !== "No response text available" ) {
         // Save this conversation entry (skip data load since we already loaded)
@@ -286,12 +286,12 @@ class MachineLearningService {
       const chat = await this.getOrCreateChat( fallbackModel, conversationHistory, systemInstruction );
 
       // Log the full fallback request being sent to AI
-      logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${ JSON.stringify( {
-        model: fallbackModel,
-        systemInstruction: systemInstruction,
-        message: theQuestion,
-        conversationHistory: conversationHistory
-      }, null, 2 ) }` );
+      // logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${ JSON.stringify( {
+      //   model: fallbackModel,
+      //   systemInstruction: systemInstruction,
+      //   message: theQuestion,
+      //   conversationHistory: conversationHistory
+      // }, null, 2 ) }` );
 
       // Send the message to the fallback chat
       const response = await chat.sendMessage( {
@@ -300,11 +300,11 @@ class MachineLearningService {
       const theResponse = response.text;
 
       // Log the raw response from fallback AI
-      logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${ JSON.stringify( {
-        model: fallbackModel,
-        response: theResponse,
-        fullResponseObject: response
-      }, null, 2 ) }` );
+      // logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${ JSON.stringify( {
+      //   model: fallbackModel,
+      //   response: theResponse,
+      //   fullResponseObject: response
+      // }, null, 2 ) }` );
 
       if ( theResponse && theResponse !== "No response text available" ) {
         // Save this conversation entry (skip data load since we already loaded in main method)

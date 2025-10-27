@@ -335,23 +335,5 @@ describe( 'handleMeaningCommand', () => {
         } );
     } );
 
-    describe( 'logging', () => {
-        it( 'should log debug information about the song being queried', async () => {
-            const mockAIResponse = 'Test meaning response';
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.';
-            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
-
-            await handleMeaningCommand( {
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-                '[meaning] Asking AI about: Bohemian Rhapsody by Queen'
-            );
-        } );
-    } );
 } );

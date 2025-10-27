@@ -333,19 +333,5 @@ describe( 'handlePopfactsCommand', () => {
     } );
   } );
 
-  describe( 'logging', () => {
-    it( 'should log debug information about the song being queried', async () => {
-      mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'Some facts' );
 
-      await handlePopfactsCommand( {
-        services: mockServices,
-        context: mockContext,
-        responseChannel: 'public'
-      } );
-
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-        '[popfacts] Asking AI about: Bohemian Rhapsody by Queen'
-      );
-    } );
-  } );
 } );

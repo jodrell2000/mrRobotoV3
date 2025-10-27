@@ -378,23 +378,5 @@ describe( 'handleIntroCommand', () => {
         } );
     } );
 
-    describe( 'logging', () => {
-        it( 'should log debug information about the artist being queried', async () => {
-            const mockAIResponse = 'Test intro response';
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m listening to {artistName}. Give me a brief introduction to this artist. Include when they started, their genre, and why they\'re notable. Keep it under 150 words.';
-            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
-
-            await handleIntroCommand( {
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-                '[intro] Asking AI about: Bohemian Rhapsody by Queen'
-            );
-        } );
-    } );
 } );

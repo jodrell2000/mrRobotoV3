@@ -338,23 +338,5 @@ describe( 'handleBandCommand', () => {
         } );
     } );
 
-    describe( 'logging', () => {
-        it( 'should log debug information about the artist being queried', async () => {
-            const mockAIResponse = 'Test band response';
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
-            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
-
-            await handleBandCommand( {
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-                '[band] Asking AI about: Bohemian Rhapsody by Queen'
-            );
-        } );
-    } );
 } );
