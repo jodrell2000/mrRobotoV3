@@ -67,6 +67,24 @@ const EDITABLE_MESSAGES = {
         availableTokens: [ '{hangoutName}', '{botName}' ],
         example: 'You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.',
         dataKey: 'Instructions.MLPersonality'
+    },
+    'timezone': {
+        name: 'Timezone Configuration',
+        availableTokens: [],
+        example: 'Europe/London (or America/New_York, America/Los_Angeles, Australia/Sydney, etc.)',
+        dataKey: 'configuration.timezone'
+    },
+    'locale': {
+        name: 'Locale Configuration',
+        availableTokens: [],
+        example: 'en-GB (or en-US, fr-FR, de-DE, etc.)',
+        dataKey: 'configuration.locale'
+    },
+    'timeFormat': {
+        name: 'Time Format (12 or 24 hour)',
+        availableTokens: [],
+        example: '24 (for 24-hour format) or 12 (for 12-hour format with AM/PM)',
+        dataKey: 'configuration.timeFormat'
     }
 };
 
@@ -76,16 +94,19 @@ const EDITABLE_MESSAGES = {
 async function handleListCommand ( services, context, responseChannel ) {
     const { messageService } = services;
 
-    // Separate messages, questions, and system settings
+    // Separate messages, questions, system settings, and configuration
     const messages = [];
     const questions = [];
     const systemSettings = [];
+    const configSettings = [];
 
     Object.entries( EDITABLE_MESSAGES ).forEach( ( [ key, info ] ) => {
         if ( info.dataKey.startsWith( 'editableMessages.' ) ) {
             messages.push( `• **${ key }** - ${ info.name }` );
         } else if ( info.dataKey.startsWith( 'mlQuestions.' ) ) {
             questions.push( `• **${ key }** - ${ info.name }` );
+        } else if ( info.dataKey.startsWith( 'configuration.' ) ) {
+            configSettings.push( `• **${ key }** - ${ info.name }` );
         } else {
             // Handle other items like MLInstructions
             systemSettings.push( `• **${ key }** - ${ info.name }` );
@@ -96,6 +117,10 @@ async function handleListCommand ( services, context, responseChannel ) {
 
     if ( systemSettings.length > 0 ) {
         response += `\n\n**System Settings:**\n${ systemSettings.join( '\n' ) }`;
+    }
+
+    if ( configSettings.length > 0 ) {
+        response += `\n\n**Configuration:**\n${ configSettings.join( '\n' ) }`;
     }
 
     response += `\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;

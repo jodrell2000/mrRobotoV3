@@ -100,8 +100,6 @@ function getHangoutName ( services ) {
  * @param {Object} services - Services container
  */
 async function sendWelcomeMessage ( userData, services ) {
-  const hangoutName = getHangoutName( services );
-
   // Get welcome message template from data service, fallback to default if not found
   services.logger.debug( 'Getting welcome message from dataService...' );
   let messageTemplate = services.dataService.getValue( 'editableMessages.welcomeMessage' );
@@ -111,11 +109,22 @@ async function sendWelcomeMessage ( userData, services ) {
   }
   services.logger.debug( `Retrieved welcome message template: ${ messageTemplate }` );
 
-  // Replace placeholders with actual values
-  // Convert {username} to server-side mention format
-  const personalizedMessage = messageTemplate
-    .replace( '{username}', services.messageService.formatMention( userData.userUUID ) )
-    .replace( '{hangoutName}', hangoutName );
+  // Prepare context for token replacement
+  const tokenContext = {
+    username: services.messageService.formatMention( userData.userUUID )
+  };
+
+  // Use TokenService if available for more comprehensive token replacement
+  let personalizedMessage;
+  if ( services.tokenService ) {
+    personalizedMessage = await services.tokenService.replaceTokens( messageTemplate, tokenContext, true );
+  } else {
+    // Fallback to manual replacement for backward compatibility
+    const hangoutName = getHangoutName( services );
+    personalizedMessage = messageTemplate
+      .replace( '{username}', tokenContext.username )
+      .replace( '{hangoutName}', hangoutName );
+  }
 
   services.logger.debug( `Sending personalized welcome message: ${ personalizedMessage }` );
 

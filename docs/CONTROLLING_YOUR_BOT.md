@@ -61,8 +61,9 @@ These templates control how the bot asks AI questions about music:
 
 ### Available Template Tokens
 
-Templates support dynamic content through tokens that get replaced with real data:
+Templates support dynamic content through tokens that get replaced with real data. The bot provides both built-in tokens and allows you to create custom tokens.
 
+#### Built-in Context Tokens
 - `{username}` - The user's display name
 - `{hangoutName}` - The name of your music room
 - `{botName}` - Your bot's name
@@ -71,6 +72,15 @@ Templates support dynamic content through tokens that get replaced with real dat
 - `{likes}` - Number of likes the song received
 - `{dislikes}` - Number of dislikes the song received
 - `{stars}` - Number of stars/favorites the song received
+
+#### Built-in Time/Date Tokens (Timezone-Aware)
+- `{currentTime}` - Current time in your configured timezone
+- `{currentDate}` - Current date in your configured locale
+- `{currentDayOfWeek}` - Current day of the week
+- `{greetingTime}` - Time-based greeting (morning, afternoon, evening, night)
+
+#### Custom Tokens
+You can create your own tokens using the `!token` command for reusable content across templates. See the **Advanced Token System** section below for complete details.
 
 ## 🤖 AI Personality and Instructions
 
@@ -98,6 +108,165 @@ The bot combines your personality and instructions to create a comprehensive sys
 - **Personality**: "Friendly radio DJ for {hangoutName}"
 - **Instructions**: "Keep responses under 100 words and always be positive"
 - **Result**: AI responds as an upbeat DJ with concise, positive messages
+
+## 🏷️ Advanced Token System
+
+The bot includes a powerful token system that allows you to create custom, reusable text snippets and configure timezone-aware date/time tokens.
+
+### Built-in Tokens
+
+The bot provides several built-in tokens that work throughout the system:
+
+#### Context Tokens (Available During Events)
+- `{username}` - User who triggered the event or current DJ
+- `{trackName}` - Current or referenced song title  
+- `{artistName}` - Current or referenced artist name
+- `{hangoutName}` - Name of your music room
+- `{botName}` - Your bot's current nickname
+- `{likes}`, `{dislikes}`, `{stars}` - Song statistics
+
+#### Time & Date Tokens (Timezone-Aware)
+- `{currentTime}` - Current time in your configured timezone
+- `{currentDate}` - Current date in your configured locale format
+- `{currentDayOfWeek}` - Current day of the week
+- `{greetingTime}` - Time-based greeting that changes throughout the day:
+  - "morning" (5:00 AM - 11:59 AM)
+  - "afternoon" (12:00 PM - 4:59 PM)
+  - "evening" (5:00 PM - 8:59 PM)
+  - "night" (9:00 PM - 4:59 AM)
+
+**Example usage in a template:**
+```
+!edit welcomeMessage Good {greetingTime} {username}! Welcome to {hangoutName} at {currentTime} on {currentDayOfWeek}! 🎵
+```
+
+### Custom Token Management
+
+Create and manage your own custom tokens using the `!token` command.
+
+#### View All Available Tokens
+```
+!token list
+```
+This displays all built-in tokens, custom tokens, and context tokens with their descriptions.
+
+#### Create Custom Tokens
+```
+!token add <tokenName> <value> [description]
+```
+
+**Examples:**
+```
+!token add greeting "🎶 Welcome to our awesome music community!"
+!token add djTip "Remember to keep the energy high!" "Helpful tip for DJs"
+!token add roomRules "Be respectful and enjoy the music 🎵"
+```
+
+#### Remove Custom Tokens
+```
+!token remove <tokenName>
+```
+
+**Example:**
+```
+!token remove greeting
+```
+
+#### Test Token Replacement
+```
+!token test <text with tokens>
+```
+
+**Examples:**
+```
+!token test "Hello {username}, the time is {currentTime}"
+!token test "{greeting} It's {currentDayOfWeek} at {currentTime}!"
+```
+
+### Timezone Configuration
+
+Configure how date and time tokens display information for your location.
+
+#### Configure Timezone
+```
+!edit timezone <timezone>
+```
+
+**Examples:**
+```
+!edit timezone Europe/London     # UK time
+!edit timezone America/New_York  # US Eastern time
+!edit timezone America/Los_Angeles  # US Pacific time
+!edit timezone Australia/Sydney  # Australian Eastern time
+!edit timezone Asia/Tokyo        # Japan time
+```
+
+#### Configure Locale
+```
+!edit locale <locale>
+```
+
+**Examples:**
+```
+!edit locale en-GB  # British English
+!edit locale en-US  # American English  
+!edit locale fr-FR  # French
+!edit locale de-DE  # German
+```
+
+#### Configure Time Format
+```
+!edit timeFormat <12|24>
+```
+
+**Examples:**
+```
+!edit timeFormat 24  # 24-hour format (14:30)
+!edit timeFormat 12  # 12-hour format (2:30 PM)
+```
+
+### Using Custom Tokens in Templates
+
+Once created, custom tokens work just like built-in tokens in any template:
+
+```
+!token add signature "- {botName}, your friendly DJ bot"
+!edit nowPlayingMessage "🎵 Now playing: {trackName} by {artistName} {signature}"
+```
+
+### Advanced Token Features
+
+#### Dynamic Tokens
+Custom tokens can contain other tokens, creating powerful combinations:
+
+```
+!token add timeGreeting "Good {greetingTime}! It's {currentTime} on {currentDayOfWeek}"
+!edit welcomeMessage "{timeGreeting} Welcome {username} to {hangoutName}!"
+```
+
+#### Conditional Content
+Use custom tokens to create template variations:
+
+```
+!token add weekendVibes "🎉 Weekend party mode activated!"
+!token add weekdayVibes "🎵 Midweek music therapy session"
+```
+
+### Token System Benefits
+
+1. **Consistency** - Use the same custom content across multiple templates
+2. **Easy Updates** - Change a custom token once to update all templates using it
+3. **Localization** - Configure timezone and locale for your community
+4. **Personalization** - Create tokens that reflect your room's personality
+5. **Efficiency** - Reduce repetitive text in templates
+
+### Best Practices for Tokens
+
+1. **Descriptive Names** - Use clear token names like `greeting` instead of `g1`
+2. **Add Descriptions** - Document what your custom tokens are for
+3. **Test Changes** - Use `!token test` to verify tokens work as expected
+4. **Keep It Simple** - Avoid overly complex token combinations
+5. **Regular Cleanup** - Remove unused custom tokens periodically
 
 ## ⚙️ Feature Management
 
@@ -238,6 +407,17 @@ If you encounter issues:
 # Edit a template
 !edit templateName new content here
 
+# Token management
+!token list
+!token add tokenName "value" "description"
+!token remove tokenName
+!token test "text with {tokens}"
+
+# Configuration
+!edit timezone Europe/London
+!edit locale en-GB
+!edit timeFormat 24
+
 # Check feature status
 !feature list
 
@@ -259,6 +439,8 @@ If you encounter issues:
 - Use direct messages for privacy
 - OWNER permissions required for most control commands  
 - Templates support dynamic tokens like {username} and {trackName}
+- Create custom tokens for reusable content across templates
+- Configure timezone and locale for accurate time/date tokens
 - AI personality and instructions work together
 - Test changes before announcing them to your community
 

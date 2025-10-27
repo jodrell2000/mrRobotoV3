@@ -13,6 +13,7 @@ const DataService = require( './dataService.js' );
 const FeaturesService = require( './featuresService.js' );
 const MachineLearningService = require( './machineLearningService.js' );
 const TriggerService = require( './triggerService.js' );
+const TokenService = require( './tokenService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -61,6 +62,7 @@ const services = {
   featuresService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
+  tokenService: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -121,9 +123,10 @@ const services = {
   }
 };
 
-// Initialize triggerService and machineLearningService after services object is created to avoid circular dependencies
+// Initialize triggerService, machineLearningService and tokenService after services object is created to avoid circular dependencies
 services.machineLearningService = new MachineLearningService( services );
 services.triggerService = new TriggerService( services );
+services.tokenService = new TokenService( services );
 
 // Initialize data asynchronously
 initializeData();
