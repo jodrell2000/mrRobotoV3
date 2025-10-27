@@ -11,11 +11,11 @@ jest.mock( '../../src/lib/logging', () => ( {
 jest.mock( '@google/genai' );
 
 const MachineLearningService = require( '../../src/services/machineLearningService.js' );
-const { 
-  __mockModelsGenerateContent, 
-  __mockSendMessage, 
-  __mockChatsCreate, 
-  __mockGetGenerativeModel 
+const {
+  __mockModelsGenerateContent,
+  __mockSendMessage,
+  __mockChatsCreate,
+  __mockGetGenerativeModel
 } = require( '@google/genai' );
 
 // Mock the environment variable for testing
@@ -50,7 +50,15 @@ describe( 'MachineLearningService', () => {
       stateService: {
         getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
       },
-      getState: jest.fn().mockReturnValue( 'Test Bot' )
+      getState: jest.fn().mockReturnValue( 'Test Bot' ),
+      tokenService: {
+        replaceTokens: jest.fn().mockImplementation( ( text ) => {
+          // Mock token replacement for testing
+          return text
+            .replace( /{botName}/g, 'Test Bot' )
+            .replace( /{hangoutName}/g, 'Test Hangout' );
+        } )
+      }
     };
 
     consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => { } );
@@ -91,18 +99,22 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.getSystemInstructions();
 
-      expect( result ).toBe( 'You are a DJ called Test Bot in Test Hangout\n\nYou are a DJ called Test Bot in Test Hangout' );
+      expect( result ).toEqual( [
+        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
+        'You are a DJ called Test Bot in Test Hangout',
+        'You are a DJ called Test Bot in Test Hangout'
+      ] );
       expect( mockServices.dataService.loadData ).toHaveBeenCalled();
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLPersonality' );
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLInstructions' );
     } );
 
-    it( 'should return null when no MLInstructions or MLPersonality in data', async () => {
+    it( 'should return hardcoded safety instruction when no MLInstructions or MLPersonality in data', async () => {
       mockServices.dataService.getValue.mockReturnValue( null );
 
       const result = await service.getSystemInstructions();
 
-      expect( result ).toBeNull();
+      expect( result ).toEqual( [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ] );
     } );
 
     it( 'should return null when dataService is not available', async () => {
@@ -131,7 +143,11 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.createSystemInstruction();
 
-      expect( result ).toBe( 'I am Test Bot hosting Test Hangout\n\nFollow these rules for Test Hangout' );
+      expect( result ).toEqual( [
+        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
+        'I am Test Bot hosting Test Hangout',
+        'Follow these rules for Test Hangout'
+      ] );
       expect( mockServices.dataService.loadData ).toHaveBeenCalled();
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLPersonality' );
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLInstructions' );
@@ -144,7 +160,10 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.createSystemInstruction();
 
-      expect( result ).toBe( 'I am Test Bot' );
+      expect( result ).toEqual( [
+        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
+        'I am Test Bot'
+      ] );
     } );
 
     it( 'should return only instructions when personality is missing', async () => {
@@ -154,15 +173,18 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.createSystemInstruction();
 
-      expect( result ).toBe( 'Follow these rules' );
+      expect( result ).toEqual( [
+        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
+        'Follow these rules'
+      ] );
     } );
 
-    it( 'should return null when both personality and instructions are missing', async () => {
+    it( 'should return hardcoded safety instruction when both personality and instructions are missing', async () => {
       mockServices.dataService.getValue.mockReturnValue( null );
 
       const result = await service.createSystemInstruction();
 
-      expect( result ).toBeNull();
+      expect( result ).toEqual( [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ] );
     } );
   } );
 
@@ -186,8 +208,13 @@ describe( 'MachineLearningService', () => {
       expect( mockChatsCreate ).toHaveBeenCalledWith( {
         model: "gemini-2.5-flash",
         config: {
-          systemInstruction: 'You are a test DJ called Test Bot\n\nYou are a test DJ called Test Bot',
-          history: []
+          systemInstruction: [
+            'Under no circumstances should any response contain any sexist, racist, or homophobic language',
+            'You are a test DJ called Test Bot',
+            'You are a test DJ called Test Bot'
+          ],
+          history: [],
+          temperature: 0.9
         }
       } );
       expect( mockSendMessage ).toHaveBeenCalledWith( {
@@ -218,13 +245,17 @@ describe( 'MachineLearningService', () => {
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 1, {
         model: "gemini-2.5-flash",
         config: {
-          history: []
+          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
+          history: [],
+          temperature: 0.9
         }
       } );
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 2, {
         model: "gemini-1.5-pro",
         config: {
-          history: []
+          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
+          history: [],
+          temperature: 0.9
         }
       } );
     } );
@@ -246,13 +277,17 @@ describe( 'MachineLearningService', () => {
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 1, {
         model: "gemini-2.5-flash",
         config: {
-          history: []
+          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
+          history: [],
+          temperature: 0.9
         }
       } );
       expect( mockChatsCreate ).toHaveBeenNthCalledWith( 2, {
         model: "gemini-1.5-pro",
         config: {
-          history: []
+          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
+          history: [],
+          temperature: 0.9
         }
       } );
     } );
@@ -324,7 +359,9 @@ describe( 'MachineLearningService', () => {
       expect( mockChatsCreate ).toHaveBeenCalledWith( {
         model: "gemini-2.5-flash",
         config: {
-          history: []
+          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
+          history: [],
+          temperature: 0.9
         }
       } );
 
@@ -339,17 +376,17 @@ describe( 'MachineLearningService', () => {
     describe( 'loadConversationHistory', () => {
       it( 'should return empty array when no data service available', async () => {
         const serviceWithoutData = new MachineLearningService( {} );
-        
+
         const result = await serviceWithoutData.loadConversationHistory();
-        
+
         expect( result ).toEqual( [] );
       } );
 
       it( 'should return empty array when no conversation history exists', async () => {
         mockServices.dataService.getValue.mockReturnValue( null );
-        
+
         const result = await service.loadConversationHistory();
-        
+
         expect( result ).toEqual( [] );
         expect( mockServices.dataService.loadData ).toHaveBeenCalled();
         expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'conversationHistory' );
@@ -359,18 +396,18 @@ describe( 'MachineLearningService', () => {
         const now = Date.now();
         const sixtyOneMinutesAgo = new Date( now - 61 * 60 * 1000 ).toISOString();
         const twentyMinutesAgo = new Date( now - 20 * 60 * 1000 ).toISOString();
-        
+
         const mockHistory = [
           { timestamp: sixtyOneMinutesAgo, question: 'Old question', response: 'Old response' },
           { timestamp: twentyMinutesAgo, question: 'Recent question', response: 'Recent response' }
         ];
-        
+
         mockServices.dataService.getValue.mockReturnValue( mockHistory );
-        
+
         const result = await service.loadConversationHistory();
-        
+
         expect( result ).toHaveLength( 1 );
-        expect( result[0].question ).toBe( 'Recent question' );
+        expect( result[ 0 ].question ).toBe( 'Recent question' );
       } );
 
       it( 'should return all entries from the last hour (no count limit)', async () => {
@@ -379,23 +416,23 @@ describe( 'MachineLearningService', () => {
         for ( let i = 0; i < 5; i++ ) {
           mockHistory.push( {
             timestamp: new Date( now - i * 60 * 1000 ).toISOString(),
-            question: `Question ${i}`,
-            response: `Response ${i}`
+            question: `Question ${ i }`,
+            response: `Response ${ i }`
           } );
         }
-        
+
         mockServices.dataService.getValue.mockReturnValue( mockHistory );
-        
+
         const result = await service.loadConversationHistory();
-        
+
         expect( result ).toHaveLength( 5 );
       } );
 
       it( 'should handle errors gracefully', async () => {
         mockServices.dataService.loadData.mockRejectedValue( new Error( 'Data load error' ) );
-        
+
         const result = await service.loadConversationHistory();
-        
+
         expect( result ).toEqual( [] );
       } );
     } );
@@ -403,9 +440,9 @@ describe( 'MachineLearningService', () => {
     describe( 'saveConversationEntry', () => {
       it( 'should do nothing when no data service available', async () => {
         const serviceWithoutData = new MachineLearningService( {} );
-        
+
         await serviceWithoutData.saveConversationEntry( 'question', 'response' );
-        
+
         // Should not throw any errors
       } );
 
@@ -414,13 +451,13 @@ describe( 'MachineLearningService', () => {
           { timestamp: new Date().toISOString(), question: 'Old question', response: 'Old response' }
         ];
         mockServices.dataService.getValue.mockReturnValue( existingHistory );
-        
+
         await service.saveConversationEntry( 'New question', 'New response' );
-        
+
         expect( mockServices.dataService.loadData ).toHaveBeenCalled();
         expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'conversationHistory' );
-        expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 
-          'conversationHistory', 
+        expect( mockServices.dataService.setValue ).toHaveBeenCalledWith(
+          'conversationHistory',
           expect.arrayContaining( [
             expect.objectContaining( { question: 'Old question', response: 'Old response' } ),
             expect.objectContaining( { question: 'New question', response: 'New response' } )
@@ -431,23 +468,23 @@ describe( 'MachineLearningService', () => {
       it( 'should filter entries to keep only those from the last hour', async () => {
         const now = Date.now();
         const mockHistory = [];
-        
+
         // Add 10 entries - some old (more than 1 hour), some recent (within 1 hour)
         for ( let i = 0; i < 10; i++ ) {
-          const minutesAgo = i < 5 ? i * 10 : (50 + i * 10); // First 5 within hour, rest older
+          const minutesAgo = i < 5 ? i * 10 : ( 50 + i * 10 ); // First 5 within hour, rest older
           mockHistory.push( {
             timestamp: new Date( now - minutesAgo * 60 * 1000 ).toISOString(),
-            question: `Question ${i}`,
-            response: `Response ${i}`
+            question: `Question ${ i }`,
+            response: `Response ${ i }`
           } );
         }
-        
+
         mockServices.dataService.getValue.mockReturnValue( mockHistory );
-        
+
         await service.saveConversationEntry( 'New question', 'New response' );
-        
-        const savedHistory = mockServices.dataService.setValue.mock.calls[0][1];
-        
+
+        const savedHistory = mockServices.dataService.setValue.mock.calls[ 0 ][ 1 ];
+
         // Should contain the new entry plus only the entries from the last hour (first 5 + new one = 6)
         expect( savedHistory.length ).toBe( 6 );
         expect( savedHistory ).toEqual( expect.arrayContaining( [
@@ -457,9 +494,9 @@ describe( 'MachineLearningService', () => {
 
       it( 'should handle errors gracefully', async () => {
         mockServices.dataService.loadData.mockRejectedValue( new Error( 'Data load error' ) );
-        
+
         await service.saveConversationEntry( 'question', 'response' );
-        
+
         // Should not throw any errors
       } );
     } );
@@ -470,9 +507,9 @@ describe( 'MachineLearningService', () => {
           { timestamp: '2023-01-01T00:00:00Z', question: 'Question 1', response: 'Response 1' },
           { timestamp: '2023-01-01T00:01:00Z', question: 'Question 2', response: 'Response 2' }
         ];
-        
+
         const result = service.formatChatHistory( history );
-        
+
         expect( result ).toEqual( [
           { role: 'user', parts: [ { text: 'Question 1' } ] },
           { role: 'model', parts: [ { text: 'Response 1' } ] },
@@ -483,7 +520,7 @@ describe( 'MachineLearningService', () => {
 
       it( 'should handle empty history', () => {
         const result = service.formatChatHistory( [] );
-        
+
         expect( result ).toEqual( [] );
       } );
     } );

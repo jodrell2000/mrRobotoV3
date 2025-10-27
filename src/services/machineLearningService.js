@@ -35,8 +35,8 @@ class MachineLearningService {
 
       // Filter to only include entries from the last hour
       const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
-      const recentHistory = allHistory.filter( entry => 
-        new Date( entry.timestamp ).getTime() > oneHourAgo 
+      const recentHistory = allHistory.filter( entry =>
+        new Date( entry.timestamp ).getTime() > oneHourAgo
       );
 
       // Return all entries from the last hour (no limit on count)
@@ -62,7 +62,7 @@ class MachineLearningService {
       if ( !skipDataLoad ) {
         await this.services.dataService.loadData();
       }
-      
+
       // Load existing history
       let allHistory = this.services.dataService.getValue( 'conversationHistory' ) || [];
 
@@ -76,8 +76,8 @@ class MachineLearningService {
 
       // Filter to keep only entries from the last hour
       const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
-      const filteredHistory = allHistory.filter( entry => 
-        new Date( entry.timestamp ).getTime() > oneHourAgo 
+      const filteredHistory = allHistory.filter( entry =>
+        new Date( entry.timestamp ).getTime() > oneHourAgo
       );
 
       // Save back to data service
@@ -94,21 +94,21 @@ class MachineLearningService {
    */
   formatChatHistory ( history ) {
     const chatHistory = [];
-    
+
     for ( const entry of history ) {
       // Add user message
       chatHistory.push( {
         role: 'user',
         parts: [ { text: entry.question } ]
       } );
-      
+
       // Add model response
       chatHistory.push( {
         role: 'model',
         parts: [ { text: entry.response } ]
       } );
     }
-    
+
     return chatHistory;
   }
 
@@ -116,13 +116,13 @@ class MachineLearningService {
    * Get or create a chat session with current conversation history
    * @param {string} model - The model to use for the chat
    * @param {Array} conversationHistory - The conversation history
-   * @param {string} systemInstruction - System instructions for the chat
+   * @param {Array} systemInstruction - System instructions for the chat as array of strings
    * @returns {Object} The chat instance
    */
   async getOrCreateChat ( model, conversationHistory, systemInstruction ) {
     // Format the conversation history for the chat API
     const formattedHistory = this.formatChatHistory( conversationHistory );
-    
+
     // Create chat configuration
     const config = {
       temperature: 0.9,
@@ -134,7 +134,7 @@ class MachineLearningService {
       config.systemInstruction = systemInstruction;
     }
 
-    logger.debug( `🤖 [MachineLearningService] chatConfig: ${JSON.stringify({ config })}` );
+    logger.debug( `🤖 [MachineLearningService] chatConfig: ${ JSON.stringify( { config } ) }` );
 
     // Always create a new chat session with the current history and context
     // This ensures we have the most up-to-date conversation context
@@ -149,7 +149,7 @@ class MachineLearningService {
   /**
    * Create comprehensive system instruction by combining MLPersonality and MLInstructions
    * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
-   * @returns {string|null} The processed system instruction or null if not available
+   * @returns {Array|null} Array of processed system instruction strings or null if not available
    */
   async createSystemInstruction ( skipDataLoad = false ) {
     if ( !this.services?.dataService ) {
@@ -164,39 +164,30 @@ class MachineLearningService {
       const personality = this.services.dataService.getValue( 'Instructions.MLPersonality' );
       const instructions = this.services.dataService.getValue( 'Instructions.MLInstructions' );
 
-      // If neither personality nor instructions exist, return null
-      if ( !personality && !instructions ) {
-        return null;
-      }
-
-      // Get replacement values
-      const hangoutName = this.services.stateService?.getHangoutName?.() || 'Hangout FM';
-      const botName = this.services.getState?.( 'botNickname' ) || 'DJ Bot';
-
-      let combinedSystemInstruction = '';
+      // Always start with the hardcoded safety instruction
+      const systemInstructionArray = [ "Under no circumstances should any response contain any sexist, racist, or homophobic language" ];
 
       // Add personality if available
       if ( personality ) {
-        const processedPersonality = personality
-          .replace( /\{hangoutName\}/g, hangoutName )
-          .replace( /\{botName\}/g, botName );
-        combinedSystemInstruction += processedPersonality;
+        const processedPersonality = this.services.tokenService
+          ? await this.services.tokenService.replaceTokens( personality, {}, true )
+          : personality
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
+        systemInstructionArray.push( processedPersonality );
       }
 
       // Add instructions if available
       if ( instructions ) {
-        const processedInstructions = instructions
-          .replace( /\{hangoutName\}/g, hangoutName )
-          .replace( /\{botName\}/g, botName );
-        
-        // Add a separator if we have both personality and instructions
-        if ( personality ) {
-          combinedSystemInstruction += '\n\n';
-        }
-        combinedSystemInstruction += processedInstructions;
+        const processedInstructions = this.services.tokenService
+          ? await this.services.tokenService.replaceTokens( instructions, {}, true )
+          : instructions
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
+        systemInstructionArray.push( processedInstructions );
       }
 
-      return combinedSystemInstruction || null;
+      return systemInstructionArray;
     } catch ( error ) {
       logger.error( `🤖 [MachineLearningService] Error creating system instruction: ${ error.message }` );
       return null;
@@ -236,7 +227,7 @@ class MachineLearningService {
     try {
       // Load conversation history (skip data load since we already loaded)
       const conversationHistory = await this.loadConversationHistory( true );
-      
+
       // Get system instructions (skip data load since we already loaded)
       const systemInstruction = await this.createSystemInstruction( true );
 
@@ -244,9 +235,9 @@ class MachineLearningService {
       const chat = await this.getOrCreateChat( primaryModel, conversationHistory, systemInstruction );
 
       // Log the full request being sent to AI
-      logger.debug( `🤖 [MachineLearningService] The Question: ${JSON.stringify({
+      logger.debug( `🤖 [MachineLearningService] The Question: ${ JSON.stringify( {
         theQuestion
-      }, null, 2)}` );
+      }, null, 2 ) }` );
 
       // Send the message to the chat
       const response = await chat.sendMessage( {
@@ -255,16 +246,16 @@ class MachineLearningService {
       const theResponse = response.text;
 
       // Log the raw response from AI
-      logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${JSON.stringify({
+      logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${ JSON.stringify( {
         model: primaryModel,
         response: theResponse,
         fullResponseObject: response
-      }, null, 2)}` );
+      }, null, 2 ) }` );
 
       if ( theResponse && theResponse !== "No response text available" ) {
         // Save this conversation entry (skip data load since we already loaded)
         await this.saveConversationEntry( theQuestion, theResponse, true );
-        
+
         return theResponse;
       } else {
         // Primary model failed, try fallback
@@ -295,12 +286,12 @@ class MachineLearningService {
       const chat = await this.getOrCreateChat( fallbackModel, conversationHistory, systemInstruction );
 
       // Log the full fallback request being sent to AI
-      logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${JSON.stringify({
+      logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${ JSON.stringify( {
         model: fallbackModel,
         systemInstruction: systemInstruction,
         message: theQuestion,
         conversationHistory: conversationHistory
-      }, null, 2)}` );
+      }, null, 2 ) }` );
 
       // Send the message to the fallback chat
       const response = await chat.sendMessage( {
@@ -309,16 +300,16 @@ class MachineLearningService {
       const theResponse = response.text;
 
       // Log the raw response from fallback AI
-      logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${JSON.stringify({
+      logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${ JSON.stringify( {
         model: fallbackModel,
         response: theResponse,
         fullResponseObject: response
-      }, null, 2)}` );
+      }, null, 2 ) }` );
 
       if ( theResponse && theResponse !== "No response text available" ) {
         // Save this conversation entry (skip data load since we already loaded in main method)
         await this.saveConversationEntry( theQuestion, theResponse, true );
-        
+
         return theResponse;
       } else {
         logger.error( `🤖 [MachineLearningService] No response from fallback model ${ fallbackModel }` );

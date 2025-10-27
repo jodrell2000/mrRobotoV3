@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic command execution with proper context and error handling
   - System-level command execution for triggers (independent of user permissions)
 
+- **Advanced Token System**: Comprehensive customizable token replacement system
+  - New `token` command for owners to manage custom tokens for messages and AI instructions
+  - Built-in timezone-aware tokens: `{currentTime}`, `{currentDate}`, `{currentDayOfWeek}`, `{greetingTime}`
+  - Dynamic `{greetingTime}` token provides time-based greetings (morning, afternoon, evening, night)
+  - UK timezone defaults (`Europe/London`, `en-GB` locale) with full configurability
+  - Token management subcommands: `list`, `add`, `remove`, `test`
+  - Configurable timezone, locale, and time format through edit command
+
 ### Enhanced
 - **Google GenAI SDK Migration**: Updated to latest official Google GenAI SDK
   - Migrated from deprecated `@google/generative-ai` to official `@google/genai@^1.26.0`
@@ -41,19 +49,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced `{username}` token to use current DJ instead of command sender for better context
   - Added comprehensive token support: `{trackName}`, `{artistName}`, `{username}`, `{hangoutName}`, `{botName}`
 
+- **Configuration System**: New configuration management for bot behavior
+  - Added timezone configuration support (defaults to UK timezone `Europe/London`)
+  - Configurable locale settings (defaults to `en-GB`)
+  - Configurable time format (12-hour or 24-hour display)
+  - Configuration manageable through `!edit timezone`, `!edit locale`, `!edit timeFormat` commands
+  - Real-time configuration changes without bot restart required
+
 ### Upgrade Instructions
-**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` section from the `data.json_example` file to your local `data.json` file:
+**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` and `configuration` sections from the `data.json_example` file to your local `data.json` file:
 
 1. Copy the `Instructions` section from `data.json_example` file
-2. Add it to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
-3. The section should look something like:
+2. Copy the `configuration` section from `data.json_example` file  
+3. Add both to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
+4. The sections should look something like:
    ```json
   "Instructions": {
     "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
     "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
   },
+  "configuration": {
+    "timezone": "Europe/London",
+    "locale": "en-GB", 
+    "dateFormat": "DD/MM/YYYY",
+    "timeFormat": "24"
+  },
    ```
-4. Customize the instructions as desired to match your bot's personality and behavior required
+5. Customize the instructions and configuration as desired to match your bot's personality, behavior, and location requirements
 
 **OPTIONAL**: For enhanced AI conversation context, you may also add an empty `conversationHistory` array:
 ```json
