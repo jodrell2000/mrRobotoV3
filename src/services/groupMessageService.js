@@ -80,7 +80,7 @@ const groupMessageService = {
         try {
             let message, room, images, mentions, receiverType;
 
-            if ( typeof theMessage === 'object' && theMessage.hasOwnProperty('message') ) {
+            if ( typeof theMessage === 'object' && theMessage.hasOwnProperty( 'message' ) ) {
                 message = theMessage.message;
                 room = theMessage.room || config.HANGOUT_ID;
                 images = theMessage.images || null;

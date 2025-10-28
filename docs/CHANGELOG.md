@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.5_beta] - 2025-10-21
+## [0.8.5_beta] - 2025-10-28
+### Upgrade Instructions
+**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` and `configuration` sections from the `data.json_example` file to your local `data.json` file:
+
+1. Copy the `Instructions` section from `data.json_example` file
+2. Copy the `configuration` section from `data.json_example` file  
+3. Add both to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
+4. The sections should look something like:
+   ```json
+  "Instructions": {
+    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
+    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
+  },
+  "configuration": {
+    "timezone": "Europe/London",
+    "locale": "en-GB", 
+    "dateFormat": "DD/MM/YYYY",
+    "timeFormat": "24"
+  },
+   ```
+5. Customize the instructions and configuration as desired to match your bot's personality, behavior, and location requirements
+
 ### Added
 - **Enhanced AI System Instructions**: Comprehensive AI personality and behavior system
   - Reorganized data structure to include `MLPersonality` and `MLInstructions` in data.json
@@ -56,26 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configuration manageable through `!edit timezone`, `!edit locale`, `!edit timeFormat` commands
   - Real-time configuration changes without bot restart required
 
-### Upgrade Instructions
-**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` and `configuration` sections from the `data.json_example` file to your local `data.json` file:
-
-1. Copy the `Instructions` section from `data.json_example` file
-2. Copy the `configuration` section from `data.json_example` file  
-3. Add both to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
-4. The sections should look something like:
-   ```json
-  "Instructions": {
-    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
-    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
-  },
-  "configuration": {
-    "timezone": "Europe/London",
-    "locale": "en-GB", 
-    "dateFormat": "DD/MM/YYYY",
-    "timeFormat": "24"
-  },
-   ```
-5. Customize the instructions and configuration as desired to match your bot's personality, behavior, and location requirements
+- **CometChat reliability improvements**: backoff/retry system introduced
+  - In the event of connectivity issues with CometChat, the bot will retry and slowly imcreasing intervals so as to not overwhealm the CometChat servers
+  - !connectivity command added so users can see if there are currently issues
 
 **OPTIONAL**: For enhanced AI conversation context, you may also add an empty `conversationHistory` array:
 ```json

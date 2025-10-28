@@ -14,6 +14,7 @@ const FeaturesService = require( './featuresService.js' );
 const MachineLearningService = require( './machineLearningService.js' );
 const TriggerService = require( './triggerService.js' );
 const TokenService = require( './tokenService.js' );
+const RetryService = require( './retryService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -32,6 +33,9 @@ const dataService = require( './dataService.js' );
 
 // Initialize featuresService with dataService dependency
 const featuresService = new FeaturesService( dataService );
+
+// Initialize retryService
+const retryService = new RetryService();
 
 // Note: machineLearningService and triggerService will be initialized after services object is created
 // to avoid circular dependency issues
@@ -60,6 +64,7 @@ const services = {
   config,
   dataService,
   featuresService,
+  retryService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
   tokenService: null, // Will be initialized after services object is created
@@ -127,6 +132,10 @@ const services = {
 services.machineLearningService = new MachineLearningService( services );
 services.triggerService = new TriggerService( services );
 services.tokenService = new TokenService( services );
+
+// Initialize retry service connection to CometChat API
+const cometchatApi = require( './cometchatApi.js' );
+cometchatApi.setRetryService( retryService );
 
 // Initialize data asynchronously
 initializeData();
