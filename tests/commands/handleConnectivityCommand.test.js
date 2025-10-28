@@ -1,9 +1,9 @@
-const handleConnectivityCommand = require( '../../src/commands/System Admin/handleConnectivityCommand' );
-
-// Mock the config
+// Mock the config BEFORE requiring the command
 jest.mock( '../../src/config.js', () => ( {
     COMMAND_SWITCH: '!'
 } ) );
+
+const handleConnectivityCommand = require( '../../src/commands/System Admin/handleConnectivityCommand' );
 
 describe( 'handleConnectivityCommand', () => {
     let mockServices;
