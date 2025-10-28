@@ -119,23 +119,20 @@ class TokenService {
             const hour = parseInt( timeString );
 
             // Determine greeting based on hour (24-hour format)
-            if ( hour >= 4 && hour < 12 ) {
+            if ( hour >= 0 && hour < 12 ) {
                 return 'morning';
             } else if ( hour >= 12 && hour < 18 ) {
                 return 'afternoon';
-            } else if ( hour >= 18 && hour < 20 ) {
-                return 'evening';
             } else {
-                return 'night';
+                return 'evening';
             }
         } catch ( error ) {
             this.logger.debug( `[TokenService] Error determining greeting time: ${ error.message }` );
             // Fallback using system time
             const hour = new Date().getHours();
-            if ( hour >= 4 && hour < 12 ) return 'morning';
+            if ( hour >= 0 && hour < 12 ) return 'morning';
             if ( hour >= 12 && hour < 18 ) return 'afternoon';
-            if ( hour >= 18 && hour < 21 ) return 'evening';
-            return 'night';
+            return 'evening';
         }
     }
 
