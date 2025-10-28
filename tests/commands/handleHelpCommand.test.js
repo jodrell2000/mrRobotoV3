@@ -44,128 +44,128 @@ jest.mock( 'fs', () => ( {
         // Default fallback for other files
         return '{}';
     } ),
-    readdirSync: jest.fn().mockImplementation((dirPath) => {
+    readdirSync: jest.fn().mockImplementation( ( dirPath ) => {
         // Mock the directory structure based on path
-        const normalizedPath = dirPath.replace(/\\/g, '/');
-        
-        if (normalizedPath.includes('commands/Bot Commands')) {
+        const normalizedPath = dirPath.replace( /\\/g, '/' );
+
+        if ( normalizedPath.includes( 'commands/Bot Commands' ) ) {
             return [
                 'handleChangebotnameCommand.js',
-                'handleCommandCommand.js', 
+                'handleCommandCommand.js',
                 'handleFeatureCommand.js',
                 'handleStatusCommand.js'
             ];
-        } else if (normalizedPath.includes('commands/General Commands')) {
+        } else if ( normalizedPath.includes( 'commands/General Commands' ) ) {
             return [
                 'handleEchoCommand.js',
                 'handleHelpCommand.js',
                 'handlePingCommand.js'
             ];
-        } else if (normalizedPath.includes('commands/Debug Commands')) {
-            return ['handleStateCommand.js'];
-        } else if (normalizedPath.includes('commands/Edit Commands')) {
-            return ['handleEditCommand.js'];
-        } else if (normalizedPath.includes('commands/ML Commands')) {
-            return ['handlePopfactsCommand.js'];
-        } else if (normalizedPath.includes('commands') && !normalizedPath.includes('/')) {
+        } else if ( normalizedPath.includes( 'commands/Debug Commands' ) ) {
+            return [ 'handleStateCommand.js' ];
+        } else if ( normalizedPath.includes( 'commands/Edit Commands' ) ) {
+            return [ 'handleEditCommand.js' ];
+        } else if ( normalizedPath.includes( 'commands/ML Commands' ) ) {
+            return [ 'handlePopfactsCommand.js' ];
+        } else if ( normalizedPath.includes( 'commands' ) && !normalizedPath.includes( '/' ) ) {
             // Root commands directory
-            return ['handleUnknownCommand.js'];
+            return [ 'handleUnknownCommand.js' ];
         }
         return [];
-    }),
-    statSync: jest.fn().mockImplementation((filePath) => {
-        const normalizedPath = filePath.replace(/\\/g, '/');
-        
+    } ),
+    statSync: jest.fn().mockImplementation( ( filePath ) => {
+        const normalizedPath = filePath.replace( /\\/g, '/' );
+
         // Mock folders as directories
-        if (normalizedPath.includes('Bot Commands') || 
-            normalizedPath.includes('General Commands') ||
-            normalizedPath.includes('Debug Commands') ||
-            normalizedPath.includes('Edit Commands') ||
-            normalizedPath.includes('ML Commands')) {
+        if ( normalizedPath.includes( 'Bot Commands' ) ||
+            normalizedPath.includes( 'General Commands' ) ||
+            normalizedPath.includes( 'Debug Commands' ) ||
+            normalizedPath.includes( 'Edit Commands' ) ||
+            normalizedPath.includes( 'ML Commands' ) ) {
             return { isDirectory: () => true };
         }
-        
+
         // Mock .js files as files
-        if (normalizedPath.endsWith('.js')) {
+        if ( normalizedPath.endsWith( '.js' ) ) {
             return { isDirectory: () => false };
         }
-        
+
         return { isDirectory: () => false };
-    }),
+    } ),
     existsSync: jest.fn().mockReturnValue( true ),
     mkdirSync: jest.fn()
 } ) );
 
 // Mock command modules
-jest.doMock('../../src/commands/General Commands/handleEchoCommand.js', () => ({
+jest.doMock( '../../src/commands/General Commands/handleEchoCommand.js', () => ( {
     requiredRole: 'USER',
     description: 'Echo back your message',
     example: 'echo Hello everyone!',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/General Commands/handlePingCommand.js', () => ({
-    requiredRole: 'USER', 
+jest.doMock( '../../src/commands/General Commands/handlePingCommand.js', () => ( {
+    requiredRole: 'USER',
     description: 'Test if bot is responsive',
     example: 'ping',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/Bot Commands/handleChangebotnameCommand.js', () => ({
+jest.doMock( '../../src/commands/Bot Commands/handleChangebotnameCommand.js', () => ( {
     requiredRole: 'OWNER',
     description: 'Change the bot name',
     example: 'changebotname MyAwesomeBot',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/Bot Commands/handleCommandCommand.js', () => ({
+jest.doMock( '../../src/commands/Bot Commands/handleCommandCommand.js', () => ( {
     requiredRole: 'OWNER',
     description: 'Manage bot commands - list, enable, disable, or check status',
     example: 'command list',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/Bot Commands/handleFeatureCommand.js', () => ({
+jest.doMock( '../../src/commands/Bot Commands/handleFeatureCommand.js', () => ( {
     requiredRole: 'OWNER',
     description: 'Manage optional bot features',
     example: 'feature list',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/Bot Commands/handleStatusCommand.js', () => ({
+jest.doMock( '../../src/commands/Bot Commands/handleStatusCommand.js', () => ( {
     requiredRole: 'MODERATOR',
     description: 'Show bot status',
     example: 'status',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/Debug Commands/handleStateCommand.js', () => ({
+jest.doMock( '../../src/commands/Debug Commands/handleStateCommand.js', () => ( {
     requiredRole: 'OWNER',
     description: 'Show current state',
     example: 'state',
     hidden: true
-}));
+} ) );
 
-jest.doMock('../../src/commands/Edit Commands/handleEditCommand.js', () => ({
+jest.doMock( '../../src/commands/Edit Commands/handleEditCommand.js', () => ( {
     requiredRole: 'MODERATOR',
     description: 'Edit editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, popfactsQuestion)',
     example: 'edit welcomeMessage',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/ML Commands/handlePopfactsCommand.js', () => ({
+jest.doMock( '../../src/commands/ML Commands/handlePopfactsCommand.js', () => ( {
     requiredRole: 'USER',
     description: 'Get interesting facts about the currently playing song',
     example: 'popfacts',
     hidden: false
-}));
+} ) );
 
-jest.doMock('../../src/commands/handleUnknownCommand.js', () => ({
+jest.doMock( '../../src/commands/handleUnknownCommand.js', () => ( {
     requiredRole: 'USER',
     description: 'Handle unknown commands',
     example: 'unknown',
     hidden: true
-}));
+} ) );
 
 const handleHelpCommand = require( '../../src/commands/General Commands/handleHelpCommand' );
 
@@ -229,18 +229,18 @@ describe( 'handleHelpCommand', () => {
 
     it( 'should handle errors gracefully', async () => {
         // Mock path.join to throw an error for this test - this will trigger the main catch block
-        const path = require('path');
+        const path = require( 'path' );
         const originalJoin = path.join;
-        path.join = jest.fn(() => {
+        path.join = jest.fn( () => {
             throw new Error( 'Path error' );
-        });
+        } );
 
         const result = await handleHelpCommand( mockCommandParams );
 
         expect( result.success ).toBe( false );
         expect( result.response ).toContain( '❌ Error loading help information' );
         expect( mockServices.messageService.sendResponse ).toHaveBeenCalled();
-        
+
         // Restore original function
         path.join = originalJoin;
     } );

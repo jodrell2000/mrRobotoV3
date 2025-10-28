@@ -20,53 +20,53 @@ jest.mock( 'fs', () => ( {
       CHAT_COLOUR: "ff0000"
     }
   } ) ),
-  readdirSync: jest.fn().mockImplementation((dirPath) => {
+  readdirSync: jest.fn().mockImplementation( ( dirPath ) => {
     // Mock the directory structure based on exact path
-    const normalizedPath = dirPath.replace(/\\/g, '/');
-    
-    if (normalizedPath.endsWith('src/commands')) {
+    const normalizedPath = dirPath.replace( /\\/g, '/' );
+
+    if ( normalizedPath.endsWith( 'src/commands' ) ) {
       return [
         'Bot Commands',
-        'Debug Commands', 
+        'Debug Commands',
         'Edit Commands',
         'General Commands',
         'ML Commands',
         'handleUnknownCommand.js'
       ];
-    } else if (normalizedPath.endsWith('Bot Commands')) {
+    } else if ( normalizedPath.endsWith( 'Bot Commands' ) ) {
       return [
         'handleChangebotnameCommand.js',
-        'handleCommandCommand.js', 
+        'handleCommandCommand.js',
         'handleFeatureCommand.js',
         'handleStatusCommand.js'
       ];
-    } else if (normalizedPath.endsWith('General Commands')) {
+    } else if ( normalizedPath.endsWith( 'General Commands' ) ) {
       return [
         'handleEchoCommand.js',
         'handleHelpCommand.js',
         'handlePingCommand.js'
       ];
-    } else if (normalizedPath.endsWith('Debug Commands')) {
-      return ['handleStateCommand.js'];
-    } else if (normalizedPath.endsWith('Edit Commands')) {
-      return ['handleEditCommand.js'];
-    } else if (normalizedPath.endsWith('ML Commands')) {
-      return ['handlePopfactsCommand.js'];
+    } else if ( normalizedPath.endsWith( 'Debug Commands' ) ) {
+      return [ 'handleStateCommand.js' ];
+    } else if ( normalizedPath.endsWith( 'Edit Commands' ) ) {
+      return [ 'handleEditCommand.js' ];
+    } else if ( normalizedPath.endsWith( 'ML Commands' ) ) {
+      return [ 'handlePopfactsCommand.js' ];
     }
     return [];
-  }),
-  statSync: jest.fn().mockImplementation((itemPath) => {
+  } ),
+  statSync: jest.fn().mockImplementation( ( itemPath ) => {
     // Only treat specific directory names as directories
-    const normalizedPath = itemPath.replace(/\\/g, '/');
-    const isDirectory = normalizedPath.endsWith('Bot Commands') || 
-                        normalizedPath.endsWith('Debug Commands') ||
-                        normalizedPath.endsWith('Edit Commands') ||
-                        normalizedPath.endsWith('General Commands') ||
-                        normalizedPath.endsWith('ML Commands');
+    const normalizedPath = itemPath.replace( /\\/g, '/' );
+    const isDirectory = normalizedPath.endsWith( 'Bot Commands' ) ||
+      normalizedPath.endsWith( 'Debug Commands' ) ||
+      normalizedPath.endsWith( 'Edit Commands' ) ||
+      normalizedPath.endsWith( 'General Commands' ) ||
+      normalizedPath.endsWith( 'ML Commands' );
     return {
       isDirectory: () => isDirectory
     };
-  }),
+  } ),
   promises: {
     appendFile: jest.fn().mockResolvedValue(),
     writeFile: jest.fn().mockResolvedValue(),

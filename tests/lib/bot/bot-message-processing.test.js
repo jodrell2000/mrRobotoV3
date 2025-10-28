@@ -556,7 +556,7 @@ describe( 'Bot - Message Processing', () => {
 
       // Check that warning was logged (don't test exact message format)
       expect( mockServices.logger.warn ).toHaveBeenCalledWith( expect.stringContaining( 'Failed to fetch private messages for user user1' ) );
-      
+
       // Should still return messages from user2
       expect( result ).toHaveLength( 1 );
       expect( result[ 0 ].sender ).toBe( 'user2' );
