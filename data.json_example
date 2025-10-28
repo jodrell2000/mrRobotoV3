@@ -8,6 +8,12 @@
     "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
     "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
   },
+  "configuration": {
+    "timezone": "Europe/London",
+    "locale": "en-GB",
+    "dateFormat": "DD/MM/YYYY",
+    "timeFormat": "24"
+  },
   "editableMessages": {
     "welcomeMessage": "Hi {username}, welcome to {hangoutName}",
     "nowPlayingMessage": "{username} is now playing {trackName} by {artistName}",
