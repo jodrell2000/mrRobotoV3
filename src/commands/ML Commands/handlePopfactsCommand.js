@@ -20,10 +20,13 @@ const hidden = false;
 async function handlePopfactsCommand ( commandParams ) {
   const config = {
     templateKey: 'mlQuestions.popfactsQuestion',
-    defaultTemplate: 'The song I\'m currently listening to is ${trackName} by ${artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply',
+    defaultTemplate: 'The song I\'m currently listening to is {trackName} by {artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply',
     commandName: 'popfacts',
     errorMessage: '🎵 Sorry, I couldn\'t get facts about the current song right now. Please try again later.',
-    noSongMessage: '🎵 No song is currently playing. Start a song first and try again!'
+    noSongMessage: '🎵 No song is currently playing. Start a song first and try again!',
+    responseFormatter: ( trackName, artistName, aiResponse ) => {
+      return `${aiResponse}`;
+    }
   };
 
   return await executeSongAICommand( commandParams, config );

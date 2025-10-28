@@ -12,6 +12,9 @@ const StateService = require( './stateService.js' );
 const DataService = require( './dataService.js' );
 const FeaturesService = require( './featuresService.js' );
 const MachineLearningService = require( './machineLearningService.js' );
+const TriggerService = require( './triggerService.js' );
+const TokenService = require( './tokenService.js' );
+const RetryService = require( './retryService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -31,8 +34,11 @@ const dataService = require( './dataService.js' );
 // Initialize featuresService with dataService dependency
 const featuresService = new FeaturesService( dataService );
 
-// Initialize machineLearningService
-const machineLearningService = new MachineLearningService();
+// Initialize retryService
+const retryService = new RetryService();
+
+// Note: machineLearningService and triggerService will be initialized after services object is created
+// to avoid circular dependency issues
 
 // Load data and make it available in the services container
 const initializeData = async () => {
@@ -58,7 +64,10 @@ const services = {
   config,
   dataService,
   featuresService,
-  machineLearningService,
+  retryService,
+  machineLearningService: null, // Will be initialized after services object is created
+  triggerService: null, // Will be initialized after services object is created
+  tokenService: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -70,10 +79,10 @@ const services = {
     if ( !this.hangoutState ) this.hangoutState = {};
     this.hangoutState[ key ] = value;
     if ( this.state ) this.state[ key ] = value;
-    
+
     // Properly log objects by stringifying them
-    const valueToLog = typeof value === 'object' && value !== null 
-      ? JSON.stringify( value, null, 2 ) 
+    const valueToLog = typeof value === 'object' && value !== null
+      ? JSON.stringify( value, null, 2 )
       : value;
     this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
   },
@@ -118,6 +127,15 @@ const services = {
     this.logger.debug( 'StateService initialized with valid hangout state' );
   }
 };
+
+// Initialize triggerService, machineLearningService and tokenService after services object is created to avoid circular dependencies
+services.machineLearningService = new MachineLearningService( services );
+services.triggerService = new TriggerService( services );
+services.tokenService = new TokenService( services );
+
+// Initialize retry service connection to CometChat API
+const cometchatApi = require( './cometchatApi.js' );
+cometchatApi.setRetryService( retryService );
 
 // Initialize data asynchronously
 initializeData();

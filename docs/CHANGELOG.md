@@ -5,6 +5,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.5_beta] - 2025-10-28
+### Upgrade Instructions
+**IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` and `configuration` sections from the `data.json_example` file to your local `data.json` file:
+
+1. Copy the `Instructions` section from `data.json_example` file
+2. Copy the `configuration` section from `data.json_example` file  
+3. Add both to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
+4. The sections should look something like:
+   ```json
+  "Instructions": {
+    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
+    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
+  },
+  "configuration": {
+    "timezone": "Europe/London",
+    "locale": "en-GB", 
+    "dateFormat": "DD/MM/YYYY",
+    "timeFormat": "24"
+  },
+   ```
+5. Customize the instructions and configuration as desired to match your bot's personality, behavior, and location requirements
+
+### Added
+- **Enhanced AI System Instructions**: Comprehensive AI personality and behavior system
+  - Reorganized data structure to include `MLPersonality` and `MLInstructions` in data.json
+  - Both fields editable via `!edit MLPersonality` and `!edit MLInstructions` commands
+  - Supports `{hangoutName}` and `{botName}` template variables for dynamic personalization
+  - Combined system instructions are automatically sent with every AI request for consistent behavior, simplifying the content of individual questions
+  - Enhanced organization in `!edit list` command with separate personality and instruction management
+
+- **AI Conversation Context Enhancement**: Extended conversation history for richer AI interactions
+  - Conversation history maintained for the last hour
+  - Time-based automatic cleanup of conversations older than 1 hour
+  - Enhanced AI response quality through extended contextual awareness
+
+- **Command Trigger System**: Comprehensive automation system for bot events
+  - New `trigger` command for owners to configure commands that execute automatically on specific events
+  - Support for 5 trigger types: `newSong`, `userJoined`, `userLeft`, `djAdded`, `djRemoved`
+  - Trigger management subcommands: `list`, `add`, `remove`, `clear`
+  - Persistent trigger configuration stored in data.json
+  - Automatic command execution with proper context and error handling
+  - System-level command execution for triggers (independent of user permissions)
+
+- **Advanced Token System**: Comprehensive customizable token replacement system
+  - New `token` command for owners to manage custom tokens for messages and AI instructions
+  - Built-in timezone-aware tokens: `{currentTime}`, `{currentDate}`, `{currentDayOfWeek}`, `{greetingTime}`
+  - Dynamic `{greetingTime}` token provides time-based greetings (morning, afternoon, evening, night)
+  - UK timezone defaults (`Europe/London`, `en-GB` locale) with full configurability
+  - Token management subcommands: `list`, `add`, `remove`, `test`
+  - Configurable timezone, locale, and time format through edit command
+
+### Enhanced
+- **Google GenAI SDK Migration**: Updated to latest official Google GenAI SDK
+  - Migrated from deprecated `@google/generative-ai` to official `@google/genai@^1.26.0`
+  - Migrated to chat API for multi-turn conversation support, including passing history tio give questions context
+
+- **Machine Learning Service Reliability**: Significantly improved AI service robustness
+  - Added automatic fallback model support (gemini-2.5-flash → gemini-2.0-flash)
+
+- **Token System Standardization**: Unified and enhanced token replacement system
+  - Standardized all ML commands to use unified `{token}` format (previously mixed `${token}` and `{token}`)
+  - Added support for `{botName}` token across all ML command templates
+  - Enhanced `{username}` token to use current DJ instead of command sender for better context
+  - Added comprehensive token support: `{trackName}`, `{artistName}`, `{username}`, `{hangoutName}`, `{botName}`
+
+- **Configuration System**: New configuration management for bot behavior
+  - Added timezone configuration support (defaults to UK timezone `Europe/London`)
+  - Configurable locale settings (defaults to `en-GB`)
+  - Configurable time format (12-hour or 24-hour display)
+  - Configuration manageable through `!edit timezone`, `!edit locale`, `!edit timeFormat` commands
+  - Real-time configuration changes without bot restart required
+
+- **CometChat reliability improvements**: backoff/retry system introduced
+  - In the event of connectivity issues with CometChat, the bot will retry and slowly imcreasing intervals so as to not overwhealm the CometChat servers
+  - !connectivity command added so users can see if there are currently issues
+
+**OPTIONAL**: For enhanced AI conversation context, you may also add an empty `conversationHistory` array:
+```json
+"conversationHistory": []
+```
+
+Without the Instructions section, AI commands may not work correctly or may use default system instructions.
+
+These instructions will be sent with every command. They should not be specific instructions for any individual command, but guidance on how Google Gemini should treat your requests made through all of the other ML questions
+
 ## [0.8.1_beta] - 2025-10-21
 ### Enhanced
 - **Edit Command System**: Significantly improved template management capabilities

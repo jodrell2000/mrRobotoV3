@@ -18,23 +18,35 @@ describe( 'handlePopfactsCommand', () => {
             trackName: 'Bohemian Rhapsody',
             artistName: 'Queen'
           }
-        }
+        },
+        djs: [
+          { uuid: 'test-dj-uuid' }
+        ]
       },
       logger: {
         debug: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn()
       },
       dataService: {
-        getValue: jest.fn()
+        getValue: jest.fn().mockImplementation( ( key ) => {
+          if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+          return null;
+        } )
+      },
+      stateService: {
+        getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+      },
+      hangUserService: {
+        getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
       }
-    };
-
-    mockContext = {
-      sender: { uuid: 'test-user-uuid' },
+    }; mockContext = {
+      sender: {
+        uuid: 'test-user-uuid',
+        username: 'TestUser'
+      },
       fullMessage: { isPrivateMessage: false }
-    };
-
-    jest.clearAllMocks();
+    }; jest.clearAllMocks();
   } );
 
   describe( 'command metadata', () => {
@@ -52,8 +64,12 @@ describe( 'handlePopfactsCommand', () => {
       mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
       // Mock the template from dataService
-      const mockTemplate = 'The song I\'m currently listening to is ${trackName} by ${artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply';
-      mockServices.dataService.getValue.mockReturnValue( mockTemplate );
+      const mockTemplate = 'The song I\'m currently listening to is {trackName} by {artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply';
+      mockServices.dataService.getValue.mockImplementation( ( key ) => {
+        if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+        if ( key === 'mlQuestions.popfactsQuestion' ) return mockTemplate;
+        return null;
+      } );
 
       const result = await handlePopfactsCommand( {
         services: mockServices,
@@ -77,7 +93,7 @@ describe( 'handlePopfactsCommand', () => {
 
       // Check facts response
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Bohemian Rhapsody** by **Queen**\n\nQueen formed in London in 1970. Bohemian Rhapsody was recorded in 1975. The song has no chorus structure.',
+        'Queen formed in London in 1970. Bohemian Rhapsody was recorded in 1975. The song has no chorus structure.',
         expect.any( Object )
       );
     } );
@@ -258,7 +274,7 @@ describe( 'handlePopfactsCommand', () => {
       } );
 
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Bohemian Rhapsody** by **Queen**\n\nFact 1. Fact 2. Fact 3.',
+        'Fact 1. Fact 2. Fact 3.',
         expect.any( Object )
       );
     } );
@@ -273,7 +289,7 @@ describe( 'handlePopfactsCommand', () => {
       mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
       // Mock the template from dataService
-      const mockTemplate = 'The song I\'m currently listening to is ${trackName} by ${artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply';
+      const mockTemplate = 'The song I\'m currently listening to is {trackName} by {artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply';
       mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
       await handlePopfactsCommand( {
@@ -287,7 +303,7 @@ describe( 'handlePopfactsCommand', () => {
       );
 
       expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-        '🎵 **Imagine** by **John Lennon**\n\nSome facts about Imagine.',
+        'Some facts about Imagine.',
         expect.any( Object )
       );
     } );
@@ -317,19 +333,5 @@ describe( 'handlePopfactsCommand', () => {
     } );
   } );
 
-  describe( 'logging', () => {
-    it( 'should log debug information about the song being queried', async () => {
-      mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'Some facts' );
 
-      await handlePopfactsCommand( {
-        services: mockServices,
-        context: mockContext,
-        responseChannel: 'public'
-      } );
-
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-        '[popfacts] Asking AI about: Bohemian Rhapsody by Queen'
-      );
-    } );
-  } );
 } );

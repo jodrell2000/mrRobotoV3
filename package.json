@@ -19,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "@cometchat/chat-sdk-javascript": "^4.0.13",
+    "@google/genai": "^1.27.0",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.10.0",
     "axios-mock-adapter": "^2.1.0",

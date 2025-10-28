@@ -90,8 +90,10 @@ describe( 'handleEditCommand', () => {
       expect( result.response ).toContain( 'Editable Messages and Questions' );
       expect( result.response ).toContain( 'Messages:' );
       expect( result.response ).toContain( 'AI Questions:' );
+      expect( result.response ).toContain( 'System Settings:' );
       expect( result.response ).toContain( 'welcomeMessage' );
       expect( result.response ).toContain( 'popfactsQuestion' );
+      expect( result.response ).toContain( 'MLInstructions' );
     } );
 
     it( 'should handle show command with valid message type', async () => {
@@ -245,7 +247,7 @@ describe( 'handleEditCommand', () => {
     } );
 
     it( 'should update popfactsQuestion', async () => {
-      const expectedMessage = 'Please tell me interesting facts about the song ${trackName} by ${artistName}. Include historical context and trivia.';
+      const expectedMessage = 'Please tell me interesting facts about the song {trackName} by {artistName}. Include historical context and trivia.';
 
       // Set up getValue mock to return the new message during verification
       mockServices.dataService.getValue.mockImplementation( ( key ) => {
@@ -265,7 +267,7 @@ describe( 'handleEditCommand', () => {
     } );
 
     it( 'should update bandQuestion', async () => {
-      const expectedMessage = 'Tell me about the artist ${artistName}. Include their history, notable achievements, and chart performance.';
+      const expectedMessage = 'Tell me about the artist {artistName}. Include their history, notable achievements, and chart performance.';
 
       // Set up getValue mock to return the new message during verification
       mockServices.dataService.getValue.mockImplementation( ( key ) => {
@@ -282,6 +284,46 @@ describe( 'handleEditCommand', () => {
 
       expect( result.success ).toBe( true );
       expect( result.response ).toContain( 'Band AI Question Template updated to' );
+    } );
+
+    it( 'should update introQuestion', async () => {
+      const expectedMessage = 'Give me a quick intro to {artistName}. What should I know about this artist?';
+
+      // Set up getValue mock to return the new message during verification
+      mockServices.dataService.getValue.mockImplementation( ( key ) => {
+        if ( key === 'mlQuestions.introQuestion' ) return expectedMessage;
+        return undefined;
+      } );
+
+      const result = await handleEditCommand( {
+        args: `introQuestion ${ expectedMessage }`,
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'Intro AI Question Template updated to' );
+    } );
+
+    it( 'should update MLInstructions', async () => {
+      const expectedMessage = 'You are an AI assistant called {botName} hosting {hangoutName}. Be helpful and friendly.';
+
+      // Set up getValue mock to return the new message during verification
+      mockServices.dataService.getValue.mockImplementation( ( key ) => {
+        if ( key === 'Instructions.MLInstructions' ) return expectedMessage;
+        return undefined;
+      } );
+
+      const result = await handleEditCommand( {
+        args: `MLInstructions ${ expectedMessage }`,
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'AI System Instructions updated to' );
     } );
   } );
 

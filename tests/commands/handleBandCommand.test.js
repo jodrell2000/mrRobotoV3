@@ -18,19 +18,35 @@ describe( 'handleBandCommand', () => {
                         trackName: 'Bohemian Rhapsody',
                         artistName: 'Queen'
                     }
-                }
+                },
+                djs: [
+                    { uuid: 'test-dj-uuid' }
+                ]
             },
             logger: {
                 debug: jest.fn(),
+                warn: jest.fn(),
                 error: jest.fn()
             },
             dataService: {
-                getValue: jest.fn()
+                getValue: jest.fn().mockImplementation( ( key ) => {
+                    if ( key === 'botData.CHAT_NAME' ) return 'TestBot';
+                    return null;
+                } )
+            },
+            stateService: {
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+            },
+            hangUserService: {
+                getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
             }
         };
 
         mockContext = {
-            sender: { uuid: 'test-user-uuid' },
+            sender: {
+                uuid: 'test-user-uuid',
+                username: 'TestUser'
+            },
             fullMessage: { isPrivateMessage: false }
         };
 
@@ -52,7 +68,7 @@ describe( 'handleBandCommand', () => {
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
             // Mock the template from dataService
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const result = await handleBandCommand( {
@@ -77,7 +93,7 @@ describe( 'handleBandCommand', () => {
 
             // Check band response
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                '🎵 **Queen**\n\nQueen formed in London in 1970. The band consisted of Freddie Mercury, Brian May, Roger Taylor, and John Deacon. They are one of the most successful rock bands of all time.',
+                'Queen formed in London in 1970. The band consisted of Freddie Mercury, Brian May, Roger Taylor, and John Deacon. They are one of the most successful rock bands of all time.',
                 expect.any( Object )
             );
         } );
@@ -86,7 +102,7 @@ describe( 'handleBandCommand', () => {
             const mockAIResponse = 'The Beatles were an English rock band formed in Liverpool in 1960.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             // Update mock to have different artist
@@ -186,7 +202,7 @@ describe( 'handleBandCommand', () => {
         } );
 
         it( 'should handle AI service errors', async () => {
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockRejectedValue( new Error( 'AI service error' ) );
 
@@ -202,7 +218,7 @@ describe( 'handleBandCommand', () => {
         } );
 
         it( 'should handle "No response" from AI', async () => {
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( 'An error occurred while connecting to Google Gemini. Please wait a minute and try again' );
 
@@ -221,7 +237,7 @@ describe( 'handleBandCommand', () => {
         } );
 
         it( 'should handle AI service throwing an error', async () => {
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
             mockServices.machineLearningService.askGoogleAI.mockImplementation( () => {
                 throw new Error( 'Network error' );
@@ -261,7 +277,7 @@ describe( 'handleBandCommand', () => {
             const mockAIResponse = 'Queen is a British rock band formed in London in 1970. The original lineup consisted of lead vocalist and pianist Freddie Mercury, guitarist and vocalist Brian May, bass guitarist John Deacon, and drummer and vocalist Roger Taylor.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const result = await handleBandCommand( {
@@ -271,14 +287,14 @@ describe( 'handleBandCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Queen**\n\nQueen is a British rock band formed in London in 1970. The original lineup consisted of lead vocalist and pianist Freddie Mercury, guitarist and vocalist Brian May, bass guitarist John Deacon, and drummer and vocalist Roger Taylor.' );
+            expect( result.response ).toBe( 'Queen is a British rock band formed in London in 1970. The original lineup consisted of lead vocalist and pianist Freddie Mercury, guitarist and vocalist Brian May, bass guitarist John Deacon, and drummer and vocalist Roger Taylor.' );
         } );
 
         it( 'should handle different artists', async () => {
             const mockAIResponse = 'Led Zeppelin were an English rock band formed in London in 1968.';
             mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
+            const mockTemplate = 'I\'m currently listening to {artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
             const differentArtistServices = {
@@ -300,7 +316,7 @@ describe( 'handleBandCommand', () => {
             } );
 
             expect( result.success ).toBe( true );
-            expect( result.response ).toBe( '🎵 **Led Zeppelin**\n\nLed Zeppelin were an English rock band formed in London in 1968.' );
+            expect( result.response ).toBe( 'Led Zeppelin were an English rock band formed in London in 1968.' );
         } );
 
         it( 'should use default template when dataService returns null', async () => {
@@ -322,23 +338,5 @@ describe( 'handleBandCommand', () => {
         } );
     } );
 
-    describe( 'logging', () => {
-        it( 'should log debug information about the artist being queried', async () => {
-            const mockAIResponse = 'Test band response';
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
-            const mockTemplate = 'I\'m currently listening to ${artistName}. Tell me about them. Include facts such as when and where they formed, when their first and most recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words';
-            mockServices.dataService.getValue.mockReturnValue( mockTemplate );
-
-            await handleBandCommand( {
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( mockServices.logger.debug ).toHaveBeenCalledWith(
-                '[band] Asking AI about: Bohemian Rhapsody by Queen'
-            );
-        } );
-    } );
 } );

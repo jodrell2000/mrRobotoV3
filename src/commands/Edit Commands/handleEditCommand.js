@@ -10,45 +10,81 @@ const hidden = false;
 const EDITABLE_MESSAGES = {
     'welcomeMessage': {
         name: 'Welcome Message',
-        availableTokens: [ '{username}', '{hangoutName}' ],
+        availableTokens: [ '{username}', '{hangoutName}', '{botName}' ],
         example: 'Hi {username}, welcome to {hangoutName}!',
         dataKey: 'editableMessages.welcomeMessage'
     },
     'nowPlayingMessage': {
         name: 'Now Playing Message',
-        availableTokens: [ '{username}', '{trackName}', '{artistName}' ],
+        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{botName}' ],
         example: '{username} is now playing {trackName} by {artistName}',
         dataKey: 'editableMessages.nowPlayingMessage'
     },
     'justPlayedMessage': {
         name: 'Just Played Message',
-        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{likes}', '{dislikes}', '{stars}' ],
+        availableTokens: [ '{username}', '{trackName}', '{artistName}', '{likes}', '{dislikes}', '{stars}', '{botName}' ],
         example: '{username} played...\n{trackName} by {artistName}\nStats: 👍 {likes} 👎 {dislikes} ❤️ {stars}',
         dataKey: 'editableMessages.justPlayedMessage'
     },
     'popfactsQuestion': {
         name: 'Popfacts AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'Tell me about the song ${trackName} by ${artistName}. Please provide interesting facts.',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Tell me about the song {trackName} by {artistName}. Please provide interesting facts.',
         dataKey: 'mlQuestions.popfactsQuestion'
     },
     'whatyearQuestion': {
         name: 'What Year AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'In what year was the song ${trackName} by ${artistName} originally released?',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'In what year was the song {trackName} by {artistName} originally released?',
         dataKey: 'mlQuestions.whatyearQuestion'
     },
     'meaningQuestion': {
         name: 'Meaning AI Question Template',
-        availableTokens: [ '${trackName}', '${artistName}' ],
-        example: 'What is the meaning behind the lyrics of ${trackName} by ${artistName}?',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'What is the meaning behind the lyrics of {trackName} by {artistName}?',
         dataKey: 'mlQuestions.meaningQuestion'
     },
     'bandQuestion': {
         name: 'Band AI Question Template',
-        availableTokens: [ '${artistName}' ],
-        example: 'Tell me about ${artistName}?',
+        availableTokens: [ '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Tell me about {artistName}?',
         dataKey: 'mlQuestions.bandQuestion'
+    },
+    'introQuestion': {
+        name: 'Intro AI Question Template',
+        availableTokens: [ '{trackName}', '{artistName}', '{username}', '{hangoutName}', '{botName}' ],
+        example: 'Give me a brief introduction to {artistName}. What should I know about them?',
+        dataKey: 'mlQuestions.introQuestion'
+    },
+    'MLInstructions': {
+        name: 'AI System Instructions',
+        availableTokens: [ '{hangoutName}', '{botName}' ],
+        example: 'When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz',
+        dataKey: 'Instructions.MLInstructions'
+    },
+    'MLPersonality': {
+        name: 'AI Personality',
+        availableTokens: [ '{hangoutName}', '{botName}' ],
+        example: 'You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.',
+        dataKey: 'Instructions.MLPersonality'
+    },
+    'timezone': {
+        name: 'Timezone Configuration',
+        availableTokens: [],
+        example: 'Europe/London (or America/New_York, America/Los_Angeles, Australia/Sydney, etc.)',
+        dataKey: 'configuration.timezone'
+    },
+    'locale': {
+        name: 'Locale Configuration',
+        availableTokens: [],
+        example: 'en-GB (or en-US, fr-FR, de-DE, etc.)',
+        dataKey: 'configuration.locale'
+    },
+    'timeFormat': {
+        name: 'Time Format (12 or 24 hour)',
+        availableTokens: [],
+        example: '24 (for 24-hour format) or 12 (for 12-hour format with AM/PM)',
+        dataKey: 'configuration.timeFormat'
     }
 };
 
@@ -58,19 +94,36 @@ const EDITABLE_MESSAGES = {
 async function handleListCommand ( services, context, responseChannel ) {
     const { messageService } = services;
 
-    // Separate messages and questions
+    // Separate messages, questions, system settings, and configuration
     const messages = [];
     const questions = [];
+    const systemSettings = [];
+    const configSettings = [];
 
     Object.entries( EDITABLE_MESSAGES ).forEach( ( [ key, info ] ) => {
         if ( info.dataKey.startsWith( 'editableMessages.' ) ) {
             messages.push( `• **${ key }** - ${ info.name }` );
         } else if ( info.dataKey.startsWith( 'mlQuestions.' ) ) {
             questions.push( `• **${ key }** - ${ info.name }` );
+        } else if ( info.dataKey.startsWith( 'configuration.' ) ) {
+            configSettings.push( `• **${ key }** - ${ info.name }` );
+        } else {
+            // Handle other items like MLInstructions
+            systemSettings.push( `• **${ key }** - ${ info.name }` );
         }
     } );
 
-    const response = `**📝 Editable Messages and Questions**\n\n**Messages:**\n${ messages.join( '\n' ) }\n\n**AI Questions:**\n${ questions.join( '\n' ) }\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;
+    let response = `**📝 Editable Messages and Questions**\n\n**Messages:**\n${ messages.join( '\n' ) }\n\n**AI Questions:**\n${ questions.join( '\n' ) }`;
+
+    if ( systemSettings.length > 0 ) {
+        response += `\n\n**System Settings:**\n${ systemSettings.join( '\n' ) }`;
+    }
+
+    if ( configSettings.length > 0 ) {
+        response += `\n\n**Configuration:**\n${ configSettings.join( '\n' ) }`;
+    }
+
+    response += `\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template`;
 
     await messageService.sendResponse( response, {
         responseChannel,
@@ -114,10 +167,10 @@ async function handleShowCommand ( messageType, services, context, responseChann
     try {
         // Load current data
         await dataService.loadData();
-        
+
         const messageInfo = EDITABLE_MESSAGES[ messageType ];
         const currentTemplate = dataService.getValue( messageInfo.dataKey );
-        
+
         const response = `**${ messageInfo.name } Template:**\n\n\`\`\`\n${ currentTemplate || messageInfo.example }\n\`\`\`\n\n**Available tokens:** ${ messageInfo.availableTokens.join( ', ' ) }\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit ${ messageType } <newTemplate>\``;
 
         await messageService.sendResponse( response, {
@@ -136,7 +189,7 @@ async function handleShowCommand ( messageType, services, context, responseChann
     } catch ( error ) {
         logger.error( `Error showing template for ${ messageType }: ${ error.message }` );
         const response = `❌ Failed to show template for ${ messageInfo.name }: ${ error.message }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,

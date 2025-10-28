@@ -119,7 +119,9 @@ async function processCommand ( command, messageRemainder, services, context = {
     }
 
     // Check user's role and command permissions
-    const userRole = await serviceContainer.stateService.getUserRole( context.sender );
+    // Handle both string UUID (normal commands) and object with uuid property (triggered commands)
+    const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
+    const userRole = await serviceContainer.stateService.getUserRole( senderUuid );
     const commandLevel = commands[ trimmedCommand ].requiredRole || 'USER';
 
     if ( !hasPermission( userRole, commandLevel ) ) {

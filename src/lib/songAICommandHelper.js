@@ -67,25 +67,94 @@ async function executeSongAICommand ( commandParams, config ) {
         }
         questionTemplate = questionTemplate || config.defaultTemplate;
 
-        const theQuestion = questionTemplate
-            .replace( /\${trackName}/g, trackName )
-            .replace( /\${artistName}/g, artistName );
+        // Get additional context for token replacement
+        const currentDjUuid = services.hangoutState?.djs?.[ 0 ]?.uuid;
+        let username = 'Someone';
+        let usernameMention = 'Someone';
 
-        logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
+        if ( currentDjUuid ) {
+            try {
+                // Get actual display name for AI context
+                username = await services.hangUserService.getUserNicknameByUuid( currentDjUuid );
+                // Create mention format for final response
+                usernameMention = `<@uid:${ currentDjUuid }>`;
+            } catch ( error ) {
+                logger.debug( `[${ config.commandName }] Could not get DJ username for UUID ${ currentDjUuid }: ${ error.message }` );
+                // Fallback to command sender if DJ username lookup fails
+                username = context?.sender?.username || 'Someone';
+                usernameMention = username;
+            }
+        } else {
+            // Fallback to command sender if no current DJ
+            username = context?.sender?.username || 'Someone';
+            usernameMention = username;
+        }
+
+        const hangoutName = services.stateService.getHangoutName();
+        const botName = dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
+
+        const theQuestion = questionTemplate
+            .replace( /\{trackName\}/g, trackName )
+            .replace( /\{artistName\}/g, artistName )
+            .replace( /\{username\}/g, username )
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
+
+        // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
         // Get response from the machine learning service
         const aiResponse = await machineLearningService.askGoogleAI( theQuestion );
 
+        // Debug: Log the raw AI response
+        // logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
+        // logger.debug( `[${ config.commandName }] AI response type: ${ typeof aiResponse }` );
+        // logger.debug( `[${ config.commandName }] AI response length: ${ aiResponse ? aiResponse.length : 'null/undefined' }` );
+
+        // Check response validity
+        const isValidResponse = aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" );
+        // logger.debug( `[${ config.commandName }] Is valid response: ${ isValidResponse }` );
+
+        if ( !isValidResponse ) {
+            logger.warn( `[${ config.commandName }] Invalid AI response detected - aiResponse: "${ aiResponse }"` );
+        }
+
+        // Replace DJ display name with mention format in AI response
+        let processedAiResponse = aiResponse;
+        if ( aiResponse && username !== 'Someone' && username !== usernameMention ) {
+            // logger.debug( `[${ config.commandName }] Attempting mention replacement - username: "${ username }", mention: "${ usernameMention }"` );
+
+            // Replace all instances of the display name with the mention format
+            const usernameRegex = new RegExp( username.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ), 'g' );
+            processedAiResponse = aiResponse.replace( usernameRegex, usernameMention );
+
+            // if ( processedAiResponse !== aiResponse ) {
+            //     logger.debug( `[${ config.commandName }] Mention replacement performed - original: "${ aiResponse }", processed: "${ processedAiResponse }"` );
+            // } else {
+            //     logger.debug( `[${ config.commandName }] No mention replacement needed - username not found in response` );
+            // }
+        } else {
+            logger.debug( `[${ config.commandName }] Skipping mention replacement - aiResponse: ${ !!aiResponse }, username: "${ username }", mention: "${ usernameMention }"` );
+        }
+
         // Format the response
         let response;
-        if ( aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" ) ) {
+        // logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
+
+        if ( processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) ) {
+            // logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
+
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
-                response = config.responseFormatter( trackName, artistName, aiResponse );
+                response = config.responseFormatter( trackName, artistName, processedAiResponse );
+                // logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
             } else {
-                response = `🎵 **${ trackName }** by **${ artistName }**\n\n${ aiResponse }`;
+                response = `${ processedAiResponse }`;
+                // logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
             }
         } else {
+            logger.warn( `[${ config.commandName }] AI response failed validation, using error message` );
+            // logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
+
             // Create specific error message with song details, customizing based on command
             if ( config.commandName === 'popfacts' ) {
                 response = `🎵 Sorry, I couldn't get facts about "${ trackName }" by ${ artistName } right now. Please try again later.`;
@@ -111,6 +180,18 @@ async function executeSongAICommand ( commandParams, config ) {
 
     } catch ( error ) {
         logger.error( `[${ config.commandName }] Error getting song facts: ${ error.message }` );
+        logger.debug( `[${ config.commandName }] Error stack: ${ error.stack }` );
+
+        // Safely log context variables that might not be defined
+        try {
+            const contextInfo = {
+                trackName: typeof trackName !== 'undefined' ? trackName : 'undefined',
+                artistName: typeof artistName !== 'undefined' ? artistName : 'undefined'
+            };
+            logger.debug( `[${ config.commandName }] Error context: ${ JSON.stringify( contextInfo ) }` );
+        } catch ( debugError ) {
+            logger.debug( `[${ config.commandName }] Could not log error context: ${ debugError.message }` );
+        }
 
         // Use command-specific error message for catch block
         let response;

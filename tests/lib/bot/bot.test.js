@@ -19,12 +19,21 @@ jest.mock( '../../../src/lib/logging', () => ( {
   }
 } ) );
 
-// Mock CometChatApi
-jest.mock( '../../../src/services/cometchatApi', () => {
+// Mock RetryService
+jest.mock( '../../../src/services/retryService', () => {
   return jest.fn().mockImplementation( () => ( {
-    // Add any methods that CometChatApi uses
+    executeWithRetry: jest.fn(),
+    getCircuitStatus: jest.fn(),
+    resetCircuitBreaker: jest.fn(),
+    isCircuitOpen: jest.fn()
   } ) );
 } );
+
+// Mock CometChatApi
+jest.mock( '../../../src/services/cometchatApi', () => ( {
+  setRetryService: jest.fn(),
+  // Add any methods that CometChatApi uses
+} ) );
 
 // Mock MessageService
 jest.mock( '../../../src/services/messageService', () => ( {

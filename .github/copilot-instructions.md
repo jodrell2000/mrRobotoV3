@@ -23,7 +23,7 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Ensure tests cover edge cases and error handling
 
 ## Documentation
-- When adding new features or making significant changes, update the README.md file where necessary
+- When adding new features or making significant changes, always update the CHANGELOG's unreleased section and the README.md file where necessary
 
 ## User interactions
 - Ask questions if you are unsure about the implementation details, design choices, or need clarification on the requirements

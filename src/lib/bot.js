@@ -388,7 +388,20 @@ class Bot {
 
   async _joinCometChat () {
     this.services.logger.debug( 'Joining the chat...' );
-    await this.services.messageService.joinChat( this.services.config.HANGOUT_ID );
+    try {
+      const result = await this.services.messageService.joinChat( this.services.config.HANGOUT_ID );
+
+      // Check if this was an "already joined" success case
+      if ( result?.data?.alreadyMember ) {
+        this.services.logger.debug( '✅ Already a member of CometChat group' );
+      } else {
+        this.services.logger.debug( '✅ Successfully joined CometChat group' );
+      }
+    } catch ( error ) {
+      this.services.logger.error( `❌ Error joining CometChat group: ${ error.message }` );
+      this.services.logger.warn( '⚠️ Continuing without CometChat group membership - some features may not work' );
+      // Don't throw - allow bot to continue with limited functionality
+    }
   }
 
   async _createSocketConnection () {
@@ -645,7 +658,7 @@ class Bot {
         return; // No new messages to process
       }
 
-      // this.services.logger.debug( `🔄 [processNewPublicMessages] Processing ${messages.length} new public messages` );
+      this.services.logger.info( `🔄 [processNewPublicMessages] Processing ${ messages.length } new public messages` );
       await this._processMessageBatch( messages );
     } catch ( error ) {
       // More defensive error handling
@@ -904,7 +917,7 @@ class Bot {
 
     if ( this._shouldIgnoreMessage( sender ) ) return;
 
-    this.services.logger.debug( `[_processSingleMessage] Processing message ID: ${ message?.id }: "${ chatMessage }" from ${ sender }` );
+    // this.services.logger.debug( `[_processSingleMessage] Processing message ID: ${ message?.id }: "${ chatMessage }" from ${ sender }` );
 
     await this._handleMessage( chatMessage, sender, message );
   }
@@ -929,10 +942,10 @@ class Bot {
         // Persist private message tracking to service container
         try {
           this.services.setState( 'lastPrivateMessageTracking', this.lastPrivateMessageTracking );
-          this.services.logger.debug( `✅ [_updateMessageTracking] Private message tracking updated for user ${ sender }:` );
-          this.services.logger.debug( `   📨 Previous: { lastMessageId: ${ previousTracking?.lastMessageId || 'none' }, lastTimestamp: ${ previousTracking?.lastTimestamp || 'none' } }` );
-          this.services.logger.debug( `   📨 Current:  { lastMessageId: ${ message.id }, lastTimestamp: ${ normalizedTimestamp } } (normalized from ${ message.sentAt })` );
-          this.services.logger.debug( `   💾 State persisted successfully` );
+          // this.services.logger.debug( `✅ [_updateMessageTracking] Private message tracking updated for user ${ sender }:` );
+          // this.services.logger.debug( `   📨 Previous: { lastMessageId: ${ previousTracking?.lastMessageId || 'none' }, lastTimestamp: ${ previousTracking?.lastTimestamp || 'none' } }` );
+          // this.services.logger.debug( `   📨 Current:  { lastMessageId: ${ message.id }, lastTimestamp: ${ normalizedTimestamp } } (normalized from ${ message.sentAt })` );
+          // this.services.logger.debug( `   💾 State persisted successfully` );
         } catch ( error ) {
           this.services.logger.error( `❌ [_updateMessageTracking] Failed to persist private message tracking state for user ${ sender }: ${ error.message }` );
         }
@@ -955,7 +968,7 @@ class Bot {
 
   _extractChatMessage ( message ) {
     const messageText = message?.data?.metadata?.chatMessage?.message ?? ''
-    this.services.logger.debug( `[_extractChatMessage] Chat: ${ messageText }` );
+    // this.services.logger.debug( `[_extractChatMessage] Chat: ${ messageText }` );
     return messageText
   }
 
@@ -969,7 +982,7 @@ class Bot {
   }
 
   async _handleMessage ( chatMessage, sender, fullMessage ) {
-    this.services.logger.debug( `[_handleMessage] Chat: ${ chatMessage }` );
+    // this.services.logger.debug( `[_handleMessage] Chat: ${ chatMessage }` );
     try {
       // Check if parseCommands exists and is a function
       if ( typeof this.services.parseCommands === 'function' ) {
