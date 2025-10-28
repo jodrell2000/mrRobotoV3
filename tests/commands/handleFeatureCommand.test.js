@@ -1,3 +1,8 @@
+// Mock the config BEFORE requiring the command
+jest.mock( '../../src/config.js', () => ( {
+  COMMAND_SWITCH: '!'
+} ) );
+
 const handleFeatureCommand = require( '../../src/commands/Bot Commands/handleFeatureCommand' );
 
 describe( 'handleFeatureCommand', () => {
@@ -35,8 +40,8 @@ describe( 'handleFeatureCommand', () => {
     it( 'should allow owners to use feature command', async () => {
       services.stateService.getUserRole.mockReturnValue( 'owner' );
       services.featuresService.getAllFeatures.mockReturnValue( {
-        enabled: ['welcomeMessage'],
-        disabled: ['nowPlayingMessage']
+        enabled: [ 'welcomeMessage' ],
+        disabled: [ 'nowPlayingMessage' ]
       } );
 
       const result = await handleFeatureCommand( commandParams );
@@ -53,8 +58,8 @@ describe( 'handleFeatureCommand', () => {
       expect( result.success ).toBe( false );
       expect( result.response ).toContain( '❌ Only the room owner can manage features.' );
       expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-        expect.stringContaining('❌ Only the room owner can manage features.'),
-        expect.any(Object)
+        expect.stringContaining( '❌ Only the room owner can manage features.' ),
+        expect.any( Object )
       );
     } );
 
@@ -66,8 +71,8 @@ describe( 'handleFeatureCommand', () => {
       expect( result.success ).toBe( false );
       expect( result.response ).toContain( '❌ Only the room owner can manage features.' );
       expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-        expect.stringContaining('❌ Only the room owner can manage features.'),
-        expect.any(Object)
+        expect.stringContaining( '❌ Only the room owner can manage features.' ),
+        expect.any( Object )
       );
     } );
   } );
@@ -80,8 +85,8 @@ describe( 'handleFeatureCommand', () => {
 
     it( 'should display enabled and disabled features', async () => {
       services.featuresService.getAllFeatures.mockReturnValue( {
-        enabled: ['welcomeMessage'],
-        disabled: ['nowPlayingMessage']
+        enabled: [ 'welcomeMessage' ],
+        disabled: [ 'nowPlayingMessage' ]
       } );
 
       const result = await handleFeatureCommand( commandParams );
@@ -97,7 +102,7 @@ describe( 'handleFeatureCommand', () => {
 
     it( 'should handle all features enabled', async () => {
       services.featuresService.getAllFeatures.mockReturnValue( {
-        enabled: ['welcomeMessage', 'nowPlayingMessage'],
+        enabled: [ 'welcomeMessage', 'nowPlayingMessage' ],
         disabled: []
       } );
 
@@ -113,7 +118,7 @@ describe( 'handleFeatureCommand', () => {
     it( 'should handle all features disabled', async () => {
       services.featuresService.getAllFeatures.mockReturnValue( {
         enabled: [],
-        disabled: ['welcomeMessage', 'nowPlayingMessage']
+        disabled: [ 'welcomeMessage', 'nowPlayingMessage' ]
       } );
 
       const result = await handleFeatureCommand( commandParams );

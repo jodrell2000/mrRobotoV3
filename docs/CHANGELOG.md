@@ -14,16 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 3. Add both to your local `data.json` file in the root level (same level as `botData`, `editableMessages`, etc.)
 4. The sections should look something like:
    ```json
-  "Instructions": {
-    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
-    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
-  },
-  "configuration": {
-    "timezone": "Europe/London",
-    "locale": "en-GB", 
-    "dateFormat": "DD/MM/YYYY",
-    "timeFormat": "24"
-  },
+   "Instructions": {
+     "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
+     "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
+   },
+   "configuration": {
+     "timezone": "Europe/London",
+     "locale": "en-GB", 
+     "dateFormat": "DD/MM/YYYY",
+     "timeFormat": "24"
+   }
    ```
 5. Customize the instructions and configuration as desired to match your bot's personality, behavior, and location requirements
 
