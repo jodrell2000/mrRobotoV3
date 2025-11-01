@@ -1,3 +1,4 @@
+
 const config = require( '../config.js' );
 
 // Set required role level for this command
@@ -7,10 +8,11 @@ const hidden = true;
 const enabled = true; // Always enabled to handle unknown commands
 
 /**
- * Handles unknown commands
+
+/**
+ * Handles unknown commands with a simple fallback message.
  * @param {Object} commandParams - Standard command parameters
  * @param {string} commandParams.command - The command name
- * @param {string} commandParams.args - Command arguments
  * @param {Object} commandParams.services - Service container
  * @param {Object} commandParams.context - Command context
  * @param {string} commandParams.responseChannel - Response channel ('public' or 'request')
@@ -19,6 +21,7 @@ const enabled = true; // Always enabled to handle unknown commands
 async function handleUnknownCommand ( commandParams ) {
   const { command, services, context, responseChannel = 'request' } = commandParams;
   const { messageService } = services;
+
   const response = `❓ Unknown command: "${ command }". Type ${ config.COMMAND_SWITCH }help for available commands.`;
   await messageService.sendResponse( response, {
     responseChannel,
@@ -35,6 +38,7 @@ async function handleUnknownCommand ( commandParams ) {
 }
 
 // Attach metadata to the function
+
 handleUnknownCommand.requiredRole = requiredRole;
 handleUnknownCommand.description = description;
 handleUnknownCommand.hidden = hidden;

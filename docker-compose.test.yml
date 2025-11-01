@@ -1,40 +1,40 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mrroboto:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: mrroboto-bot
     restart: unless-stopped
-    
+
     # Environment variables for testing (without .env file initially)
     environment:
       - NODE_ENV=production
       - TZ=UTC
       - LOG_LEVEL=info
-    
+
     # Mount volumes for persistent data
     volumes:
-      # Persistent storage for data.json (bot's memory)
-      - ./data.json:/usr/src/app/data.json
+      # Persistent storage for data directory (bot's memory and config)
+      - ./data:/usr/src/app/data
       # Persistent storage for logs
       - ./logs:/usr/src/app/logs
-    
+
     # Resource limits to prevent runaway processes
     deploy:
       resources:
         limits:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 256M
-          cpus: '0.25'
-    
+          cpus: "0.25"
+
     # Network configuration
     networks:
       - mrroboto-network
-    
+
     # Health check
     healthcheck:
       test: ["CMD", "node", "-e", "console.log('Health check passed')"]
@@ -42,7 +42,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
     # Logging configuration
     logging:
       driver: "json-file"

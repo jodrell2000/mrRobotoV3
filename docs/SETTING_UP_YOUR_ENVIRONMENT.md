@@ -21,8 +21,8 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
    - [Step 9: Adding a Google API key for Machine Learning services (optional)](#step-9-adding-a-google-api-key-for-machine-learning-services-optional)
 
-[The data.json file](#understanding-datajson)
-   - [Step 1: Creating your data.json file](#step-1-creating-your-datajson-file)
+[The botConfig.json file](#understanding-botconfigjson)
+   - [Step 1: Creating your botConfig.json file](#step-1-creating-your-botconfigjson-file)
    - [Step 2: Welcome Message Configuration](#step-2-welcome-message-configuration)
    - [Step 3: Bot Data Configuration](#step-3-bot-data-configuration)
 
@@ -99,7 +99,7 @@ If the bookmarklet doesn't work, you can get your token manually:
       * avatarId: this can be either bot-01 or bot-2 (yes, there's an inconsistency in the names on the hang.fm site). Both are grey robot avatars. bot-01 has blue eyes and detailing, bot-2 has green eyes and orange detailing
       * color: this si the colour you want your Bot's name to appear as in the chat. The colour value needs to be a hex representation of a colour, without the leading `#` character, eg "ff9900" for orange. Look here if you need help finding a colour: https://www.w3schools.com/colors/colors_picker.asp
 
-   * You will also need these details later when you fill out the information in the data.json file so don't lose them
+   * You will also need these details later when you fill out the information in the botConfig.json file so don't lose them
 
    * <a name="example-registration"></a>The request body should end up looking something like,
       ```json
@@ -230,13 +230,13 @@ The bot includes Machine Learning features that can answer questions about songs
 
 ---
 
-## Understanding data.json
+## Understanding botConfig.json
 **Time: ~5 minutes**
 
-## Step 1: Creating your data.json file
-In the project root there is a file called `data.json_example`. 
+## Step 1: Creating your botConfig.json file
+In the data directory there is a file called `botConfig.json_example`. 
 
-Create a copy of this file and name it `data.json`
+Create a copy of this file and name it `botConfig.json` and place it in the `data` directory
 
 This file contains the Bot's "memory" and serves two purposes:
 1. Initial configuration when the Bot starts
@@ -262,7 +262,7 @@ This file contains the Bot's "memory" and serves two purposes:
 Next we have to update the botData section
    * this is data used with Hang.fm itself, as well as the Chat provider CometChat
    * the data in this section *MUST* mirror the data entered when the Bot was registered
-   * if the data here (matching the [registration example above](#example-registration)) was used to register the Bot, then the data.json file should be as in the example above
+   * if the data here (matching the [registration example above](#example-registration)) was used to register the Bot, then the botConfig.json file should be as in the example above
 
 ## Step 3: Message & Question Template Configurations
 The Bot can send messages in chat related to Hangout users and the songs that are playing. In all of the following sections the following substitutions apply
@@ -271,7 +271,7 @@ The Bot can send messages in chat related to Hangout users and the songs that ar
    * the token {artistName} will be substituted for the name of the artist playing
    * the token {hangoutName} will be substituted for the name of the Hangout
 
-All of the items in the "editableMessages" and "mlQuestions" sections can be updated while the Bot is running using the "edit" command, but feel free to update them directly in the data.json file before starting the Bot instead
+All of the items in the "editableMessages" and "mlQuestions" sections can be updated while the Bot is running using the "edit" command, but feel free to update them directly in the botConfig.json file before starting the Bot instead
 
 **Messages**
    * "welcomeMessage": this is used by the Bot to greet people when they arrive in the Hangout

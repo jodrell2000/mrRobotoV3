@@ -1,0 +1,53 @@
+{
+    "props": {
+        "messages": [
+            "{senderUsername} gives the props to {djUsername}",
+            "nice one {djUsername}, {senderUsername} thinks that's an absolute banger"
+        ],
+        "pictures": [
+            "https://media.giphy.com/media/3o7btVYvxUMxrLC3yo/giphy.gif",
+            "https://media.giphy.com/media/JWhlrEei7U9aKJyEDv/giphy.gif",
+            "https://media.giphy.com/media/3ofT5J5ESXh8NTDcpG/giphy.gif",
+            "https://media.giphy.com/media/3oEjHV0z8S7WM4MwnK/giphy.gif",
+            "https://media.giphy.com/media/26BRvQJ3ke9rHRPyg/giphy.gif",
+            "https://media.giphy.com/media/HX3lSnGXZnaWk/giphy.gif",
+            "https://media.tenor.com/images/00cec448b487873b51ad2e7ec3933beb/tenor.gif",
+            "https://media.giphy.com/media/lEVZJzy4w15qE/giphy-downsized-large.gif",
+            "https://media.giphy.com/media/j2ptl95PRwZTo0IAuP/giphy.gif",
+            "https://media.giphy.com/media/39hsA5NQKeaFXNgMav/giphy.gif",
+            "https://media.giphy.com/media/XedlfvtiYgrGByude7/giphy-downsized-large.gif",
+            "https://media.giphy.com/media/MaJ7An3EUgLCCh4lXS/giphy-downsized.gif",
+            "https://media.giphy.com/media/mCsVKJJ2U2gJd8qM8Y/giphy.gif",
+            "https://media.giphy.com/media/3o6Zt3ZPOLv7uTQYfu/giphy.gif",
+            "https://media.giphy.com/media/mXnO9IiWWarkI/giphy.gif",
+            "https://media.giphy.com/media/6KRJb6JWCffc9Ys312/giphy.gif",
+            "https://media.giphy.com/media/NSDmc1yecieZBbMSFG/giphy-downsized.gif",
+            "https://media.giphy.com/media/gmDxGEhA0O4foRitkY/giphy-downsized.gif",
+            "https://media.giphy.com/media/l46CDHTqbmnGZyxKo/giphy.gif",
+            "https://media.giphy.com/media/d2Z9QYzA2aidiWn6/giphy.gif",
+            "https://media.giphy.com/media/xTiTnBMEz7zAKs57LG/giphy.gif",
+            "https://media.giphy.com/media/hZfm9Pj95F9Mk/giphy.gif",
+            "https://media.giphy.com/media/ISzvBhcmKG6mFVGYLG/giphy-downsized.gif",
+            "https://media.giphy.com/media/3ohhweiVB36rAlqVCE/giphy-downsized.gif",
+            "https://media.giphy.com/media/Z6f7vzq3iP6Mw/giphy.gif",
+            "https://media.giphy.com/media/IwkvhmcNThE2s/giphy.gif",
+            "https://media.giphy.com/media/7SranzkHGea2c/giphy.gif",
+            "https://media.giphy.com/media/l0MYDGA3Du1hBR4xG/giphy.gif",
+            "https://media.giphy.com/media/l0HlFTlbKx9KMZC5q/giphy.gif",
+            "https://media.giphy.com/media/3ohhwwRHuN2RSTnTgc/giphy.gif",
+            "https://media.giphy.com/media/U0nW0QagDmTwA/giphy.gif",
+            "https://media.giphy.com/media/OaC8dXRUal6qJcvGDl/giphy-downsized.gif",
+            "https://media.giphy.com/media/GazPMD1iWfgcM/giphy.gif",
+            "https://media.giphy.com/media/Jk4Sucdz1oGd2/giphy.gif",
+            "https://media.giphy.com/media/l0Hlur14LliwH8Dcc/giphy.gif",
+            "https://media.giphy.com/media/3yFr6ODcNHhrW/giphy.gif",
+            "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeXAycmc0MWdtcjFlcGt1bHpnMXRjYmMyMnNqcWZkdWxyZHQ3OG5lbiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/4B55WkX44ijjG/giphy.gif",
+            "https://i.imgur.com/U7LYL1c.gif",
+            "https://media3.giphy.com/media/8c6IfP6VuSzNVutmDS/giphy.webp?cid=5dca526eeq77udghh1ddnq7uqal5rrovnt45deus1ug976pt&ep=v1_gifs_search&rid=giphy.webp",
+            "https://media3.giphy.com/media/vgwG8SvPs1cltGeikP/200.gif?cid=5dca526ehfyec71pbzpt8e0dx2luqi25ysinc0b4sbe5seqh&ep=v1_gifs_search&rid=200.gif&ct=g",
+            "https://media0.giphy.com/media/uVfEOGqIsoRJFYsAyC/200w.gif?cid=6c09b952zmhzjt4d7u5zhkfryd7mnwlsip2sp2ho884qo25w&ep=v1_gifs_search&rid=200w.gif",
+            "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTIxOWNkemRvdDl6Ym53YTNsbjh0eXVocm1pZHVrMjFrZ2VjMDIwYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/IdfZoqnHEEqFkXBUFO/giphy.gif",
+            null
+        ]
+    }
+}

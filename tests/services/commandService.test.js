@@ -7,7 +7,7 @@ jest.mock( '../../src/services/messageService.js', () => ( {
   }
 } ) );
 
-// Mock fs module to prevent reading actual data.json file
+// Mock fs module to prevent reading actual botConfig.json file
 jest.mock( 'fs', () => ( {
   readFileSync: jest.fn().mockReturnValue( JSON.stringify( {
     disabledCommands: [],

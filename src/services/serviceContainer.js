@@ -84,7 +84,7 @@ const services = {
     const valueToLog = typeof value === 'object' && value !== null
       ? JSON.stringify( value, null, 2 )
       : value;
-    this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
+    // this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
   },
 
   getState ( key ) {

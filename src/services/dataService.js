@@ -8,31 +8,31 @@ class DataService {
     }
 
     /**
-     * Load data from the data.json file at project root
+     * Load data from the botConfig.json file in the data directory
      * @returns {Promise<Object>} The loaded data
      * @throws {Error} If the file cannot be read or parsed
      */
     async loadData () {
         try {
-            const dataPath = path.join( process.cwd(), 'data.json' );
+            const dataPath = path.join( process.cwd(), 'data', 'botConfig.json' );
             const fileContent = await fs.readFile( dataPath, 'utf8' );
 
             try {
                 this.data = JSON.parse( fileContent );
-                logger.info( 'Successfully loaded data from data.json' );
+                logger.info( 'Successfully loaded data from botConfig.json' );
                 // logger.debug(`data: ${JSON.stringify(this.data, null, 2)}`);
                 return this.data;
             } catch ( parseError ) {
-                logger.error( `Failed to parse data.json: ${ parseError.message }` );
+                logger.error( `Failed to parse botConfig.json: ${ parseError.message }` );
                 throw parseError;
             }
         } catch ( error ) {
             if ( error.code === 'ENOENT' ) {
-                logger.warn( 'data.json not found, using empty data object' );
+                logger.warn( 'botConfig.json not found, using empty data object' );
                 this.data = {};  // Reset to empty object
                 return this.data;
             }
-            logger.error( `Error loading data.json: ${ error.message }` );
+            logger.error( `Error loading botConfig.json: ${ error.message }` );
             throw error;
         }
     }
@@ -79,11 +79,11 @@ class DataService {
 
         // Save to file
         try {
-            const dataPath = path.join( process.cwd(), 'data.json' );
+            const dataPath = path.join( process.cwd(), 'data', 'botConfig.json' );
             await fs.writeFile( dataPath, JSON.stringify( this.data, null, 2 ), 'utf8' );
             // logger.debug(`Successfully updated ${key} to ${value}`);
         } catch ( error ) {
-            logger.error( `Failed to save data.json after setting ${ key }: ${ error.message }` );
+            logger.error( `Failed to save botConfig.json after setting ${ key }: ${ error.message }` );
             throw error;
         }
     }
