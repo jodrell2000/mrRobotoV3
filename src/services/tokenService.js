@@ -15,7 +15,9 @@ class TokenService {
             '{currentTime}': () => this.getCurrentTime(),
             '{currentDate}': () => this.getCurrentDate(),
             '{currentDayOfWeek}': () => this.getCurrentDayOfWeek(),
-            '{greetingTime}': () => this.getGreetingTime()
+            '{greetingTime}': () => this.getGreetingTime(),
+            '{senderUsername}': ( context ) => this.getSenderUsername( context ),
+            '{djUsername}': ( context ) => this.getDjUsername( context )
         };
     }
 
@@ -133,6 +135,89 @@ class TokenService {
             if ( hour >= 0 && hour < 12 ) return 'morning';
             if ( hour >= 12 && hour < 18 ) return 'afternoon';
             return 'evening';
+        }
+    }
+
+    /**
+     * Get the sender's username formatted as a mention
+     * @param {Object} context - Context containing sender information
+     * @returns {Promise<string>} Formatted sender username mention
+     */
+    async getSenderUsername ( context ) {
+        try {
+            if ( !context?.sender ) {
+                return 'Unknown User';
+            }
+
+            // Extract UUID from sender (handle both string UUID and object with uuid property)
+            const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
+            
+            if ( !senderUuid ) {
+                return 'Unknown User';
+            }
+
+            // Use messageService to format the mention
+            if ( this.services?.messageService?.formatMention ) {
+                return this.services.messageService.formatMention( senderUuid );
+            }
+
+            // Fallback: try to get nickname from hangUserService
+            if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
+                try {
+                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( senderUuid );
+                    return nickname || 'Unknown User';
+                } catch ( error ) {
+                    this.logger.debug( `[TokenService] Could not get sender nickname: ${ error.message }` );
+                }
+            }
+
+            return 'Unknown User';
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting sender username: ${ error.message }` );
+            return 'Unknown User';
+        }
+    }
+
+    /**
+     * Get the current DJ's username formatted as a mention
+     * @param {Object} context - Context (not used for DJ lookup, but kept for consistency)
+     * @returns {Promise<string>} Formatted DJ username mention
+     */
+    async getDjUsername ( context ) {
+        try {
+            // Get the current DJ from hangout state
+            if ( !this.services?.stateService ) {
+                return 'No DJ';
+            }
+
+            // Get the list of DJs and use the first one (current DJ)
+            const djs = this.services.stateService._getDjs?.();
+            
+            if ( !djs || !Array.isArray( djs ) || djs.length === 0 ) {
+                return 'No DJ';
+            }
+
+            const djUuid = djs[0].uuid;
+
+            // Use messageService to format the mention
+            if ( this.services?.messageService?.formatMention ) {
+                return this.services.messageService.formatMention( djUuid );
+            }
+
+            // Fallback: try to get nickname from hangUserService
+            if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
+                try {
+                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( djUuid );
+                    return nickname || 'Unknown DJ';
+                } catch ( error ) {
+                    this.logger.debug( `[TokenService] Could not get DJ nickname: ${ error.message }` );
+                }
+            }
+
+            return 'Unknown DJ';
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting DJ username: ${ error.message }` );
+            return 'No DJ';
         }
     }
 
@@ -312,6 +397,17 @@ class TokenService {
             if ( context.stars !== undefined ) {
                 processedText = processedText.replace( /\{stars\}/g, context.stars );
             }
+            
+            // Handle dynamic username tokens separately if they weren't processed above
+            // This ensures they work even if not in the main token list
+            if ( processedText.includes( '{senderUsername}' ) && context.sender ) {
+                const senderUsername = await this.getSenderUsername( context );
+                processedText = processedText.replace( /\{senderUsername\}/g, senderUsername );
+            }
+            if ( processedText.includes( '{djUsername}' ) ) {
+                const djUsername = await this.getDjUsername( context );
+                processedText = processedText.replace( /\{djUsername\}/g, djUsername );
+            }
 
             return processedText;
         } catch ( error ) {
@@ -372,7 +468,9 @@ class TokenService {
             '{currentTime}': 'Current time',
             '{currentDate}': 'Current date',
             '{currentDayOfWeek}': 'Current day of the week',
-            '{greetingTime}': 'Time-based greeting (morning, afternoon, evening, night)'
+            '{greetingTime}': 'Time-based greeting (morning, afternoon, evening, night)',
+            '{senderUsername}': 'Username of the person who sent the command (formatted as mention)',
+            '{djUsername}': 'Username of the current DJ playing music (formatted as mention)'
         };
         return descriptions[ tokenName ] || 'Built-in token';
     }

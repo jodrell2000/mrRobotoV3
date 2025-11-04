@@ -134,56 +134,88 @@ async function processCommand ( command, messageRemainder, services, context = {
       responseChannel: 'request'    // Default response channel
     };
 
-    // Always treat 'unknown' command as an unknown command
-    if ( trimmedCommand === 'unknown' || !commands[ trimmedCommand ] ) {
+    // Handle 'unknown' command specifically - it should always use the unknown handler
+    if ( trimmedCommand === 'unknown' ) {
       return await commands.unknown( commandParams );
     }
 
-    // Check if command is disabled (unknown command is always enabled)
-    if ( isCommandDisabled( trimmedCommand ) ) {
-      const response = `❌ The "${ trimmedCommand }" command is currently disabled.`;
-      await serviceContainer.messageService.sendResponse( response, {
-        responseChannel: 'request',
-        isPrivateMessage: context?.fullMessage?.isPrivateMessage,
-        sender: context?.sender,
-        services: serviceContainer
-      } );
-      return {
-        success: false,
-        error: 'Command disabled',
-        response,
-        shouldRespond: true
-      };
+    // Check if it's a main command first
+    if ( commands[ trimmedCommand ] ) {
+      // It's a main command, check if it's disabled
+      if ( isCommandDisabled( trimmedCommand ) ) {
+        const response = `❌ The "${ trimmedCommand }" command is currently disabled.`;
+        await serviceContainer.messageService.sendResponse( response, {
+          responseChannel: 'request',
+          isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+          sender: context?.sender,
+          services: serviceContainer
+        } );
+        return {
+          success: false,
+          error: 'Command disabled',
+          response,
+          shouldRespond: true
+        };
+      }
+
+      // Check user's role and command permissions
+      const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
+      const userRole = await serviceContainer.stateService.getUserRole( senderUuid );
+      const commandLevel = commands[ trimmedCommand ].requiredRole || 'USER';
+
+      if ( !hasPermission( userRole, commandLevel ) ) {
+        const response = `❌ You don't have permission to use the "${ trimmedCommand }" command. Required role: ${ commandLevel }`;
+        await serviceContainer.messageService.sendResponse( response, {
+          responseChannel: 'request',
+          isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+          sender: context?.sender,
+          services: serviceContainer
+        } );
+        return {
+          success: false,
+          error: 'Insufficient permissions',
+          response,
+          shouldRespond: true
+        };
+      }
+
+      // Execute the main command
+      return await commands[ trimmedCommand ]( commandParams );
+    } else {
+      // Not a main command, check if it's a dynamic command or alias
+      const dynamicCommands = loadDynamicCommands();
+      const dynamicAliases = loadDynamicCommandAliases();
+      
+      let targetCommand = trimmedCommand;
+      let isDynamicCommand = false;
+
+      // Check if it's a dynamic command
+      if ( dynamicCommands.includes( trimmedCommand ) ) {
+        isDynamicCommand = true;
+      } else if ( dynamicAliases.includes( trimmedCommand ) ) {
+        // Check if it's an alias for a dynamic command
+        try {
+          const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
+          const aliasesData = JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) );
+          const aliasTarget = aliasesData[ trimmedCommand ]?.command;
+          
+          if ( aliasTarget && dynamicCommands.includes( aliasTarget ) ) {
+            targetCommand = aliasTarget;
+            isDynamicCommand = true;
+          }
+        } catch ( error ) {
+          logger.warn( `Failed to resolve alias '${ trimmedCommand }': ${ error.message }` );
+        }
+      }
+
+      if ( isDynamicCommand ) {
+        // Handle as dynamic command - all dynamic commands have USER permission
+        return await commands.dynamic( targetCommand, args, serviceContainer, context );
+      }
+
+      // Not a dynamic command or alias, treat as unknown
+      return await commands.unknown( commandParams );
     }
-
-    // Check if the command is on the aliases list, if so find the actual dynamic command
-
-    // if the command isn't an aliases, next check if it's a dynamic command
-
-    // Check user's role and command permissions
-    // Handle both string UUID (normal commands) and object with uuid property (triggered commands)
-    const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
-    const userRole = await serviceContainer.stateService.getUserRole( senderUuid );
-    const commandLevel = commands[ trimmedCommand ].requiredRole || 'USER';
-
-    if ( !hasPermission( userRole, commandLevel ) ) {
-      const response = `❌ You don't have permission to use the "${ trimmedCommand }" command. Required role: ${ commandLevel }`;
-      await serviceContainer.messageService.sendResponse( response, {
-        responseChannel: 'request',
-        isPrivateMessage: context?.fullMessage?.isPrivateMessage,
-        sender: context?.sender,
-        services: serviceContainer
-      } );
-      return {
-        success: false,
-        error: 'Insufficient permissions',
-        response,
-        shouldRespond: true
-      };
-    }
-
-    // All commands now receive the same standardized parameters
-    return await commands[ trimmedCommand ]( commandParams );
   } catch ( error ) {
     const errorMessage = error && typeof error === 'object'
       ? ( error.message || error.toString() || 'Unknown error object' )

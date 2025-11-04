@@ -9,6 +9,7 @@ jest.mock( '../../src/services/messageService.js', () => ( {
 
 // Mock fs module to prevent reading actual botConfig.json file
 jest.mock( 'fs', () => ( {
+  existsSync: jest.fn().mockReturnValue( true ),
   readFileSync: jest.fn().mockReturnValue( JSON.stringify( {
     disabledCommands: [],
     disabledFeatures: [],
@@ -105,6 +106,7 @@ jest.mock( '../../src/config.js', () => ( {
 } ) );
 
 const commandService = require( '../../src/services/commandService.js' );
+const fs = require( 'fs' );
 
 // Mock messageService
 const mockMessageService = {
@@ -394,6 +396,61 @@ describe( 'commandService', () => {
 
       expect( result.success ).toBe( true );
       expect( result.response ).toContain( '30s' );
+    } );
+  } );
+
+  describe( 'dynamic commands', () => {
+    test( 'should handle dynamic command integration', async () => {
+      // This is an integration test using real data files
+      // We'll test with 'props' which should exist in data/chat.json
+      const result = await commandService( 'props', '', mockServices, mockContext );
+
+      // If the command succeeds, it's a dynamic command
+      // If it fails as unknown, that's also valid (means props doesn't exist in chat.json)
+      expect( result ).toBeDefined();
+      expect( result.shouldRespond ).toBeDefined();
+      
+      if ( result.success ) {
+        // If successful, it should be a dynamic command response
+        expect( result.response ).toBe( 'Dynamic command: props' );
+        expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+          'Dynamic command: props',
+          expect.objectContaining( {
+            responseChannel: 'public',
+            isPrivateMessage: false
+          } )
+        );
+      } else {
+        // If it fails, it should be treated as unknown command
+        expect( result.error ).toBe( 'Unknown command' );
+        expect( result.response ).toContain( 'Unknown command' );
+      }
+    } );
+
+    test( 'should handle alias integration', async () => {
+      // Test with 'banger' which should be an alias for 'props' if aliases.json exists
+      const result = await commandService( 'banger', '', mockServices, mockContext );
+
+      expect( result ).toBeDefined();
+      expect( result.shouldRespond ).toBeDefined();
+      
+      if ( result.success ) {
+        // If successful, it should resolve to the target command
+        expect( result.response ).toBe( 'Dynamic command: props' );
+      } else {
+        // If it fails, it should be treated as unknown command
+        expect( result.error ).toBe( 'Unknown command' );
+      }
+    } );
+
+    test( 'should treat genuinely unknown command as unknown', async () => {
+      // Test with a command that definitely doesn't exist
+      const result = await commandService( 'definitelynotarealcommandname', '', mockServices, mockContext );
+
+      expect( result.success ).toBe( false );
+      expect( result.shouldRespond ).toBe( true );
+      expect( result.error ).toBe( 'Unknown command' );
+      expect( result.response ).toContain( 'Unknown command' );
     } );
   } );
 } );

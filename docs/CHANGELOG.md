@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- **Dynamic Command Management System**: Full CRUD operations for dynamic commands
+  - New `!dynamicCommand` command (MODERATOR required) for managing dynamic chat commands
+  - Subcommands: `add`, `remove`, `addMessage`, `removeMessage`, `addImage`, `removeImage`, `addAlias`, `removeAlias`
+  - Conflict detection: prevents creating commands/aliases that conflict with static commands or existing dynamic commands
+  - Image URL validation: supports giphy.com, tenor.com, imgur.com and other image hosting services
+  - Exact match deletion: only removes messages/images that match exactly what was specified
+  - Automatic file management: updates both `chat.json` and `aliases.json` to maintain data integrity
+  - Comprehensive input validation and user-friendly error messages
+
 ## [0.8.5_beta] - 2025-10-28
 ### Upgrade Instructions
 **IMPORTANT**: If upgrading from a previous version, you must add the new `Instructions` and `configuration` sections from the `data.json_example` file to your local `data.json` file:
