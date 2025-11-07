@@ -60,6 +60,16 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Use dot notation for nested keys: `'editableMessages.welcomeMessage'`
 - Always call `dataService.loadData()` before reading data in commands
 
+### StateService Usage
+- **Access hangout state via `stateService._getCurrentState()`** - this is the primary way to get live hangout state
+- StateService is initialized with hangout state and stores it as both internal state and through services.hangoutState
+- The state contains: `allUserData` (user profiles by UUID), `voteCounts`, `currentSong`, `djs`, and other hangout properties
+- `allUserData` has structure: `{ [uuid]: { userProfile: { nickname, id, uuid, ... }, position, songVotes }, ... }`
+- Use `stateService.getUserRole(uuid)` to get a user's role instead of accessing raw state
+- Use `stateService.getHangoutName()` to get the hangout name
+- Use `stateService._getDjs()` to get the current DJ list
+- When accessing hangout state from services that don't have direct stateService methods, use `services.stateService._getCurrentState()` to get live updates
+
 ### Service Container Pattern
 - All new services must be registered in `serviceContainer.js`
 - Services should be accessed through the `services` parameter, never imported directly

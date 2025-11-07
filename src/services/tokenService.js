@@ -17,7 +17,8 @@ class TokenService {
             '{currentDayOfWeek}': () => this.getCurrentDayOfWeek(),
             '{greetingTime}': () => this.getGreetingTime(),
             '{senderUsername}': ( context ) => this.getSenderUsername( context ),
-            '{djUsername}': ( context ) => this.getDjUsername( context )
+            '{djUsername}': ( context ) => this.getDjUsername( context ),
+            '{userlist}': () => this.getUserList()
         };
     }
 
@@ -151,7 +152,7 @@ class TokenService {
 
             // Extract UUID from sender (handle both string UUID and object with uuid property)
             const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
-            
+
             if ( !senderUuid ) {
                 return 'Unknown User';
             }
@@ -192,12 +193,12 @@ class TokenService {
 
             // Get the list of DJs and use the first one (current DJ)
             const djs = this.services.stateService._getDjs?.();
-            
+
             if ( !djs || !Array.isArray( djs ) || djs.length === 0 ) {
                 return 'No DJ';
             }
 
-            const djUuid = djs[0].uuid;
+            const djUuid = djs[ 0 ].uuid;
 
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
@@ -222,6 +223,40 @@ class TokenService {
     }
 
     /**
+     * Get comma-separated list of all user nicknames currently in the hangout
+     * @returns {Promise<string>} Comma-separated list of user nicknames
+     */
+    async getUserList () {
+        try {
+            // Get the hangout state from stateService
+            if ( !this.services?.stateService ) {
+                return '';
+            }
+
+            // StateService stores state in _getCurrentState() or via services.hangoutState
+            let state;
+            if ( typeof this.services.stateService._getCurrentState === 'function' ) {
+                state = this.services.stateService._getCurrentState();
+            } else if ( this.services.hangoutState ) {
+                state = this.services.hangoutState;
+            }
+
+            if ( !state?.allUserData || typeof state.allUserData !== 'object' ) {
+                return '';
+            }
+
+            // Extract all nicknames from allUserData
+            const nicknames = Object.values( state.allUserData )
+                .filter( user => user?.userProfile?.nickname )
+                .map( user => user.userProfile.nickname );
+
+            // Return comma-separated list
+            return nicknames.join( ', ' );
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting user list: ${ error.message }` );
+            return '';
+        }
+    }    /**
      * Get all available tokens (built-in + custom)
      * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
      * @returns {Object} Object containing all available tokens and their resolvers
@@ -397,7 +432,7 @@ class TokenService {
             if ( context.stars !== undefined ) {
                 processedText = processedText.replace( /\{stars\}/g, context.stars );
             }
-            
+
             // Handle dynamic username tokens separately if they weren't processed above
             // This ensures they work even if not in the main token list
             if ( processedText.includes( '{senderUsername}' ) && context.sender ) {
