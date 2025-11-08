@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- **Dynamic Command Management System**: Full CRUD operations for dynamic commands
-  - New `!dynamicCommand` command (MODERATOR required) for managing dynamic chat commands
+- **Chat Command Management System**: Full CRUD operations for chat commands
+  - New `!chatCommand` command (MODERATOR required) for managing chat commands
   - Subcommands: `add`, `remove`, `addMessage`, `removeMessage`, `addImage`, `removeImage`, `addAlias`, `removeAlias`
-  - Conflict detection: prevents creating commands/aliases that conflict with static commands or existing dynamic commands
+  - Conflict detection: prevents creating commands/aliases that conflict with static commands or existing chat commands
   - Image URL validation: supports giphy.com, tenor.com, imgur.com and other image hosting services
   - Exact match deletion: only removes messages/images that match exactly what was specified
   - Automatic file management: updates both `chat.json` and `aliases.json` to maintain data integrity

@@ -5,6 +5,10 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 
 # Code Generation Guidelines
 
+## General Guidelines
+- Keep responses concise and focused - when summarizing changes, provide one brief paragraph instead of verbose details
+- When implementing features, confirm understanding before proceeding if requirements are unclear
+
 ## Coding standards
 - Always use CommonJS modules
 - Use Node.js built-in modules and avoid external dependencies where possible
@@ -23,7 +27,8 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Ensure tests cover edge cases and error handling
 
 ## Documentation
-- When adding new features or making significant changes, always update the CHANGELOG's unreleased section and the README.md file where necessary
+- When adding new features (not bug fixes), always update the CHANGELOG's unreleased section and the README.md file where necessary
+- Do not create documentation files for bug fixes or routine changes
 
 ## User interactions
 - Ask questions if you are unsure about the implementation details, design choices, or need clarification on the requirements

@@ -65,10 +65,10 @@ function loadCommandsFromDirectory ( dirPath, commands ) {
 }
 
 /**
- * Loads dynamic command names from data/chat.json
- * @returns {string[]} Array of dynamic command names (root keys in chat.json)
+ * Loads chat command names from data/chat.json
+ * @returns {string[]} Array of chat command names (root keys in chat.json)
  */
-function loadDynamicCommands () {
+function loadChatCommands () {
   try {
     const chatPath = path.join( __dirname, '../../data/chat.json' );
     if ( !fs.existsSync( chatPath ) ) return [];
@@ -78,16 +78,16 @@ function loadDynamicCommands () {
     }
     return [];
   } catch ( error ) {
-    logger.warn( `Failed to load dynamic commands from chat.json: ${ error.message }` );
+    logger.warn( `Failed to load chat commands from chat.json: ${ error.message }` );
     return [];
   }
 }
 
 /**
- * Loads dynamic command aliases from data/aliases.json
+ * Loads chat command aliases from data/aliases.json
  * @returns {string[]} Array of alias names (root keys in aliases.json)
  */
-function loadDynamicCommandAliases () {
+function loadChatCommandAliases () {
   try {
     const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
     if ( !fs.existsSync( aliasesPath ) ) return [];
@@ -97,7 +97,7 @@ function loadDynamicCommandAliases () {
     }
     return [];
   } catch ( error ) {
-    logger.warn( `Failed to load dynamic command aliases from aliases.json: ${ error.message }` );
+    logger.warn( `Failed to load chat command aliases from aliases.json: ${ error.message }` );
     return [];
   }
 }
@@ -182,38 +182,38 @@ async function processCommand ( command, messageRemainder, services, context = {
       // Execute the main command
       return await commands[ trimmedCommand ]( commandParams );
     } else {
-      // Not a main command, check if it's a dynamic command or alias
-      const dynamicCommands = loadDynamicCommands();
-      const dynamicAliases = loadDynamicCommandAliases();
-      
-      let targetCommand = trimmedCommand;
-      let isDynamicCommand = false;
+      // Not a main command, check if it's a chat command or alias
+      const chatCommands = loadChatCommands();
+      const chatAliases = loadChatCommandAliases();
 
-      // Check if it's a dynamic command
-      if ( dynamicCommands.includes( trimmedCommand ) ) {
-        isDynamicCommand = true;
-      } else if ( dynamicAliases.includes( trimmedCommand ) ) {
-        // Check if it's an alias for a dynamic command
+      let targetCommand = trimmedCommand;
+      let isChatCommand = false;
+
+      // Check if it's a chat command
+      if ( chatCommands.includes( trimmedCommand ) ) {
+        isChatCommand = true;
+      } else if ( chatAliases.includes( trimmedCommand ) ) {
+        // Check if it's an alias for a chat command
         try {
           const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
           const aliasesData = JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) );
           const aliasTarget = aliasesData[ trimmedCommand ]?.command;
-          
-          if ( aliasTarget && dynamicCommands.includes( aliasTarget ) ) {
+
+          if ( aliasTarget && chatCommands.includes( aliasTarget ) ) {
             targetCommand = aliasTarget;
-            isDynamicCommand = true;
+            isChatCommand = true;
           }
         } catch ( error ) {
           logger.warn( `Failed to resolve alias '${ trimmedCommand }': ${ error.message }` );
         }
       }
 
-      if ( isDynamicCommand ) {
-        // Handle as dynamic command - all dynamic commands have USER permission
-        return await commands.dynamic( targetCommand, args, serviceContainer, context );
+      if ( isChatCommand ) {
+        // Handle as chat command - all chat commands have USER permission
+        return await commands.chat( targetCommand, args, serviceContainer, context );
       }
 
-      // Not a dynamic command or alias, treat as unknown
+      // Not a chat command or alias, treat as unknown
       return await commands.unknown( commandParams );
     }
   } catch ( error ) {

@@ -671,6 +671,17 @@ class Bot {
       if ( error && error.stack ) {
         this.services.logger.error( `Error stack: ${ error.stack }` );
       }
+
+      // Check if this error requires a reconnect (e.g., bot kicked from group)
+      if ( error && error.shouldReconnect ) {
+        this.services.logger.warn( '🔄 Initiating reconnect due to authorization error' );
+        try {
+          this.socket.disconnect();
+          this.socket.connect();
+        } catch ( reconnectError ) {
+          this.services.logger.error( `Failed to initiate reconnect: ${ reconnectError.message }` );
+        }
+      }
     } finally {
       this.isProcessingPublicMessages = false;
     }

@@ -107,21 +107,21 @@ node src/index.js
 
 ## 🎯 Commands Overview
 
-### Dynamic Commands
-The bot supports dynamic commands that can be managed at runtime without code changes. Moderators can create, remove, and configure dynamic commands using:
+### Chat Commands
+The bot supports chat commands that can be managed at runtime without code changes. Moderators can create, remove, and configure chat commands using:
 
 ```
-!dynamicCommand add <command>                              # Create a new dynamic command
-!dynamicCommand remove <command>                           # Delete a dynamic command
-!dynamicCommand addMessage <command> <message>             # Add a message to a command
-!dynamicCommand removeMessage <command> <message>          # Remove a message (exact match)
-!dynamicCommand addImage <command> <url>                   # Add an image URL to a command
-!dynamicCommand removeImage <command> <url>                # Remove an image (exact match)
-!dynamicCommand addAlias <command> <alias>                 # Create an alias for a command
-!dynamicCommand removeAlias <alias>                        # Remove an alias
+!chatCommand add <command>                              # Create a new chat command
+!chatCommand remove <command>                           # Delete a chat command
+!chatCommand addMessage <command> <message>             # Add a message to a command
+!chatCommand removeMessage <command> <message>          # Remove a message (exact match)
+!chatCommand addImage <command> <url>                   # Add an image URL to a command
+!chatCommand removeImage <command> <url>                # Remove an image (exact match)
+!chatCommand addAlias <command> <alias>                 # Create an alias for a command
+!chatCommand removeAlias <alias>                        # Remove an alias
 ```
 
-Dynamic commands support message tokens:
+Chat commands support message tokens:
 - `{djUsername}` - Current DJ name
 - `{senderUsername}` - User who triggered the command
 
