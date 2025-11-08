@@ -119,3 +119,77 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Use `serviceContainer.setState()` and `getState()` for shared state
 - Initialize state properties with appropriate default values
 - Document state structure and lifecycle in service comments
+
+## Current Work: Image Validation System
+
+### Overview
+The image validation system was implemented to identify and remove dead image links from chat commands. It runs as a background task (1 image per second) and can be controlled entirely via chat commands.
+
+### Architecture
+- **ValidationService** (`src/services/validationService.js`): Core validation logic
+  - State: `{isValidating, currentIndex, allImages, results, startedAt, deadImages}`
+  - Cache: Separate `data/image-validation-cache.json` file (NOT in chat.json)
+  - Cache TTL: 30 days - images checked more recently are skipped
+  - Validation method: HTTP HEAD requests via axios with 5-second timeout
+  - Rate limiting: 1 image per second via background task
+
+- **Command Handler** (`src/commands/handleImageValidatorCommand.js`): User interface
+  - Requires MODERATOR role
+  - Subcommands: `start`, `status`, `report`, `remove`
+  - Usage: `!imageValidator [start|status|report|remove]`
+
+- **Integration Points**:
+  - `src/services/serviceContainer.js`: Registered as service dependency
+  - `src/index.js`: Background task via `setInterval(1000)` calling `processNextImage()`
+  - Loads cache on startup: `services.validationService.loadCache()`
+
+### How It Works
+1. User runs `!imageValidator start`
+2. `startValidation()` extracts all images from `chat.json` (all commands' pictures arrays)
+3. `getImagesToCheck()` filters images: returns only those NOT in cache OR expired (>30 days old)
+4. If no images need checking, returns "All images were checked recently, nothing to validate"
+5. Background task runs every second, calling `processNextImage()`
+6. Each image checked via HTTP HEAD request, result stored in cache
+7. Dead images (4xx, 5xx, timeout, network errors) tracked in `state.deadImages`
+8. User can view progress with `!imageValidator status` or `!imageValidator report`
+9. User can delete all dead images with `!imageValidator remove`
+
+### Known Issues
+
+#### Issue 1: First-Run "Nothing to Validate" Message
+**Symptom**: On first run with no cache file, command returns "All images were checked recently, nothing to validate"
+
+**Root Cause**: Under investigation. Theory: Either (a) cache is being pre-populated somewhere, or (b) `extractAllImages()` is returning empty array due to dataService not loading chat.json correctly
+
+**Expected Behavior**: First run should extract all images from chat.json and begin validation
+
+**Next Steps**: 
+- Verify `dataService.getValue(null)` returns full chat.json data
+- Check if cache file is being created before first validation attempt
+- Add debug logging to trace data flow in `extractAllImages()` and `getImagesToCheck()`
+- May need to modify startup logic to ensure dataService is fully initialized before loading cache
+
+**Workaround**: None currently - feature blocked on first run
+
+#### Issue 2: Unrelated Bug Found
+A separate bug was discovered unrelated to the validation system. Details TBD.
+
+### Testing
+- **39 tests** created and passing (validationService: 24 tests, handleImageValidatorCommand: 15 tests)
+- Test file paths:
+  - `tests/services/validationService.test.js`
+  - `tests/commands/handleImageValidatorCommand.test.js`
+- All 852 tests passing in full suite
+
+### Data Files
+- **chat.json** (`data/chat.json`): 
+  - Contains ~1,520 image URLs across 276 pictures arrays in various commands
+  - Source of truth for all images to validate
+  
+- **image-validation-cache.json** (`data/image-validation-cache.json`): 
+  - Created on first successful validation
+  - Structure: `{ [imageUrl]: { lastChecked: timestamp, status: 'ok'|'dead', statusCode: number } }`
+  - Persisted after each validation cycle
+  - 30-day TTL controls re-checking frequency
+
+```
