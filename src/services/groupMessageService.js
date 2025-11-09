@@ -162,11 +162,6 @@ const groupMessageService = {
      */
     sendGroupPictureMessage: async function ( message, imageUrl, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
         try {
-            logger.debug( `[sendGroupPictureMessage] DEBUG - senderName parameter: ${ senderName }` );
-            logger.debug( `[sendGroupPictureMessage] DEBUG - senderUid parameter: ${ senderUid }` );
-            logger.debug( `[sendGroupPictureMessage] DEBUG - senderAvatarId parameter: ${ senderAvatarId }` );
-            logger.debug( `[sendGroupPictureMessage] DEBUG - senderColor parameter: ${ senderColor }` );
-
             const messageOptions = {
                 message: message,
                 images: [ imageUrl ],

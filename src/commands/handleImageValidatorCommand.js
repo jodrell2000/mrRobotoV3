@@ -33,6 +33,7 @@ async function handleImageValidatorCommand ( { command, args, services, context 
             return await sendErrorResponse(
                 `Usage: \`!imageValidator <subcommand>\`\n\nSubcommands:\n` +
                 `\`start\` - Start validation of images not checked in 30 days\n` +
+                `\`stop\` - Stop current validation\n` +
                 `\`status\` - Show validation progress\n` +
                 `\`report\` - Show summary of dead images by command\n` +
                 `\`remove\` - Delete all dead images from chat.json`
@@ -40,10 +41,20 @@ async function handleImageValidatorCommand ( { command, args, services, context 
         }
 
         if ( subcommand === 'start' ) {
-            const result = await services.validationService.startValidation( services.dataService );
+            const result = await services.validationService.startValidation();
 
             if ( result.success ) {
                 return await sendSuccessResponse( `🚀 ${ result.message }` );
+            } else {
+                return await sendErrorResponse( `❌ ${ result.message }` );
+            }
+        }
+
+        if ( subcommand === 'stop' ) {
+            const result = await services.validationService.stopValidation();
+
+            if ( result.success ) {
+                return await sendSuccessResponse( `🛑 ${ result.message }` );
             } else {
                 return await sendErrorResponse( `❌ ${ result.message }` );
             }
@@ -61,7 +72,7 @@ async function handleImageValidatorCommand ( { command, args, services, context 
         }
 
         if ( subcommand === 'report' ) {
-            const report = services.validationService.getReport();
+            const report = await services.validationService.getReport();
 
             if ( report.dead && Object.keys( report.dead ).length === 0 ) {
                 return await sendSuccessResponse( `✅ ${ report.summary }` );
@@ -80,13 +91,13 @@ async function handleImageValidatorCommand ( { command, args, services, context 
         }
 
         if ( subcommand === 'remove' ) {
-            const report = services.validationService.getReport();
+            const report = await services.validationService.getReport();
 
             if ( report.dead && Object.keys( report.dead ).length === 0 ) {
                 return await sendErrorResponse( `❌ No dead images to remove. Run \`!imageValidator start\` first.` );
             }
 
-            const result = await services.validationService.removeDeadImages( services.dataService );
+            const result = await services.validationService.removeDeadImages();
 
             if ( result.success ) {
                 return await sendSuccessResponse( `🗑️ ${ result.message }` );

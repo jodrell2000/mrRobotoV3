@@ -14,9 +14,6 @@ async function _fetchUserProfileByUuid(userUuid) {
   const maskedToken = typeof config.BOT_USER_TOKEN === 'string' && config.BOT_USER_TOKEN.length > 8
     ? `${config.BOT_USER_TOKEN.slice(0, 4)}...${config.BOT_USER_TOKEN.slice(-4)}`
     : '[unset]';
-  logger.debug(`hangUserService._fetchUserProfileByUuid: uuid=${userUuid}`);
-  logger.debug(`hangUserService._fetchUserProfileByUuid: url=${url}`);
-  logger.debug(`hangUserService._fetchUserProfileByUuid: authToken=${maskedToken}`);
 
   const res = await makeRequest(url, { method: 'GET' }, commonHeaders);
   if (res && typeof res === 'object') {

@@ -68,27 +68,25 @@ describe( 'validationService', () => {
 
     describe( 'extractAllImages', () => {
         it( 'should extract all images from chat data', async () => {
-            const mockDataService = {
-                getValue: jest.fn().mockReturnValue( {
-                    command1: { pictures: [ 'https://ex1.jpg', 'https://ex2.jpg' ] },
-                    command2: { pictures: [ 'https://ex3.jpg' ] }
-                } )
-            };
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                command1: { pictures: [ 'https://ex1.jpg', 'https://ex2.jpg' ] },
+                command2: { pictures: [ 'https://ex3.jpg' ] }
+            } ) );
 
-            const result = await validationService.extractAllImages( mockDataService );
+            const result = await validationService.extractAllImages();
 
             expect( result ).toHaveLength( 3 );
             expect( result[ 0 ] ).toEqual( { url: 'https://ex1.jpg', command: 'command1' } );
         } );
 
         it( 'should handle missing pictures gracefully', async () => {
-            const mockDataService = {
-                getValue: jest.fn().mockReturnValue( {
-                    command1: { messages: [ 'test' ] }
-                } )
-            };
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                command1: { messages: [ 'test' ] }
+            } ) );
 
-            const result = await validationService.extractAllImages( mockDataService );
+            const result = await validationService.extractAllImages();
 
             expect( result ).toHaveLength( 0 );
         } );
@@ -127,6 +125,50 @@ describe( 'validationService', () => {
             expect( result ).toHaveLength( 1 );
             expect( result[ 0 ].url ).toBe( 'https://expired.jpg' );
         } );
+
+        it( 'should return previously dead images for re-checking', () => {
+            const recentTimestamp = Date.now() - 1 * 24 * 60 * 60 * 1000; // 1 day ago (recent)
+
+            const allImages = [
+                { url: 'https://dead.jpg', command: 'cmd1' },
+                { url: 'https://ok.jpg', command: 'cmd2' }
+            ];
+
+            validationService.cache = {
+                'https://dead.jpg': { lastChecked: recentTimestamp, status: 'dead' },
+                'https://ok.jpg': { lastChecked: recentTimestamp, status: 'ok' }
+            };
+
+            const result = validationService.getImagesToCheck( allImages );
+
+            expect( result ).toHaveLength( 1 );
+            expect( result[ 0 ].url ).toBe( 'https://dead.jpg' );
+        } );
+
+        it( 'should combine unchecked, expired, and dead images', () => {
+            const oldTimestamp = Date.now() - 31 * 24 * 60 * 60 * 1000; // 31 days ago
+            const recentTimestamp = Date.now() - 1 * 24 * 60 * 60 * 1000; // 1 day ago
+
+            const allImages = [
+                { url: 'https://new.jpg', command: 'cmd1' },         // unchecked
+                { url: 'https://expired.jpg', command: 'cmd2' },     // expired
+                { url: 'https://dead.jpg', command: 'cmd3' },        // dead
+                { url: 'https://recent-ok.jpg', command: 'cmd4' }    // recent and ok
+            ];
+
+            validationService.cache = {
+                'https://expired.jpg': { lastChecked: oldTimestamp, status: 'ok' },
+                'https://dead.jpg': { lastChecked: recentTimestamp, status: 'dead' },
+                'https://recent-ok.jpg': { lastChecked: recentTimestamp, status: 'ok' }
+            };
+
+            const result = validationService.getImagesToCheck( allImages );
+
+            expect( result ).toHaveLength( 3 );
+            expect( result.map( img => img.url ) ).toEqual( 
+                expect.arrayContaining( [ 'https://new.jpg', 'https://expired.jpg', 'https://dead.jpg' ] )
+            );
+        } );
     } );
 
     describe( 'checkImageUrl', () => {
@@ -140,12 +182,39 @@ describe( 'validationService', () => {
         } );
 
         it( 'should return dead for 404 status', async () => {
+            // Mock HEAD request returning 404
             axios.head.mockResolvedValue( { status: 404 } );
+            // Mock GET request also returning 404
+            axios.get.mockResolvedValue( { status: 404 } );
 
             const result = await validationService.checkImageUrl( 'https://dead.jpg' );
 
             expect( result.status ).toBe( 'dead' );
             expect( result.statusCode ).toBe( 404 );
+            
+            // Verify both HEAD and GET were called due to fallback logic
+            expect( axios.head ).toHaveBeenCalledWith( 'https://dead.jpg', expect.any( Object ) );
+            expect( axios.get ).toHaveBeenCalledWith( 'https://dead.jpg', expect.objectContaining( {
+                headers: expect.objectContaining( { 'Range': 'bytes=0-1023' } )
+            } ) );
+        } );
+
+        it( 'should return ok when HEAD fails with 404 but GET succeeds with 206', async () => {
+            // Mock HEAD request returning 404 (like Tenor)
+            axios.head.mockResolvedValue( { status: 404 } );
+            // Mock GET request returning 206 Partial Content (successful fallback)
+            axios.get.mockResolvedValue( { status: 206 } );
+
+            const result = await validationService.checkImageUrl( 'https://tenor-like.gif' );
+
+            expect( result.status ).toBe( 'ok' );
+            expect( result.statusCode ).toBe( 206 );
+            
+            // Verify fallback logic was triggered
+            expect( axios.head ).toHaveBeenCalledWith( 'https://tenor-like.gif', expect.any( Object ) );
+            expect( axios.get ).toHaveBeenCalledWith( 'https://tenor-like.gif', expect.objectContaining( {
+                headers: expect.objectContaining( { 'Range': 'bytes=0-1023' } )
+            } ) );
         } );
 
         it( 'should return dead on network error', async () => {
@@ -160,15 +229,14 @@ describe( 'validationService', () => {
 
     describe( 'startValidation', () => {
         it( 'should start validation if not already running', async () => {
-            const mockDataService = {
-                getValue: jest.fn().mockReturnValue( {
-                    cmd1: { pictures: [ 'https://img.jpg' ] }
-                } )
-            };
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                cmd1: { pictures: [ 'https://img.jpg' ] }
+            } ) );
 
             validationService.cache = {}; // No cache, so image needs checking
 
-            const result = await validationService.startValidation( mockDataService );
+            const result = await validationService.startValidation();
 
             expect( result.success ).toBe( true );
             expect( validationService.state.isValidating ).toBe( true );
@@ -178,25 +246,24 @@ describe( 'validationService', () => {
         it( 'should not start if already validating', async () => {
             validationService.state.isValidating = true;
 
-            const result = await validationService.startValidation( {} );
+            const result = await validationService.startValidation();
 
             expect( result.success ).toBe( false );
             expect( result.message ).toContain( 'already in progress' );
         } );
 
         it( 'should report when no images need checking', async () => {
-            const mockDataService = {
-                getValue: jest.fn().mockReturnValue( {
-                    cmd1: { pictures: [ 'https://recent.jpg' ] }
-                } )
-            };
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                cmd1: { pictures: [ 'https://recent.jpg' ] }
+            } ) );
 
             // Cache recent image
             validationService.cache = {
                 'https://recent.jpg': { lastChecked: Date.now(), status: 'ok' }
             };
 
-            const result = await validationService.startValidation( mockDataService );
+            const result = await validationService.startValidation();
 
             expect( result.success ).toBe( true );
             expect( result.message ).toContain( 'checked recently' );
@@ -227,7 +294,9 @@ describe( 'validationService', () => {
             ];
             validationService.state.currentIndex = 0;
 
+            // Mock both HEAD and GET to return 404 (fallback also fails)
             axios.head.mockResolvedValue( { status: 404 } );
+            axios.get.mockResolvedValue( { status: 404 } );
             fs.writeFileSync.mockImplementation( () => { } );
 
             await validationService.processNextImage();
@@ -279,21 +348,19 @@ describe( 'validationService', () => {
 
     describe( 'removeDeadImages', () => {
         it( 'should remove all dead images from chat data', async () => {
-            const mockDataService = {
-                getValue: jest.fn().mockReturnValue( {
-                    cmd1: { pictures: [ 'https://ok.jpg', 'https://dead.jpg' ] }
-                } ),
-                setValue: jest.fn()
-            };
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                cmd1: { pictures: [ 'https://ok.jpg', 'https://dead.jpg' ] }
+            } ) );
 
             validationService.state.deadImages = {
                 cmd1: [ 'https://dead.jpg' ]
             };
 
-            const result = await validationService.removeDeadImages( mockDataService );
+            const result = await validationService.removeDeadImages();
 
             expect( result.success ).toBe( true );
-            expect( mockDataService.setValue ).toHaveBeenCalled();
+            expect( fs.writeFileSync ).toHaveBeenCalled();
         } );
     } );
 

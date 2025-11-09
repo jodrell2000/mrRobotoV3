@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exact match deletion: only removes messages/images that match exactly what was specified
   - Automatic file management: updates both `chat.json` and `aliases.json` to maintain data integrity
   - Comprehensive input validation and user-friendly error messages
+  
+  **Image Validation Tool**: Automated maintenance and quality assurance for chat command images
+  - New `!imageValidator` command (MODERATOR required) for managing image validation
+  - Subcommands: `start`, `stop`, `status`, `report`, `remove`
+  - Background validation at 1 image per second with intelligent caching (30-day TTL)
+  - Comprehensive HTTP validation with HEAD/GET fallback for servers that don't support HEAD requests
+  - Retry logic with 2-attempt validation and 15-second timeout per request
+  - Smart re-checking: validates new images, expired cache entries, and previously dead images
+  - Periodic cache saving every 10 images to prevent data loss during validation
+  - Detailed reporting showing dead images grouped by command with status codes
+  - Bulk removal of confirmed dead images from chat.json
+  - Handles various failure scenarios: network errors, DNS failures, 403/404/405 responses
+  - Validates images from all supported hosting services (Giphy, Tenor, Imgur, etc.)
 
 ## [0.8.5_beta] - 2025-10-28
 ### Upgrade Instructions
