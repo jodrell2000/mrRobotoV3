@@ -18,7 +18,11 @@ class TokenService {
             '{greetingTime}': () => this.getGreetingTime(),
             '{senderUsername}': ( context ) => this.getSenderUsername( context ),
             '{djUsername}': ( context ) => this.getDjUsername( context ),
-            '{userlist}': () => this.getUserList()
+            '{userlist}': () => this.getUserList(),
+            '{timezone}': () => this.getConfigValue( 'timezone', 'Europe/London' ),
+            '{locale}': () => this.getConfigValue( 'locale', 'en-GB' ),
+            '{dateFormat}': () => this.getConfigValue( 'dateFormat', 'DD/MM/YYYY' ),
+            '{timeFormat}': () => this.getConfigValue( 'timeFormat', '24' )
         };
     }
 
@@ -505,7 +509,11 @@ class TokenService {
             '{currentDayOfWeek}': 'Current day of the week',
             '{greetingTime}': 'Time-based greeting (morning, afternoon, evening, night)',
             '{senderUsername}': 'Username of the person who sent the command (formatted as mention)',
-            '{djUsername}': 'Username of the current DJ playing music (formatted as mention)'
+            '{djUsername}': 'Username of the current DJ playing music (formatted as mention)',
+            '{timezone}': 'Configured timezone (e.g., Europe/London)',
+            '{locale}': 'Configured locale (e.g., en-GB)',
+            '{dateFormat}': 'Configured date format (e.g., DD/MM/YYYY)',
+            '{timeFormat}': 'Configured time format (24 or 12 hour)'
         };
         return descriptions[ tokenName ] || 'Built-in token';
     }
