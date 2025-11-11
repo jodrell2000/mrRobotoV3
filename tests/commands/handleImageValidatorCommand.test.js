@@ -85,7 +85,7 @@ describe( 'handleImageValidatorCommand', () => {
                 context
             } );
 
-            expect( services.validationService.startValidation ).toHaveBeenCalledWith( services.dataService );
+            expect( services.validationService.startValidation ).toHaveBeenCalledWith();
             expect( services.messageService.sendResponse ).toHaveBeenCalled();
             expect( result.success ).toBe( true );
         } );
@@ -222,7 +222,7 @@ describe( 'handleImageValidatorCommand', () => {
                 context
             } );
 
-            expect( services.validationService.removeDeadImages ).toHaveBeenCalledWith( services.dataService );
+            expect( services.validationService.removeDeadImages ).toHaveBeenCalledWith();
             expect( services.messageService.sendResponse ).toHaveBeenCalled();
             expect( result.success ).toBe( true );
         } );

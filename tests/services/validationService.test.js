@@ -165,7 +165,7 @@ describe( 'validationService', () => {
             const result = validationService.getImagesToCheck( allImages );
 
             expect( result ).toHaveLength( 3 );
-            expect( result.map( img => img.url ) ).toEqual( 
+            expect( result.map( img => img.url ) ).toEqual(
                 expect.arrayContaining( [ 'https://new.jpg', 'https://expired.jpg', 'https://dead.jpg' ] )
             );
         } );
@@ -191,7 +191,7 @@ describe( 'validationService', () => {
 
             expect( result.status ).toBe( 'dead' );
             expect( result.statusCode ).toBe( 404 );
-            
+
             // Verify both HEAD and GET were called due to fallback logic
             expect( axios.head ).toHaveBeenCalledWith( 'https://dead.jpg', expect.any( Object ) );
             expect( axios.get ).toHaveBeenCalledWith( 'https://dead.jpg', expect.objectContaining( {
@@ -209,7 +209,7 @@ describe( 'validationService', () => {
 
             expect( result.status ).toBe( 'ok' );
             expect( result.statusCode ).toBe( 206 );
-            
+
             // Verify fallback logic was triggered
             expect( axios.head ).toHaveBeenCalledWith( 'https://tenor-like.gif', expect.any( Object ) );
             expect( axios.get ).toHaveBeenCalledWith( 'https://tenor-like.gif', expect.objectContaining( {
@@ -254,19 +254,23 @@ describe( 'validationService', () => {
 
         it( 'should report when no images need checking', async () => {
             fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                cmd1: { pictures: [ 'https://recent.jpg' ] }
-            } ) );
-
-            // Cache recent image
-            validationService.cache = {
-                'https://recent.jpg': { lastChecked: Date.now(), status: 'ok' }
-            };
+            fs.readFileSync.mockImplementation( ( filePath ) => {
+                // Return cache file with recent image on first call (loadCache)
+                if ( filePath.includes( 'image-validation-cache' ) ) {
+                    return JSON.stringify( {
+                        'https://recent.jpg': { lastChecked: Date.now(), status: 'ok' }
+                    } );
+                }
+                // Return chat data on second call (extractAllImages)
+                return JSON.stringify( {
+                    cmd1: { pictures: [ 'https://recent.jpg' ] }
+                } );
+            } );
 
             const result = await validationService.startValidation();
 
             expect( result.success ).toBe( true );
-            expect( result.message ).toContain( 'checked recently' );
+            expect( result.message ).toContain( 'checked recently and are working' );
         } );
     } );
 
@@ -326,20 +330,20 @@ describe( 'validationService', () => {
     } );
 
     describe( 'getReport', () => {
-        it( 'should return empty report when no dead images', () => {
-            const result = validationService.getReport();
+        it( 'should return empty report when no dead images', async () => {
+            const result = await validationService.getReport();
 
             expect( result.dead ).toEqual( {} );
             expect( result.summary ).toContain( 'No dead images' );
         } );
 
-        it( 'should return dead images grouped by command', () => {
+        it( 'should return dead images grouped by command', async () => {
             validationService.state.deadImages = {
                 cmd1: [ 'https://dead1.jpg' ],
                 cmd2: [ 'https://dead2.jpg', 'https://dead3.jpg' ]
             };
 
-            const result = validationService.getReport();
+            const result = await validationService.getReport();
 
             expect( result.dead.cmd1 ).toHaveLength( 1 );
             expect( result.dead.cmd2 ).toHaveLength( 2 );

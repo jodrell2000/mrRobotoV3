@@ -650,15 +650,21 @@ class Bot {
     this.isProcessingPublicMessages = true;
 
     try {
-      // this.services.logger.debug( `🔄 [processNewPublicMessages] Starting public message check...` );
-      const messages = await this._fetchNewMessages();
+      // Add timeout to prevent hanging (900ms - shorter than polling interval so next poll can retry)
+      // If this times out, the next 1-second interval will make another call with the same lastID
+      const messages = await Promise.race( [
+        this._fetchNewMessages(),
+        new Promise( ( _, reject ) =>
+          setTimeout( () => reject( new Error( 'Message fetch timeout after 900ms' ) ), 900 )
+        )
+      ] );
 
       if ( !messages?.length ) {
         // this.services.logger.debug( `🔄 [processNewPublicMessages] No new public messages found` );
         return; // No new messages to process
       }
 
-      this.services.logger.info( `🔄 [processNewPublicMessages] Processing ${ messages.length } new public messages` );
+      // this.services.logger.info( `🔄 [processNewPublicMessages] Processing ${ messages.length } new public messages` );
       await this._processMessageBatch( messages );
     } catch ( error ) {
       // More defensive error handling
@@ -698,7 +704,17 @@ class Bot {
 
     try {
       // this.services.logger.debug( `🔄 [processNewPrivateMessages] Starting private message check...` );
-      const messages = await this._fetchNewPrivateMessages();
+
+      // Add timeout to prevent hanging. Private messages require longer than public messages
+      // because they fetch from multiple users sequentially. 5 seconds allows for this.
+      // If fetch times out mid-processing, message tracking is already updated (safe),
+      // finally block resets flag, and next poll retries with same lastPrivateMessageTracking
+      const messages = await Promise.race( [
+        this._fetchNewPrivateMessages(),
+        new Promise( ( _, reject ) =>
+          setTimeout( () => reject( new Error( 'Private message fetch timeout after 5 seconds' ) ), 5000 )
+        )
+      ] );
 
       if ( !messages?.length ) {
         // this.services.logger.debug( `🔄 [processNewPrivateMessages] No new private messages found` );
@@ -731,33 +747,12 @@ class Bot {
     // Use service state if available, fallback to local state
     const effectiveLastMessageId = serviceLastMessageId || localLastMessageId;
 
-    // Debug logging to track synchronization
-    // this.services.logger.debug( `[Bot] _fetchNewMessages:` );
-    // this.services.logger.debug( `[Bot] - Service container lastMessageId: ${ serviceLastMessageId }` );
-    // this.services.logger.debug( `[Bot] - Local lastMessageIDs.id: ${ localLastMessageId }` );
-    // this.services.logger.debug( `[Bot] - Effective lastMessageId: ${ effectiveLastMessageId }` );
-    // this.services.logger.debug( `[Bot] - fromTimestamp: ${ this.lastMessageIDs?.fromTimestamp }` );
-
     const messages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
       fromTimestamp: this.lastMessageIDs?.fromTimestamp,
       lastID: effectiveLastMessageId,
       filterCommands: true, // Get command messages for processing
       services: this.services // Pass services for state management
     } );
-
-    // Debug: Log what fetchGroupMessages returns
-    // this.services.logger.debug( `fetchGroupMessages returned ${ messages?.length || 0 } messages:` );
-    // if ( messages && messages.length > 0 ) {
-    //   messages.forEach( ( msg, index ) => {
-    //     try {
-    //       this.services.logger.debug( `Message ${ index } id: ${ msg?.id }` );
-    //       this.services.logger.debug( `Message ${ index } sender: ${ JSON.stringify( msg?.sender ) }` );
-    //       this.services.logger.debug( `Message ${ index } keys: ${ Object.keys( msg || {} ).join( ', ' ) }` );
-    //     } catch ( err ) {
-    //       this.services.logger.debug( `Could not log message ${ index }: ${ err.message }` );
-    //     }
-    //   } );
-    // }
 
     return messages;
   }
