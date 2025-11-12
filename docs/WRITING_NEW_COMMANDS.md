@@ -269,7 +269,7 @@ const example = 'welcome Hi {username}, welcome to {hangoutName}!';
 #### **Command State Management**
 Commands are enabled by default. To disable commands at runtime:
 - Use the `togglecommand` command (owner only): `!togglecommand disable commandname`
-- Disabled commands are stored in `data.json` outside of git
+- Disabled commands are stored in `data/botConfig.json` outside of git
 - Commands can be re-enabled with: `!togglecommand enable commandname`
 - Check status with: `!togglecommand status commandname`
 
@@ -578,7 +578,7 @@ Commands are **enabled by default**. The `togglecommand` allows owners to manage
 ```
 
 #### How It Works
-- Disabled commands are stored in `data.json` (outside of git)
+- Disabled commands are stored in `data/botConfig.json` (outside of git)
 - Changes persist across bot restarts
 - No source code modifications needed
 - Git repository stays clean and synchronized

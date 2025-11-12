@@ -15,6 +15,7 @@ const MachineLearningService = require( './machineLearningService.js' );
 const TriggerService = require( './triggerService.js' );
 const TokenService = require( './tokenService.js' );
 const RetryService = require( './retryService.js' );
+const validationService = require( './validationService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -65,6 +66,7 @@ const services = {
   dataService,
   featuresService,
   retryService,
+  validationService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
   tokenService: null, // Will be initialized after services object is created
@@ -84,7 +86,7 @@ const services = {
     const valueToLog = typeof value === 'object' && value !== null
       ? JSON.stringify( value, null, 2 )
       : value;
-    this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
+    // this.logger.debug( `State updated: ${ key } = ${ valueToLog }` );
   },
 
   getState ( key ) {

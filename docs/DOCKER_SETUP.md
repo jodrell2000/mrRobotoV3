@@ -16,10 +16,13 @@ This guide will help you run MrRobotoV3 in Docker containers for consistent, iso
 git clone <repository-url>
 cd mrRobotoV3
 
-# create bespoke .env and data.json files for your Bot
+# create bespoke .env and data files for your Bot
 cp .env_example .env
-cp data.json_example data.json
-# Edit the .env and data.json files with your actual values (see [SETTING_UP_YOUR_ENVIRONMENT.md](./SETTING_UP_YOUR_ENVIRONMENT.md))
+cp data/botConfig.json_example data/botConfig.json
+cp data/chat.json_example data/chat.json
+cp data/aliases.json_example data/aliases.json
+cp data/themes.json_example data/themes.json
+# Edit the .env and data files with your actual values (see [SETTING_UP_YOUR_ENVIRONMENT.md](./SETTING_UP_YOUR_ENVIRONMENT.md))
 ```
 
 ### 2. Build and Run with Docker Compose (Recommended)
@@ -48,7 +51,7 @@ docker build -t mrroboto:latest .
 docker run -d \
   --name mrroboto-bot \
   --env-file .env \
-  -v $(pwd)/data.json:/usr/src/app/data.json \
+  -v $(pwd)/data:/usr/src/app/data \
   -v $(pwd)/logs:/usr/src/app/logs \
   --restart unless-stopped \
   mrroboto:latest
@@ -73,7 +76,7 @@ SOCKET_MESSAGE_LOG_LEVEL=OFF
 ### Persistent Data
 
 The Docker setup automatically handles:
-- **data.json**: Bot's memory/configuration (persisted via volume mount)
+- **data/botConfig.json**: Bot's memory/configuration (persisted via volume mount)
 - **logs/**: Application logs (persisted via volume mount)
 
 ## Managing the Bot
@@ -194,7 +197,7 @@ docker compose up -d
 ```bash
 # Fix file permissions
 chmod 644 .env
-chmod 644 data.json
+chmod 644 data/botConfig.json
 chmod 755 logs/
 ```
 
@@ -285,8 +288,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ### Backup Bot Data
 
 ```bash
-# Backup data.json
-cp data.json data.json.backup.$(date +%Y%m%d_%H%M%S)
+# Backup botConfig.json
+cp data/botConfig.json data/botConfig.json.backup.$(date +%Y%m%d_%H%M%S)
 
 # Backup logs
 tar -czf logs_backup_$(date +%Y%m%d_%H%M%S).tar.gz logs/
@@ -298,8 +301,8 @@ tar -czf logs_backup_$(date +%Y%m%d_%H%M%S).tar.gz logs/
 # Stop the bot
 docker compose down
 
-# Restore data.json
-cp data.json.backup.20231201_143000 data.json
+# Restore botConfig.json
+cp data/botConfig.json.backup.20231201_143000 data/botConfig.json
 
 # Start the bot
 docker compose up -d

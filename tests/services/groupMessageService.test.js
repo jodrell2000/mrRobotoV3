@@ -647,7 +647,7 @@ describe( 'groupMessageService', () => {
 
       const result = await groupMessageService.sendGroupMessage( 'Hello world' );
 
-      expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Hello world', {} );
+      expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Hello world', {}, null, null, null, null );
       expect( cometchatApi.sendMessage ).toHaveBeenCalledWith( {
         receiver: 'test-hangout-123', // default HANGOUT_ID
         receiverType: 'group',
@@ -686,7 +686,7 @@ describe( 'groupMessageService', () => {
 
       await groupMessageService.sendGroupMessage( messageOptions );
 
-      expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Test message', {} );
+      expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Test message', {}, null, null, null, null );
 
       // Check that images and mentions were added to customData
       const sentPayload = cometchatApi.sendMessage.mock.calls[ 0 ][ 0 ];
@@ -754,7 +754,11 @@ describe( 'groupMessageService', () => {
       expect( sendGroupMessageSpy ).toHaveBeenCalledWith( {
         message: 'Check this image!',
         images: [ 'https://example.com/image.jpg' ],
-        services: services
+        services: services,
+        senderUid: null,
+        senderName: null,
+        senderAvatarId: null,
+        senderColor: null
       } );
 
       sendGroupMessageSpy.mockRestore();

@@ -283,6 +283,169 @@ describe( 'TokenService', () => {
         } );
     } );
 
+    describe( 'username tokens', () => {
+        beforeEach( () => {
+            // Add username-related services to mock
+            mockServices.messageService = {
+                formatMention: jest.fn( ( uuid ) => `<@uid:${ uuid }>` )
+            };
+            mockServices.hangUserService = {
+                getUserNicknameByUuid: jest.fn()
+            };
+            mockServices.stateService._getDjs = jest.fn();
+        } );
+
+        describe( 'getSenderUsername', () => {
+            it( 'should return formatted mention for valid sender UUID', async () => {
+                const context = { sender: 'sender-123' };
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( '<@uid:sender-123>' );
+                expect( mockServices.messageService.formatMention ).toHaveBeenCalledWith( 'sender-123' );
+            } );
+
+            it( 'should handle sender as object with uuid property', async () => {
+                const context = { sender: { uuid: 'sender-456' } };
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( '<@uid:sender-456>' );
+                expect( mockServices.messageService.formatMention ).toHaveBeenCalledWith( 'sender-456' );
+            } );
+
+            it( 'should return Unknown User when no sender provided', async () => {
+                const context = {};
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( 'Unknown User' );
+            } );
+
+            it( 'should return Unknown User when sender has no uuid', async () => {
+                const context = { sender: {} };
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( 'Unknown User' );
+            } );
+
+            it( 'should fallback to hangUserService when messageService not available', async () => {
+                delete mockServices.messageService;
+                mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( 'John Doe' );
+
+                const context = { sender: 'sender-123' };
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( 'John Doe' );
+                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'sender-123' );
+            } );
+
+            it( 'should handle errors gracefully', async () => {
+                mockServices.messageService.formatMention.mockImplementation( () => {
+                    throw new Error( 'Format error' );
+                } );
+
+                const context = { sender: 'sender-123' };
+                const result = await tokenService.getSenderUsername( context );
+
+                expect( result ).toBe( 'Unknown User' );
+            } );
+        } );
+
+        describe( 'getDjUsername', () => {
+            it( 'should return formatted mention for current DJ', async () => {
+                mockServices.stateService._getDjs.mockReturnValue( [
+                    { uuid: 'dj-123', nickname: 'DJ Mike' },
+                    { uuid: 'dj-456', nickname: 'DJ Sarah' }
+                ] );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( '<@uid:dj-123>' );
+                expect( mockServices.messageService.formatMention ).toHaveBeenCalledWith( 'dj-123' );
+            } );
+
+            it( 'should return No DJ when no DJs are available', async () => {
+                mockServices.stateService._getDjs.mockReturnValue( [] );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( 'No DJ' );
+            } );
+
+            it( 'should return No DJ when _getDjs returns null', async () => {
+                mockServices.stateService._getDjs.mockReturnValue( null );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( 'No DJ' );
+            } );
+
+            it( 'should return No DJ when stateService not available', async () => {
+                delete mockServices.stateService;
+                tokenService = new TokenService( mockServices );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( 'No DJ' );
+            } );
+
+            it( 'should fallback to hangUserService when messageService not available', async () => {
+                delete mockServices.messageService;
+                mockServices.stateService._getDjs.mockReturnValue( [
+                    { uuid: 'dj-123', nickname: 'DJ Mike' }
+                ] );
+                mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( 'DJ Mike' );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( 'DJ Mike' );
+                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'dj-123' );
+            } );
+
+            it( 'should handle errors gracefully', async () => {
+                mockServices.stateService._getDjs.mockImplementation( () => {
+                    throw new Error( 'State error' );
+                } );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( 'No DJ' );
+            } );
+        } );
+
+        describe( 'username token integration in replaceTokens', () => {
+            beforeEach( () => {
+                mockServices.stateService._getDjs = jest.fn().mockReturnValue( [
+                    { uuid: 'dj-123', nickname: 'DJ Mike' }
+                ] );
+            } );
+
+            it( 'should replace senderUsername token', async () => {
+                const text = 'Hello {senderUsername}!';
+                const context = { sender: 'sender-456' };
+
+                const result = await tokenService.replaceTokens( text, context );
+
+                expect( result ).toBe( 'Hello <@uid:sender-456>!' );
+            } );
+
+            it( 'should replace djUsername token', async () => {
+                const text = 'Now playing by {djUsername}';
+
+                const result = await tokenService.replaceTokens( text );
+
+                expect( result ).toBe( 'Now playing by <@uid:dj-123>' );
+            } );
+
+            it( 'should replace both username tokens', async () => {
+                const text = '{senderUsername} thanks {djUsername} for the great music!';
+                const context = { sender: 'sender-456' };
+
+                const result = await tokenService.replaceTokens( text, context );
+
+                expect( result ).toBe( '<@uid:sender-456> thanks <@uid:dj-123> for the great music!' );
+            } );
+        } );
+    } );
+
     describe( 'timezone configuration', () => {
         it( 'should use configured timezone for time formatting', () => {
             const time = tokenService.getCurrentTime();

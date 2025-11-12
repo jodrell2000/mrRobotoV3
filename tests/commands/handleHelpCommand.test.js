@@ -24,11 +24,11 @@ jest.mock( '../../src/lib/logging.js', () => ( {
     verbose: jest.fn()
 } ) );
 
-// Mock fs module to prevent reading actual data.json file
+// Mock fs module to prevent reading actual botConfig.json file
 jest.mock( 'fs', () => ( {
     readFileSync: jest.fn().mockImplementation( ( filePath ) => {
-        // Return mock data.json content for any data.json path
-        if ( filePath.includes( 'data.json' ) ) {
+        // Return mock botConfig.json content for any botConfig.json path
+        if ( filePath.includes( 'botConfig.json' ) ) {
             return JSON.stringify( {
                 disabledCommands: [],
                 disabledFeatures: [],

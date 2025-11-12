@@ -19,7 +19,6 @@ describe( 'cometchatApi module', () => {
       'Content-Type': 'application/json',
       'authtoken': 'test-app-id',
       'appid': 'test-api-key',
-      'onBehalfOf': 'test-bot-uid',
       'dnt': 1,
       'origin': 'https://tt.live',
       'referer': 'https://tt.live/',

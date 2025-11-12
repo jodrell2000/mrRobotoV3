@@ -225,9 +225,9 @@ backup_data() {
     
     mkdir -p $BACKUP_DIR
     
-    if [ -f "data.json" ]; then
-        cp data.json "$BACKUP_DIR/data.json.backup.$TIMESTAMP"
-        print_status "data.json backed up to $BACKUP_DIR/data.json.backup.$TIMESTAMP"
+    if [ -f "data/botConfig.json" ]; then
+        cp data/botConfig.json "$BACKUP_DIR/botConfig.json.backup.$TIMESTAMP"
+        print_status "botConfig.json backed up to $BACKUP_DIR/botConfig.json.backup.$TIMESTAMP"
     fi
     
     if [ -d "logs" ]; then
