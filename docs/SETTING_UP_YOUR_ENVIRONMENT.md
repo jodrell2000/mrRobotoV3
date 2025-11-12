@@ -230,8 +230,20 @@ The bot includes Machine Learning features that can answer questions about songs
 
 ---
 
-## Understanding botConfig.json
-**Time: ~5 minutes**
+## Understanding Data Files
+**Time: ~10 minutes**
+
+The bot uses several JSON files in the `data` directory to store configuration and runtime data. Each file has an `_example` version that you should copy and customize.
+
+### File Overview
+
+| File | Purpose | Required | Notes |
+|------|---------|----------|-------|
+| `botConfig.json` | Main bot configuration and templates | ✅ Yes | Core functionality |
+| `chat.json` | Dynamic chat commands (v0.9.0+) | ✅ Yes | For chat command system |
+| `aliases.json` | Chat command aliases (v0.9.0+) | ✅ Yes | For command shortcuts |
+| `themes.json` | Themes command | ❌ No | Future Enhancement |
+| `image-validation-cache.json` | Image validation cache (v0.9.0+) | 🔄 Auto | Auto-created by bot |
 
 ## Step 1: Creating your botConfig.json file
 In the data directory there is a file called `botConfig.json_example`. 
@@ -281,3 +293,69 @@ All of the items in the "editableMessages" and "mlQuestions" sections can be upd
 **Questions**
 
 Items in this section such as "popfactsQuestion" and "whatyearQuestion" are sent to the Google Gemini "AI" and the responses sent back in chat. The same substitutions for trackName etc used in the messages above apply to these questions
+
+---
+
+## Step 4: Creating your chat.json file (v0.9.0+)
+
+The bot now includes a dynamic chat command system. Chat commands are stored in `chat.json` and can be managed at runtime.
+
+1. In the `data` directory, copy `chat.json_example` to `chat.json`:
+   ```bash
+   cp data/chat.json_example data/chat.json
+   ```
+
+2. (Optional) Add your own chat commands by editing `chat.json`. Structure:
+   ```json
+   {
+     "commandName": {
+       "messages": [
+         "message triggered when command is used",
+         "multiple messages chosen at random"
+       ],
+       "pictures": [
+         "https://example.com/image1.gif",
+         "https://example.com/image2.jpg"
+       ]
+     }
+   }
+   ```
+
+3. Chat commands support tokens:
+   - `{senderUsername}` - User who triggered the command
+   - `{djUsername}` - Current DJ name
+   - And all other standard tokens like `{hangoutName}`, `{botName}`, `{currentTime}`, etc.
+
+For more information, see [CHAT_COMMANDS.md](CHAT_COMMANDS.md).
+
+## Step 5: Creating your aliases.json file (v0.9.0+)
+
+Command aliases allow multiple names to trigger the same chat command.
+
+1. In the `data` directory, copy `aliases.json_example` to `aliases.json`:
+   ```bash
+   cp data/aliases.json_example data/aliases.json
+   ```
+
+2. (Optional) Add your own aliases by editing `aliases.json`. Structure:
+   ```json
+   {
+     "aliasName": {
+       "command": "targetCommandName"
+     }
+   }
+   ```
+
+   Example:
+   ```json
+   {
+     "awesome": {
+       "command": "props"
+     },
+     "sick": {
+       "command": "props"
+     }
+   }
+   ```
+
+For more information, see [CHAT_COMMANDS.md](CHAT_COMMANDS.md).
