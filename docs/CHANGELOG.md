@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
-| **[0.9.0_beta](changelog/0.9.0_beta.md)** | 2025-10-28 | 🎉 Chat Command Management System & Image Validation Tool | Full CRUD for chat commands, image validation, improved message handling |
+| **[0.9.0_beta](changelog/0.9.0_beta.md)** | 2025-11-12 | 🎉 Chat Command Management System & Image Validation Tool | Full CRUD for chat commands, image validation, improved message handling |
 | **[0.8.5_beta](changelog/0.8.5_beta.md)** | 2025-10-28 | 🤖 Enhanced AI System with Triggers & Tokens | AI personality, command triggers, advanced token system, CometChat reliability |
 | **[0.8.1_beta](changelog/0.8.1_beta.md)** | 2025-10-21 | 📝 Improved Edit Command System | Better template management with listing and showing capabilities |
 | **[0.8.0_beta](changelog/0.8.0_beta.md)** | 2025-10-17 | 🎵 Machine Learning Commands | AI-powered song facts, year detection, band info, meaning analysis |
