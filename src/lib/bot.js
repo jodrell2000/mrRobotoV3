@@ -731,9 +731,9 @@ class Bot {
 
       this.services.logger.error( `Error in processNewPrivateMessages: ${ errorMessage }` );
 
-      if ( error && error.stack ) {
-        this.services.logger.error( `Error stack: ${ error.stack }` );
-      }
+      // if ( error && error.stack ) {
+      //   this.services.logger.error( `Error stack: ${ error.stack }` );
+      // }
     } finally {
       this.isProcessingPrivateMessages = false;
     }
