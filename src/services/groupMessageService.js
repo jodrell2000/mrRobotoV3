@@ -78,7 +78,7 @@ const groupMessageService = {
      */
     sendGroupMessage: async function ( theMessage, options = {} ) {
         try {
-            let message, room, images, mentions, receiverType;
+            let message, room, images, mentions, receiverType, senderUid, senderName, senderAvatarId, senderColor;
 
             if ( typeof theMessage === 'object' && theMessage.hasOwnProperty( 'message' ) ) {
                 message = theMessage.message;
@@ -86,6 +86,10 @@ const groupMessageService = {
                 images = theMessage.images || null;
                 mentions = theMessage.mentions || null;
                 receiverType = theMessage.receiverType || RECEIVER_TYPE.GROUP;
+                senderUid = theMessage.senderUid || null;
+                senderName = theMessage.senderName || null;
+                senderAvatarId = theMessage.senderAvatarId || null;
+                senderColor = theMessage.senderColor || null;
             } else if ( typeof theMessage === 'object' ) {
                 // Object without message property is invalid
                 throw new Error( 'Message content is required' );
@@ -95,13 +99,17 @@ const groupMessageService = {
                 images = options.images || null;
                 mentions = options.mentions || null;
                 receiverType = options.receiverType || RECEIVER_TYPE.GROUP;
+                senderUid = options.senderUid || null;
+                senderName = options.senderName || null;
+                senderAvatarId = options.senderAvatarId || null;
+                senderColor = options.senderColor || null;
             }
 
             if ( !message ) {
                 throw new Error( 'Message content is required' );
             }
 
-            const customData = await cometchatApi.buildCustomData( message, options.services || {} );
+            const customData = await cometchatApi.buildCustomData( message, options.services || {}, senderUid, senderName, senderAvatarId, senderColor );
 
             if ( images ) {
                 customData.imageUrls = images;
@@ -118,15 +126,6 @@ const groupMessageService = {
             const payload = await cometchatApi.buildPayload( room, receiverType, customData, message );
 
             const response = await cometchatApi.sendMessage( payload );
-
-            logger.debug( `✅ Group message sent successfully: ${ JSON.stringify( {
-                message: message,
-                room: room,
-                receiverType: receiverType,
-                hasImages: !!images,
-                hasMentions: !!mentions,
-                responseId: response.data?.data?.id
-            } ) }` );
 
             return {
                 message: message,
@@ -157,15 +156,23 @@ const groupMessageService = {
      * @param {string} message - The message text
      * @param {string} imageUrl - The image URL
      * @param {Object} services - Services container
+     * @param {string} senderUid - Optional UID of the user who triggered this message
+     * @param {string} senderName - Optional name of the user who triggered this message
      * @returns {Promise<Object>} Response object
      */
-    sendGroupPictureMessage: async function ( message, imageUrl, services ) {
+    sendGroupPictureMessage: async function ( message, imageUrl, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
         try {
-            const response = await this.sendGroupMessage( {
+            const messageOptions = {
                 message: message,
                 images: [ imageUrl ],
-                services: services
-            } );
+                services: services,
+                senderUid: senderUid,
+                senderName: senderName,
+                senderAvatarId: senderAvatarId,
+                senderColor: senderColor
+            };
+
+            const response = await this.sendGroupMessage( messageOptions );
 
             return response;
         } catch ( err ) {

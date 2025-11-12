@@ -34,10 +34,12 @@ RUN mkdir -p logs && \
     chown -R mrroboto:nodejs logs && \
     chmod 755 logs
 
-# Ensure data.json exists with proper permissions (will be created if missing)
-RUN touch data.json && \
-    chown mrroboto:nodejs data.json && \
-    chmod 644 data.json
+# Ensure data directory and botConfig.json exist with proper permissions
+RUN mkdir -p data && \
+    touch data/botConfig.json && \
+    chown -R mrroboto:nodejs data && \
+    chmod -R 755 data && \
+    chmod 644 data/botConfig.json
 
 # Switch to non-root user
 USER mrroboto

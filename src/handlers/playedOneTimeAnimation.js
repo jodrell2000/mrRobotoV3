@@ -30,7 +30,7 @@ function updatePreviousSongVoteCountsFromState ( services ) {
       stars: voteCounts.stars || 0
     };
 
-    services.logger.debug( `[playedOneTimeAnimation] Updated previous song vote counts from state: ${ JSON.stringify( global.previousPlayedSong.voteCounts, null, 2 ) }` );
+    services.logger.debug( '[playedOneTimeAnimation] Updated previous song vote counts from state' );
   } else {
     services.logger.debug( '[playedOneTimeAnimation] No vote counts found in hangout state' );
   }

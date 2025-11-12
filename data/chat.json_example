@@ -1,0 +1,15 @@
+{
+    "props": {
+        "messages": [
+            "{senderUsername} gives the props to {djUsername}",
+            "nice one {djUsername}, {senderUsername} thinks that's an absolute banger"
+        ],
+        "pictures": [
+            "https://media.giphy.com/media/j2ptl95PRwZTo0IAuP/giphy.gif",
+            "https://media.giphy.com/media/39hsA5NQKeaFXNgMav/giphy.gif",
+            "https://media3.giphy.com/media/8c6IfP6VuSzNVutmDS/giphy.webp?cid=5dca526eeq77udghh1ddnq7uqal5rrovnt45deus1ug976pt&ep=v1_gifs_search&rid=giphy.webp",
+            "https://media0.giphy.com/media/uVfEOGqIsoRJFYsAyC/200w.gif?cid=6c09b952zmhzjt4d7u5zhkfryd7mnwlsip2sp2ho884qo25w&ep=v1_gifs_search&rid=200w.gif",
+            "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTIxOWNkemRvdDl6Ym53YTNsbjh0eXVocm1pZHVrMjFrZ2VjMDIwYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/IdfZoqnHEEqFkXBUFO/giphy.gif"
+        ]
+    }
+}

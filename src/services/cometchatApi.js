@@ -20,8 +20,7 @@ const BASE_URL = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.i
 const headers = {
   'Content-Type': 'application/json',
   authtoken: config.COMETCHAT_AUTH_TOKEN,
-  appid: config.COMETCHAT_API_KEY,  // Changed from 'appid' to 'apikey'
-  onBehalfOf: config.BOT_UID,
+  appid: config.COMETCHAT_API_KEY,
   dnt: 1,
   origin: 'https://tt.live',
   referer: 'https://tt.live/',
@@ -41,24 +40,30 @@ const apiClient = axios.create( {
  * Build custom data for CometChat messages
  * @param {string} theMessage - The message text
  * @param {Object} services - Services container
+ * @param {string} senderUid - Optional UID of the user who triggered this message
+ * @param {string} senderName - Optional name of the user who triggered this message (overrides default bot name)
  * @returns {Promise<Object>} Custom data object
  */
-async function buildCustomData ( theMessage, services ) {
-  if ( services.dataService ) {
-    if ( services.dataService.getAllData ) {
-      const data = services.dataService.getAllData();
-    }
-  }
-  return {
+async function buildCustomData ( theMessage, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
+  const dataService = services?.dataService;
+
+  const customData = {
     message: theMessage,
-    avatarId: services.dataService?.getValue( 'botData.CHAT_AVATAR_ID' ),
-    userName: services.dataService?.getValue( 'botData.CHAT_NAME' ),
-    color: `#${ services.dataService?.getValue( 'botData.CHAT_COLOUR' ) }`,
+    avatarId: senderAvatarId || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || 'bot-01',
+    userName: senderName || dataService?.getValue( 'botData.CHAT_NAME' ) || 'Bot',
+    color: senderColor || `#${ dataService?.getValue( 'botData.CHAT_COLOUR' ) || 'ff9900' }`,
     mentions: [],
     userUuid: config.BOT_UID,
     badges: [ 'VERIFIED', 'STAFF' ],
     id: uuidv4()
   };
+
+  // Store the actual sender if different from bot
+  if ( senderUid && senderUid !== config.BOT_UID ) {
+    customData.triggeredBy = senderUid;
+  }
+
+  return customData;
 }
 
 /**
@@ -91,7 +96,13 @@ async function buildPayload ( receiver, receiverType, customData, theMessage ) {
  */
 async function sendMessage ( payload ) {
   const executeRequest = async () => {
-    return await axios.post( `${ BASE_URL }/v3.0/messages`, payload, { headers } );
+    try {
+      const response = await axios.post( `${ BASE_URL }/v3.0/messages`, payload, { headers } );
+      return response;
+    } catch ( error ) {
+      logger.error( `[CometChat API] sendMessage error - Status: ${ error.response?.status }, Data: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
+      throw error;
+    }
   };
 
   if ( retryService ) {
@@ -222,6 +233,15 @@ async function fetchMessages ( endpoint, queryParams = [] ) {
       logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
       logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
       logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
+
+      // Check if this is an authorization error (user not in group)
+      const errorCode = error.response?.data?.error?.code;
+      const status = error.response?.status;
+      if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
+        logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
+        error.shouldReconnect = true;
+      }
+
       throw error;
     }
   } else {
@@ -233,6 +253,15 @@ async function fetchMessages ( endpoint, queryParams = [] ) {
       logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
       logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
       logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
+
+      // Check if this is an authorization error (user not in group)
+      const errorCode = error.response?.data?.error?.code;
+      const status = error.response?.status;
+      if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
+        logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
+        error.shouldReconnect = true;
+      }
+
       throw error;
     }
   }

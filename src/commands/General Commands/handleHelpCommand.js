@@ -9,13 +9,13 @@ const example = 'help [command]';
 const hidden = false;
 
 /**
- * Check if a command is disabled in data.json
+ * Check if a command is disabled in botConfig.json
  * @param {string} commandName - The command name to check
  * @returns {boolean} True if command is disabled, false if enabled
  */
 function isCommandDisabled ( commandName ) {
   try {
-    const dataPath = path.join( __dirname, '../../../data.json' );
+    const dataPath = path.join( __dirname, '../../../data/botConfig.json' );
     const data = JSON.parse( fs.readFileSync( dataPath, 'utf8' ) );
     return Array.isArray( data.disabledCommands ) && data.disabledCommands.includes( commandName );
   } catch ( error ) {
@@ -29,61 +29,61 @@ function isCommandDisabled ( commandName ) {
  * @param {string} folderName - Name of the folder (for grouping)
  * @param {Object} commandsByFolder - Object to populate with commands grouped by folder
  */
-function loadCommandsFromSpecificDirectory(dirPath, folderName, commandsByFolder) {
+function loadCommandsFromSpecificDirectory ( dirPath, folderName, commandsByFolder ) {
   let items;
   try {
-    items = fs.readdirSync(dirPath);
-  } catch (error) {
+    items = fs.readdirSync( dirPath );
+  } catch ( error ) {
     // Skip directories that can't be accessed
     return;
   }
-  
-  items.forEach(item => {
-    if (item.endsWith('.js')) {
+
+  items.forEach( item => {
+    if ( item.endsWith( '.js' ) ) {
       // Extract command name from filename: handleStateCommand.js -> state
-      const match = item.match(/^handle(.*)Command\.js$/);
-      if (match && match[1]) {
-        const commandName = match[1].toLowerCase();
-        
+      const match = item.match( /^handle(.*)Command\.js$/ );
+      if ( match && match[ 1 ] ) {
+        const commandName = match[ 1 ].toLowerCase();
+
         try {
-          const commandModule = require(path.join(dirPath, item));
-          
+          const commandModule = require( path.join( dirPath, item ) );
+
           // Skip commands that are hidden, disabled, or don't have required metadata
-          if (!commandModule.hidden &&
-            !isCommandDisabled(commandName) &&
+          if ( !commandModule.hidden &&
+            !isCommandDisabled( commandName ) &&
             commandModule.requiredRole &&
-            commandModule.description) {
-            
+            commandModule.description ) {
+
             // Initialize folder array if it doesn't exist
-            if (!commandsByFolder[folderName]) {
-              commandsByFolder[folderName] = [];
+            if ( !commandsByFolder[ folderName ] ) {
+              commandsByFolder[ folderName ] = [];
             }
-            
-            commandsByFolder[folderName].push({
+
+            commandsByFolder[ folderName ].push( {
               name: commandName,
               role: commandModule.requiredRole,
               description: commandModule.description,
               example: commandModule.example || commandName,
               hidden: commandModule.hidden || false
-            });
+            } );
           }
-        } catch (error) {
+        } catch ( error ) {
           // Skip commands that can't be loaded
-          console.warn(`Failed to load command ${commandName}: ${error.message}`);
+          console.warn( `Failed to load command ${ commandName }: ${ error.message }` );
         }
       }
     }
-  });
+  } );
 }
 
 /**
  * Dynamically loads all available commands and their metadata organized by folder
  * @returns {Object} Commands organized by folder
  */
-function loadAvailableCommands() {
+function loadAvailableCommands () {
   const commandsByFolder = {};
-  const baseDir = path.join(__dirname, '../../commands');
-  
+  const baseDir = path.join( __dirname, '../../commands' );
+
   // Define static folder structure
   const folders = [
     { path: 'Bot Commands', name: 'Bot Commands' },
@@ -92,21 +92,21 @@ function loadAvailableCommands() {
     { path: 'General Commands', name: 'General Commands' },
     { path: 'ML Commands', name: 'ML Commands' }
   ];
-  
+
   // Load commands from each defined folder
-  folders.forEach(folder => {
-    const folderPath = path.join(baseDir, folder.path);
-    loadCommandsFromSpecificDirectory(folderPath, folder.name, commandsByFolder);
-  });
-  
+  folders.forEach( folder => {
+    const folderPath = path.join( baseDir, folder.path );
+    loadCommandsFromSpecificDirectory( folderPath, folder.name, commandsByFolder );
+  } );
+
   // Load commands from root directory (like handleUnknownCommand.js)
-  loadCommandsFromSpecificDirectory(baseDir, 'Other Commands', commandsByFolder);
-  
+  loadCommandsFromSpecificDirectory( baseDir, 'Other Commands', commandsByFolder );
+
   // Sort commands within each folder alphabetically
-  Object.keys(commandsByFolder).forEach(folder => {
-    commandsByFolder[folder].sort((a, b) => a.name.localeCompare(b.name));
-  });
-  
+  Object.keys( commandsByFolder ).forEach( folder => {
+    commandsByFolder[ folder ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
+  } );
+
   return commandsByFolder;
 }
 
@@ -116,10 +116,10 @@ function loadAvailableCommands() {
  * @param {string} commandName - Name of the command to find
  * @returns {Object|null} Command object or null if not found
  */
-function findCommand(commandsByFolder, commandName) {
-  for (const folder of Object.keys(commandsByFolder)) {
-    const command = commandsByFolder[folder].find(cmd => cmd.name === commandName);
-    if (command) {
+function findCommand ( commandsByFolder, commandName ) {
+  for ( const folder of Object.keys( commandsByFolder ) ) {
+    const command = commandsByFolder[ folder ].find( cmd => cmd.name === commandName );
+    if ( command ) {
       return command;
     }
   }
@@ -146,7 +146,7 @@ async function handleHelpCommand ( commandParams ) {
     // If a specific command is requested
     if ( args && args.trim() ) {
       const requestedCommand = args.trim().toLowerCase();
-      const command = findCommand(commandsByFolder, requestedCommand);
+      const command = findCommand( commandsByFolder, requestedCommand );
 
       if ( command ) {
         // Show specific command help
@@ -211,21 +211,21 @@ async function handleHelpCommand ( commandParams ) {
     let helpText = '🤖 Available Commands:\n\n';
 
     // Sort folders alphabetically
-    const sortedFolders = Object.keys(commandsByFolder).sort();
+    const sortedFolders = Object.keys( commandsByFolder ).sort();
 
-    sortedFolders.forEach(folderName => {
-      const commands = commandsByFolder[folderName];
-      if (commands.length > 0) {
+    sortedFolders.forEach( folderName => {
+      const commands = commandsByFolder[ folderName ];
+      if ( commands.length > 0 ) {
         // Use folder name as header (skip "Root" folder name for commands in the root)
         const displayName = folderName === 'Root' ? 'Other Commands' : folderName;
-        helpText += `� ${displayName}:\n`;
-        
-        commands.forEach(command => {
-          helpText += `${config.COMMAND_SWITCH}${command.name} (${command.role}) - ${command.description}\n`;
-        });
+        helpText += `� ${ displayName }:\n`;
+
+        commands.forEach( command => {
+          helpText += `${ config.COMMAND_SWITCH }${ command.name } (${ command.role }) - ${ command.description }\n`;
+        } );
         helpText += '\n';
       }
-    });
+    } );
 
     // Add footer with specific help instructions
     helpText += `💡 Tip: Type ${ config.COMMAND_SWITCH }help [command] to see specific examples and usage.`;

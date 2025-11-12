@@ -1,45 +1,45 @@
 services:
   mrroboto:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: mrroboto-bot
     restart: unless-stopped
-    
+
     # Environment variables from .env file
     env_file:
       - .env
-    
+
     # Additional environment variables for Docker
     environment:
       - NODE_ENV=production
       - TZ=UTC
     # env_file:
     #   - .env
-    
+
     # Mount volumes for persistent data
     volumes:
-      # Persistent storage for data.json (bot's memory)
-      - ./data.json:/usr/src/app/data.json
+      # Persistent storage for data directory (bot's memory and config)
+      - ./data:/usr/src/app/data
       # Persistent storage for logs
       - ./logs:/usr/src/app/logs
       # Optional: Mount config if you want to modify it without rebuilding
       # - ./src/config.js:/usr/src/app/src/config.js:ro
-    
+
     # Resource limits to prevent runaway processes
     deploy:
       resources:
         limits:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 256M
-          cpus: '0.25'
-    
+          cpus: "0.25"
+
     # Network configuration
     networks:
       - mrroboto-network
-    
+
     # Health check - temporarily disabled to diagnose restart loop
     # healthcheck:
     #   test: ["CMD", "node", "-e", "console.log('Health check passed')"]
@@ -47,7 +47,7 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 40s
-    
+
     # Logging configuration
     logging:
       driver: "json-file"

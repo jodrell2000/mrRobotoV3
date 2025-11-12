@@ -5,6 +5,10 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 
 # Code Generation Guidelines
 
+## General Guidelines
+- Keep responses concise and focused - when summarizing changes, provide one brief paragraph instead of verbose details
+- When implementing features, confirm understanding before proceeding if requirements are unclear
+
 ## Coding standards
 - Always use CommonJS modules
 - Use Node.js built-in modules and avoid external dependencies where possible
@@ -23,7 +27,8 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Ensure tests cover edge cases and error handling
 
 ## Documentation
-- When adding new features or making significant changes, always update the CHANGELOG's unreleased section and the README.md file where necessary
+- When adding new features (not bug fixes), always update the CHANGELOG's unreleased section and the README.md file where necessary
+- Do not create documentation files for bug fixes or routine changes
 
 ## User interactions
 - Ask questions if you are unsure about the implementation details, design choices, or need clarification on the requirements
@@ -59,6 +64,16 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Always use `dataService.setValue()` and `dataService.getValue()` for data persistence
 - Use dot notation for nested keys: `'editableMessages.welcomeMessage'`
 - Always call `dataService.loadData()` before reading data in commands
+
+### StateService Usage
+- **Access hangout state via `stateService._getCurrentState()`** - this is the primary way to get live hangout state
+- StateService is initialized with hangout state and stores it as both internal state and through services.hangoutState
+- The state contains: `allUserData` (user profiles by UUID), `voteCounts`, `currentSong`, `djs`, and other hangout properties
+- `allUserData` has structure: `{ [uuid]: { userProfile: { nickname, id, uuid, ... }, position, songVotes }, ... }`
+- Use `stateService.getUserRole(uuid)` to get a user's role instead of accessing raw state
+- Use `stateService.getHangoutName()` to get the hangout name
+- Use `stateService._getDjs()` to get the current DJ list
+- When accessing hangout state from services that don't have direct stateService methods, use `services.stateService._getCurrentState()` to get live updates
 
 ### Service Container Pattern
 - All new services must be registered in `serviceContainer.js`

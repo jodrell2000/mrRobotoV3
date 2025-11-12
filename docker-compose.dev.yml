@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 # Development-specific Docker Compose configuration
 # Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -9,37 +9,37 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development  # If we add multi-stage build later
-    
+      target: development # If we add multi-stage build later
+
     # Enable development mode
     environment:
       - NODE_ENV=development
       - LOG_LEVEL=debug
       - SOCKET_MESSAGE_LOG_LEVEL=DEBUG
-    
+
     # Mount source code for development (live reload)
     volumes:
       - ./src:/usr/src/app/src:ro
       - ./tests:/usr/src/app/tests:ro
       - ./package.json:/usr/src/app/package.json:ro
-      - ./data.json:/usr/src/app/data.json
+      - ./data:/usr/src/app/data
       - ./logs:/usr/src/app/logs
-    
+
     # Override command for development (use nodemon)
     command: ["npm", "run", "dev"]
-    
+
     # Increase resource limits for development
     deploy:
       resources:
         limits:
           memory: 1G
-          cpus: '1.0'
-    
+          cpus: "1.0"
+
     # Add development tools port (if needed)
     ports:
-      - "9229:9229"  # Node.js debugger port
-      - "3000:3000"  # Application port (if used)
-    
+      - "9229:9229" # Node.js debugger port
+      - "3000:3000" # Application port (if used)
+
     # Disable health check in development (faster startup)
     healthcheck:
       disable: true

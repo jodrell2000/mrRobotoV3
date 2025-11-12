@@ -41,7 +41,7 @@ describe( 'DataService', () => {
             expect( result ).toEqual( expectedData );
             expect( fs.promises.readFile ).toHaveBeenCalledTimes( 1 );
             expect( fs.promises.readFile ).toHaveBeenCalledWith(
-                expect.stringContaining( 'data.json' ),
+                expect.stringContaining( 'botConfig.json' ),
                 'utf8'
             );
         } );
@@ -106,7 +106,7 @@ describe( 'DataService', () => {
             expect( fs.promises.writeFile ).toHaveBeenCalled();
 
             // Verify the path
-            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'data.json' );
+            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'botConfig.json' );
 
             // Parse and verify the written data
             const writtenData = JSON.parse( fs.promises.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -120,7 +120,7 @@ describe( 'DataService', () => {
             expect( fs.promises.writeFile ).toHaveBeenCalled();
 
             // Verify the path
-            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'data.json' );
+            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'botConfig.json' );
 
             // Parse and verify the written data
             const writtenData = JSON.parse( fs.promises.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -134,7 +134,7 @@ describe( 'DataService', () => {
             expect( fs.promises.writeFile ).toHaveBeenCalled();
 
             // Verify the path
-            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'data.json' );
+            expect( fs.promises.writeFile.mock.calls[ 0 ][ 0 ] ).toContain( 'botConfig.json' );
 
             // Parse and verify the written data
             const writtenData = JSON.parse( fs.promises.writeFile.mock.calls[ 0 ][ 1 ] );

@@ -51,7 +51,7 @@ services.logger.info( '======================================= Application Start
       services.logger.warn( '⚠️ Continuing without group membership - some features may not work' );
     }
 
-    const checkInterval = 1000 * 1; // 2 seconds
+    const checkInterval = 1000 * 1; // 1 second
 
     // Start message processing with setInterval
     services.logger.debug( `Starting message processing with ${ checkInterval }ms interval` );
@@ -70,6 +70,20 @@ services.logger.info( '======================================= Application Start
     }, checkInterval );
 
     services.logger.debug( `Started message processing with ${ checkInterval }ms interval` );
+
+    // Start image validation background task (1 image per second when validation is active)
+    setInterval( async () => {
+      try {
+        await services.validationService.processNextImage();
+      } catch ( error ) {
+        services.logger.error( `Error in image validation: ${ error?.message || error?.toString() || 'Unknown error' }` );
+      }
+    }, 1000 ); // Check one image per second
+
+    services.logger.debug( '✅ Image validation background task started' );
+
+    // Initialize validation cache on startup
+    services.validationService.loadCache();
 
     // Small delay to allow state to settle after room join and initial patches
     services.logger.debug( '⏳ Waiting 2 seconds for state to settle...' );

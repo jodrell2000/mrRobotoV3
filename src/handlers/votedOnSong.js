@@ -35,10 +35,6 @@ function updatePreviousSongVoteCounts ( message, services ) {
       }
     }
   }
-
-  if ( updated ) {
-    services.logger.debug( `[votedOnSong] Updated previous song vote counts: ${ JSON.stringify( global.previousPlayedSong.voteCounts, null, 2 ) }` );
-  }
 }
 
 function votedOnSong ( message, state, services ) {

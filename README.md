@@ -105,6 +105,28 @@ This executes:
 node src/index.js
 ```
 
+## 🎯 Commands Overview
+
+### Chat Commands
+The bot supports chat commands that can be managed at runtime without code changes. Moderators can create, remove, and configure chat commands using:
+
+```
+!chatCommand add <command>                              # Create a new chat command
+!chatCommand remove <command>                           # Delete a chat command
+!chatCommand addMessage <command> <message>             # Add a message to a command
+!chatCommand removeMessage <command> <message>          # Remove a message (exact match)
+!chatCommand addImage <command> <url>                   # Add an image URL to a command
+!chatCommand removeImage <command> <url>                # Remove an image (exact match)
+!chatCommand addAlias <command> <alias>                 # Create an alias for a command
+!chatCommand removeAlias <alias>                        # Remove an alias
+```
+
+Chat commands support message tokens:
+- `{djUsername}` - Current DJ name
+- `{senderUsername}` - User who triggered the command
+
+For more information, see [WRITING_NEW_COMMANDS.md](docs/WRITING_NEW_COMMANDS.md)
+
 ## 🧪 Running Tests
 
 Your test suite covers:

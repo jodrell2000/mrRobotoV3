@@ -60,7 +60,11 @@ describe( 'messageService.sendGroupPictureMessage', () => {
         expect( sendGroupMessageSpy ).toHaveBeenCalledWith( {
             message: message,
             images: [ imageUrl ],
-            services: services
+            services: services,
+            senderUid: null,
+            senderName: null,
+            senderAvatarId: null,
+            senderColor: null
         } );
     } );
 

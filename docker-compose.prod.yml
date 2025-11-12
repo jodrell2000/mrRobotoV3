@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 # Production-specific Docker Compose configuration
 # Use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
@@ -10,29 +10,29 @@ services:
       - NODE_ENV=production
       - LOG_LEVEL=info
       - SOCKET_MESSAGE_LOG_LEVEL=OFF
-    
+
     # Stricter resource limits for production
     deploy:
       resources:
         limits:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 256M
-          cpus: '0.25'
-      
+          cpus: "0.25"
+
       # Restart policy for production
       restart_policy:
         condition: on-failure
         delay: 5s
         max_attempts: 3
         window: 120s
-    
+
     # Use named volumes instead of bind mounts for production
     volumes:
-      - mrroboto-data:/usr/src/app/data.json
+      - mrroboto-data:/usr/src/app/data
       - mrroboto-logs:/usr/src/app/logs
-    
+
     # Production logging configuration
     logging:
       driver: "json-file"
@@ -40,19 +40,19 @@ services:
         max-size: "50m"
         max-file: "5"
         compress: "true"
-    
+
     # Security: Read-only root filesystem
     read_only: true
     tmpfs:
       - /tmp:size=100M
       - /usr/src/app/node_modules/.cache:size=50M
-    
+
     # Security: Drop unnecessary capabilities
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE  # Only if needed
-    
+      - NET_BIND_SERVICE # Only if needed
+
     # Security: No new privileges
     security_opt:
       - no-new-privileges:true
