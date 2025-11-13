@@ -569,4 +569,125 @@ describe( 'handleChatCommandCommand', () => {
             expect( result.response ).toContain( 'Unknown subcommand' );
         } );
     } );
+
+    describe( 'list subcommand', () => {
+        it( 'should list all commands when "list" is passed', async () => {
+            fs.readFileSync.mockImplementation( ( filePath ) => {
+                if ( filePath.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        props: { messages: [ 'msg1' ], pictures: [] },
+                        banger: { messages: [ 'msg2' ], pictures: [] }
+                    } );
+                }
+                if ( filePath.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        porps: { command: 'props' },
+                        propos: { command: 'props' }
+                    } );
+                }
+            } );
+            fs.existsSync.mockReturnValue( true );
+
+            const result = await handleChatCommandCommand( {
+                command: 'chatcommand',
+                args: 'list',
+                services: mockServices,
+                context: mockContext
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'Chat Commands' );
+            expect( result.response ).toContain( 'props' );
+            expect( result.response ).toContain( 'porps' );
+            expect( result.response ).toContain( 'propos' );
+            expect( result.response ).toContain( 'banger' );
+        } );
+
+        it( 'should list specific command details when "list <command>" is passed', async () => {
+            fs.readFileSync.mockImplementation( ( filePath ) => {
+                if ( filePath.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        props: {
+                            messages: [ 'Great props!', 'Nice props' ],
+                            pictures: [ 'https://example.com/image.gif', 'https://example.com/image2.gif' ]
+                        }
+                    } );
+                }
+                if ( filePath.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        porps: { command: 'props' },
+                        banger: { command: 'props' }
+                    } );
+                }
+            } );
+            fs.existsSync.mockReturnValue( true );
+
+            const result = await handleChatCommandCommand( {
+                command: 'chatcommand',
+                args: 'list props',
+                services: mockServices,
+                context: mockContext
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'props' );
+            expect( result.response ).toContain( 'porps' );
+            expect( result.response ).toContain( 'banger' );
+            expect( result.response ).toContain( 'Images:' );
+            expect( result.response ).toContain( 'Messages:' );
+            expect( result.response ).toContain( 'Great props' );
+        } );
+
+        it( 'should find command by alias in list', async () => {
+            fs.readFileSync.mockImplementation( ( filePath ) => {
+                if ( filePath.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        props: {
+                            messages: [ 'Props message' ],
+                            pictures: []
+                        }
+                    } );
+                }
+                if ( filePath.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        porps: { command: 'props' }
+                    } );
+                }
+            } );
+            fs.existsSync.mockReturnValue( true );
+
+            const result = await handleChatCommandCommand( {
+                command: 'chatcommand',
+                args: 'list porps',
+                services: mockServices,
+                context: mockContext
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'props' );
+            expect( result.response ).toContain( 'porps' );
+        } );
+
+        it( 'should handle list with non-existent command', async () => {
+            fs.readFileSync.mockImplementation( ( filePath ) => {
+                if ( filePath.includes( 'chat.json' ) ) {
+                    return JSON.stringify( { props: { messages: [ 'msg' ], pictures: [] } } );
+                }
+                if ( filePath.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {} );
+                }
+            } );
+            fs.existsSync.mockReturnValue( true );
+
+            const result = await handleChatCommandCommand( {
+                command: 'chatcommand',
+                args: 'list nonexistent',
+                services: mockServices,
+                context: mockContext
+            } );
+
+            expect( result.success ).toBe( false );
+            expect( result.response ).toContain( 'not found' );
+        } );
+    } );
 } );

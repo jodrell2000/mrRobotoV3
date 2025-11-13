@@ -3,15 +3,174 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 
 /**
+ * Lists all chat commands and their aliases (no specific command)
+ */
+function listAllCommands ( services, context ) {
+    try {
+        const chatPath = path.join( __dirname, '../../data/chat.json' );
+        const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
+
+        if ( !fs.existsSync( chatPath ) ) {
+            return {
+                success: false,
+                shouldRespond: true,
+                response: '❌ No chat commands available.'
+            };
+        }
+
+        const chatData = JSON.parse( fs.readFileSync( chatPath, 'utf8' ) );
+        const aliasesData = fs.existsSync( aliasesPath )
+            ? JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) )
+            : {};
+
+        // Build a map of command -> aliases
+        const commandAliases = {};
+        Object.keys( chatData ).forEach( cmd => {
+            commandAliases[ cmd ] = [];
+        } );
+
+        Object.entries( aliasesData ).forEach( ( [ alias, aliasData ] ) => {
+            if ( commandAliases[ aliasData.command ] ) {
+                commandAliases[ aliasData.command ].push( alias );
+            }
+        } );
+
+        // Build response
+        let response = '**📋 Chat Commands:**\n\n';
+        Object.entries( commandAliases ).forEach( ( [ command, aliases ] ) => {
+            if ( aliases.length > 0 ) {
+                response += `• **${ command }**: ${ aliases.join( ', ' ) }\n`;
+            } else {
+                response += `• **${ command }**\n`;
+            }
+        } );
+
+        return {
+            success: true,
+            shouldRespond: true,
+            response
+        };
+    } catch ( error ) {
+        logger.error( `Error listing chat commands: ${ error.message }` );
+        return {
+            success: false,
+            shouldRespond: true,
+            response: '❌ Error loading chat commands'
+        };
+    }
+}
+
+/**
+ * Lists a specific chat command with its aliases, messages, and images
+ */
+function listSpecificCommand ( commandName, services, context ) {
+    try {
+        const chatPath = path.join( __dirname, '../../data/chat.json' );
+        const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
+
+        if ( !fs.existsSync( chatPath ) ) {
+            return {
+                success: false,
+                shouldRespond: true,
+                response: `❌ Chat command "${ commandName }" not found.`
+            };
+        }
+
+        const chatData = JSON.parse( fs.readFileSync( chatPath, 'utf8' ) );
+        const aliasesData = fs.existsSync( aliasesPath )
+            ? JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) )
+            : {};
+
+        // Check if command exists or if it's an alias
+        let targetCommand = commandName;
+        if ( !chatData[ commandName ] ) {
+            // Check if it's an alias
+            if ( aliasesData[ commandName ] ) {
+                targetCommand = aliasesData[ commandName ].command;
+            } else {
+                return {
+                    success: false,
+                    shouldRespond: true,
+                    response: `❌ Chat command "${ commandName }" not found.`
+                };
+            }
+        }
+
+        const commandData = chatData[ targetCommand ];
+
+        // Find all aliases for this command
+        const aliases = Object.entries( aliasesData )
+            .filter( ( [ alias, aliasData ] ) => aliasData.command === targetCommand )
+            .map( ( [ alias ] ) => alias );
+
+        // Build response
+        let response = `**${ targetCommand }**`;
+        if ( aliases.length > 0 ) {
+            response += `: ${ aliases.join( ', ' ) }`;
+        }
+        response += '\n\n';
+
+        // Add images
+        const images = commandData.pictures || [];
+        const validImages = images.filter( img => img !== null && img !== undefined );
+        if ( validImages.length > 0 ) {
+            response += `**Images:** (${ validImages.length })\n`;
+            validImages.forEach( ( img, index ) => {
+                response += `  ${ index + 1 }. ${ img }\n`;
+            } );
+            response += '\n';
+        } else {
+            response += '**Images:** None\n\n';
+        }
+
+        // Add messages
+        const messages = commandData.messages || [];
+        if ( messages.length > 0 ) {
+            response += `**Messages:** (${ messages.length })\n`;
+            messages.forEach( ( msg, index ) => {
+                // Truncate long messages for display
+                const displayMsg = msg.length > 100 ? msg.substring( 0, 100 ) + '...' : msg;
+                response += `  ${ index + 1 }. ${ displayMsg }\n`;
+            } );
+        } else {
+            response += '**Messages:** None';
+        }
+
+        return {
+            success: true,
+            shouldRespond: true,
+            response
+        };
+    } catch ( error ) {
+        logger.error( `Error listing specific chat command: ${ error.message }` );
+        return {
+            success: false,
+            shouldRespond: true,
+            response: '❌ Error loading chat command details'
+        };
+    }
+}
+
+/**
  * Handles chat commands loaded from chat.json
  * @param {string} command - The command name
- * @param {string} args - Command arguments (unused)
+ * @param {string} args - Command arguments
  * @param {Object} services - Service container
  * @param {Object} context - Context including sender info
  * @returns {Promise<Object>} Response object
  */
 async function handleChatCommand ( command, args, services, context ) {
     try {
+        // Check for "list" subcommand
+        if ( args && args.trim().toLowerCase() === 'list' ) {
+            return listAllCommands( services, context );
+        }
+
+        if ( args && args.trim().toLowerCase().startsWith( 'list ' ) ) {
+            const listCommand = args.trim().substring( 5 ).toLowerCase();
+            return listSpecificCommand( listCommand, services, context );
+        }
+
         // Load chat command data
         const chatPath = path.join( __dirname, '../../data/chat.json' );
 
@@ -33,7 +192,19 @@ async function handleChatCommand ( command, args, services, context ) {
             };
         }
 
-        const commandData = chatData[ command ];
+        // Check for aliases
+        const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
+        let aliasesData = {};
+        if ( fs.existsSync( aliasesPath ) ) {
+            aliasesData = JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) );
+        }
+
+        let commandData = chatData[ command ];
+
+        // Check if command is an alias
+        if ( !commandData && aliasesData[ command ] ) {
+            commandData = chatData[ aliasesData[ command ].command ];
+        }
 
         if ( !commandData ) {
             return {
@@ -129,8 +300,8 @@ async function handleChatCommand ( command, args, services, context ) {
 
 // Set metadata for the command
 handleChatCommand.requiredRole = 'USER';
-handleChatCommand.description = 'Execute chat command from chat.json';
-handleChatCommand.example = 'props';
+handleChatCommand.description = 'Execute chat command from chat.json or list commands';
+handleChatCommand.example = 'props | list | list props';
 handleChatCommand.hidden = true;
 
 module.exports = handleChatCommand;

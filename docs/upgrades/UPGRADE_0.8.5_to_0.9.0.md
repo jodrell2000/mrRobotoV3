@@ -32,7 +32,7 @@ The Bot data has been moved into this folder. You can copy your existing file in
 cp data.json data/botConfig.json
 ```
 
-### Step 2: Create `chat.json` from Example
+### Step 1: Create `chat.json` from Example
 
 The new chat command system stores commands in `chat.json`.
 
@@ -42,7 +42,7 @@ The new chat command system stores commands in `chat.json`.
    cp data/chat.json_example data/chat.json
    ```
 
-### Step 3: Create `aliases.json` from Example
+### Step 2: Create `aliases.json` from Example
 
 Chat command aliases allow alternative names to trigger the same command.
 
@@ -52,7 +52,7 @@ Chat command aliases allow alternative names to trigger the same command.
    ```
 
 
-### Step 6: Verify Data File Structure
+### Step 3: Verify Data File Structure
 
 Your `data` directory should now contain:
 
@@ -67,7 +67,7 @@ data/
 └── themes.json
 ```
 
-### Step 7: Start the Bot
+### Step 4: Start the Bot
 
 Start the upgraded bot as you normally would. Docker is the preferred method using the safe script:
 

@@ -56,9 +56,9 @@ describe( 'handleFeatureCommand', () => {
       const result = await handleFeatureCommand( commandParams );
 
       expect( result.success ).toBe( false );
-      expect( result.response ).toContain( '❌ Only the room owner can manage features.' );
+      expect( result.response ).toContain( '❌ Only the room owner or co-owner can manage features.' );
       expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-        expect.stringContaining( '❌ Only the room owner can manage features.' ),
+        expect.stringContaining( '❌ Only the room owner or co-owner can manage features.' ),
         expect.any( Object )
       );
     } );
@@ -69,9 +69,9 @@ describe( 'handleFeatureCommand', () => {
       const result = await handleFeatureCommand( commandParams );
 
       expect( result.success ).toBe( false );
-      expect( result.response ).toContain( '❌ Only the room owner can manage features.' );
+      expect( result.response ).toContain( '❌ Only the room owner or co-owner can manage features.' );
       expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-        expect.stringContaining( '❌ Only the room owner can manage features.' ),
+        expect.stringContaining( '❌ Only the room owner or co-owner can manage features.' ),
         expect.any( Object )
       );
     } );
