@@ -8,7 +8,7 @@ jest.mock( '../../src/lib/logging.js', () => ( {
     }
 } ) );
 
-const handleImageValidatorCommand = require( '../../src/commands/handleImageValidatorCommand.js' );
+const handleImageValidatorCommand = require( '../../src/commands/Edit Commands/handleImageValidatorCommand.js' );
 
 describe( 'handleImageValidatorCommand', () => {
     let services;

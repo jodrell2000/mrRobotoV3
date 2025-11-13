@@ -6,6 +6,7 @@ This guide covers managing and using chat commands in mrRobotoV3 v0.9.0+. Chat c
 
 - [Overview](#overview)
 - [Command Management](#command-management)
+  - [Listing Commands](#listing-commands)
   - [Adding Commands](#adding-commands)
   - [Managing Messages](#managing-messages)
   - [Managing Images](#managing-images)
@@ -49,6 +50,65 @@ Only **MODERATOR** or **OWNER** role users can manage chat commands using the `!
 ---
 
 ## Command Management
+
+### Listing Commands
+
+View all chat commands or get details about a specific command:
+
+#### List All Commands
+
+```
+!chatCommand list
+```
+
+**Response:**
+```
+📋 Chat Commands:
+
+• **props**: porps, propos, banger
+• **welcome**: greet
+• **thanks**: cheers, ty
+• **rules**
+```
+
+This shows all chat commands and their aliases in alphabetical order.
+
+#### List Specific Command Details
+
+```
+!chatCommand list <commandName>
+```
+
+**Example:**
+```
+!chatCommand list props
+```
+
+**Response:**
+```
+**props**: porps, propos, banger
+
+**Images:** (2)
+  1. https://media.giphy.com/media/j2ptl95PRwZTo0IAuP/giphy.gif
+  2. https://media3.giphy.com/media/8c6IfP6VuSzNVutmDS/giphy.webp
+
+**Messages:** (2)
+  1. {senderUsername} gives props to {djUsername}
+  2. nice one {djUsername}, {senderUsername} thinks that's...
+```
+
+This shows:
+- Command name and all its aliases
+- Number of images and their URLs
+- Number of messages and preview text (truncated for long messages)
+
+**Tip:** You can also query by alias name to find the target command:
+
+```
+!chatCommand list banger
+```
+
+Returns the same details for `props` (since `banger` is an alias).
 
 ### Adding Commands
 
@@ -521,7 +581,7 @@ Usage: `!rules`
 
 ## Related Documentation
 
-- [Upgrade Guide (0.8.5 → 0.9.0)](UPGRADE_0.8.5_to_0.9.0.md)
+- [Upgrade Guide (0.8.5 → 0.9.0)](upgrades/UPGRADE_0.8.5_to_0.9.0.md)
 - [Setting Up Your Environment](SETTING_UP_YOUR_ENVIRONMENT.md)
 - [Writing New Commands](WRITING_NEW_COMMANDS.md)
 - [Changelog](CHANGELOG.md)

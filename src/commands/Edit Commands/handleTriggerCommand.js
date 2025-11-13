@@ -1,4 +1,5 @@
 const config = require( '../../config.js' );
+const { hasPermission } = require( '../../lib/roleUtils' );
 
 // Set required role level for this command - requires owner
 const requiredRole = 'OWNER';
@@ -17,17 +18,17 @@ async function handleListTriggers ( services, context, responseChannel ) {
     try {
         const availableTriggers = triggerService.getAvailableTriggers();
         const allTriggers = triggerService.getAllTriggers();
-        
+
         let response = '**🔧 Configured Triggers:**\n\n';
-        
+
         // Show available trigger types
         response += '**Available Trigger Types:**\n';
         Object.entries( availableTriggers ).forEach( ( [ triggerName, description ] ) => {
             response += `• **${ triggerName }** - ${ description }\n`;
         } );
-        
+
         response += '\n**Current Configuration:**\n';
-        
+
         // Show configured triggers
         if ( Object.keys( allTriggers ).length === 0 ) {
             response += '*No triggers configured*\n';
@@ -37,7 +38,7 @@ async function handleListTriggers ( services, context, responseChannel ) {
                 response += `• **${ triggerName }**: ${ commandList }\n`;
             } );
         }
-        
+
         response += `\n**Usage:**\n• \`${ config.COMMAND_SWITCH }trigger add <triggerName> <commandName>\` - Add command to trigger\n• \`${ config.COMMAND_SWITCH }trigger remove <triggerName> <commandName>\` - Remove command from trigger\n• \`${ config.COMMAND_SWITCH }trigger clear <triggerName>\` - Remove all commands from trigger`;
 
         await messageService.sendResponse( response, {
@@ -77,13 +78,13 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
 
     try {
         const result = await triggerService.addTriggerCommand( triggerName, commandName );
-        
+
         if ( !result.success ) {
             let response = `❌ ${ result.error }`;
             if ( result.availableTriggers ) {
                 response += `\n\n**Available triggers:** ${ result.availableTriggers.join( ', ' ) }`;
             }
-            
+
             await messageService.sendResponse( response, {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -97,9 +98,9 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
                 error: result.error
             };
         }
-        
+
         const response = `✅ ${ result.message }\n\nTrigger "${ triggerName }" now executes: ${ result.currentCommands.join( ', ' ) }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -114,7 +115,7 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
         };
     } catch ( error ) {
         const response = `❌ Failed to add trigger: ${ error.message }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -138,7 +139,7 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
 
     try {
         const result = await triggerService.removeTriggerCommand( triggerName, commandName );
-        
+
         if ( !result.success ) {
             let response = `❌ ${ result.error }`;
             if ( result.availableTriggers ) {
@@ -147,7 +148,7 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
             if ( result.currentCommands ) {
                 response += `\n\n**Current commands:** ${ result.currentCommands.join( ', ' ) || 'none' }`;
             }
-            
+
             await messageService.sendResponse( response, {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -161,15 +162,15 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
                 error: result.error
             };
         }
-        
+
         let response = `✅ ${ result.message }`;
-        
+
         if ( result.currentCommands.length > 0 ) {
             response += `\n\nTrigger "${ triggerName }" now executes: ${ result.currentCommands.join( ', ' ) }`;
         } else {
             response += `\n\nTrigger "${ triggerName }" is now empty`;
         }
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -184,7 +185,7 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
         };
     } catch ( error ) {
         const response = `❌ Failed to remove trigger: ${ error.message }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -208,13 +209,13 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
 
     try {
         const result = await triggerService.clearTrigger( triggerName );
-        
+
         if ( !result.success ) {
             let response = `❌ ${ result.error }`;
             if ( result.availableTriggers ) {
                 response += `\n\n**Available triggers:** ${ result.availableTriggers.join( ', ' ) }`;
             }
-            
+
             await messageService.sendResponse( response, {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -228,9 +229,9 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
                 error: result.error
             };
         }
-        
+
         const response = `✅ ${ result.message }\n\nRemoved commands: ${ result.clearedCommands.join( ', ' ) }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -245,7 +246,7 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
         };
     } catch ( error ) {
         const response = `❌ Failed to clear trigger: ${ error.message }`;
-        
+
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -273,7 +274,26 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
  */
 async function handleTriggerCommand ( commandParams ) {
     const { args, services, context, responseChannel = 'request' } = commandParams;
-    const { messageService } = services;
+    const { messageService, stateService } = services;
+
+    // Check if user has required permissions (owner or coOwner)
+    const senderRole = stateService.getUserRole( context.sender );
+
+    if ( !hasPermission( senderRole, requiredRole ) ) {
+        const response = '❌ Only the room owner or co-owner can manage triggers.';
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return {
+            success: false,
+            shouldRespond: true,
+            response,
+            error: 'Insufficient permissions'
+        };
+    }
 
     // Parse arguments
     if ( !args || args.trim().length === 0 ) {
@@ -369,7 +389,7 @@ async function handleTriggerCommand ( commandParams ) {
     // Invalid subcommand
     const availableTriggers = Object.keys( services.triggerService.getAvailableTriggers() ).join( ', ' );
     const response = `❌ Invalid subcommand: "${ subCommand }"\n\n**Available subcommands:** list, add, remove, clear\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }trigger list\`\n• \`${ config.COMMAND_SWITCH }trigger add <triggerName> <commandName>\`\n• \`${ config.COMMAND_SWITCH }trigger remove <triggerName> <commandName>\`\n• \`${ config.COMMAND_SWITCH }trigger clear <triggerName>\`\n\n**Available triggers:** ${ availableTriggers }`;
-    
+
     await messageService.sendResponse( response, {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,

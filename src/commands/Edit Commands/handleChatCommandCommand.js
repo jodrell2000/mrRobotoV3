@@ -431,6 +431,127 @@ async function addAlias ( commandName, alias, services, context ) {
 }
 
 /**
+ * Lists all chat commands with their aliases
+ */
+async function listAllCommands ( services, context ) {
+    try {
+        const chatPath = path.join( __dirname, '../../../data/chat.json' );
+        const aliasesPath = path.join( __dirname, '../../../data/aliases.json' );
+
+        if ( !fs.existsSync( chatPath ) ) {
+            return await sendResponse( '❌ No chat commands available.', services, context );
+        }
+
+        const chatData = JSON.parse( fs.readFileSync( chatPath, 'utf8' ) );
+        const aliasesData = fs.existsSync( aliasesPath )
+            ? JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) )
+            : {};
+
+        // Build a map of command -> aliases
+        const commandAliases = {};
+        Object.keys( chatData ).forEach( cmd => {
+            commandAliases[ cmd ] = [];
+        } );
+
+        Object.entries( aliasesData ).forEach( ( [ alias, aliasData ] ) => {
+            if ( commandAliases[ aliasData.command ] ) {
+                commandAliases[ aliasData.command ].push( alias );
+            }
+        } );
+
+        // Build response
+        let response = '**📋 Chat Commands:**\n\n';
+        Object.entries( commandAliases ).forEach( ( [ command, aliases ] ) => {
+            if ( aliases.length > 0 ) {
+                response += `• **${ command }**: ${ aliases.join( ', ' ) }\n`;
+            } else {
+                response += `• **${ command }**\n`;
+            }
+        } );
+
+        return await sendSuccessResponse( response, services, context );
+    } catch ( error ) {
+        logger.error( `Error listing chat commands: ${ error.message }` );
+        return await sendResponse( '❌ Error loading chat commands', services, context );
+    }
+}
+
+/**
+ * Lists a specific chat command with its aliases, messages, and images
+ */
+async function listSpecificCommand ( commandName, services, context ) {
+    try {
+        const chatPath = path.join( __dirname, '../../../data/chat.json' );
+        const aliasesPath = path.join( __dirname, '../../../data/aliases.json' );
+
+        if ( !fs.existsSync( chatPath ) ) {
+            return await sendResponse( `❌ Chat command "${ commandName }" not found.`, services, context );
+        }
+
+        const chatData = JSON.parse( fs.readFileSync( chatPath, 'utf8' ) );
+        const aliasesData = fs.existsSync( aliasesPath )
+            ? JSON.parse( fs.readFileSync( aliasesPath, 'utf8' ) )
+            : {};
+
+        // Check if command exists or if it's an alias
+        let targetCommand = commandName;
+        if ( !chatData[ commandName ] ) {
+            // Check if it's an alias
+            if ( aliasesData[ commandName ] ) {
+                targetCommand = aliasesData[ commandName ].command;
+            } else {
+                return await sendResponse( `❌ Chat command "${ commandName }" not found.`, services, context );
+            }
+        }
+
+        const commandData = chatData[ targetCommand ];
+
+        // Find all aliases for this command
+        const aliases = Object.entries( aliasesData )
+            .filter( ( [ alias, aliasData ] ) => aliasData.command === targetCommand )
+            .map( ( [ alias ] ) => alias );
+
+        // Build response
+        let response = `**${ targetCommand }**`;
+        if ( aliases.length > 0 ) {
+            response += `: ${ aliases.join( ', ' ) }`;
+        }
+        response += '\n\n';
+
+        // Add images
+        const images = commandData.pictures || [];
+        const validImages = images.filter( img => img !== null && img !== undefined );
+        if ( validImages.length > 0 ) {
+            response += `**Images:** (${ validImages.length })\n`;
+            validImages.forEach( ( img, index ) => {
+                response += `  ${ index + 1 }. ${ img }\n`;
+            } );
+            response += '\n';
+        } else {
+            response += '**Images:** None\n\n';
+        }
+
+        // Add messages
+        const messages = commandData.messages || [];
+        if ( messages.length > 0 ) {
+            response += `**Messages:** (${ messages.length })\n`;
+            messages.forEach( ( msg, index ) => {
+                // Truncate long messages for display
+                const displayMsg = msg.length > 100 ? msg.substring( 0, 100 ) + '...' : msg;
+                response += `  ${ index + 1 }. ${ displayMsg }\n`;
+            } );
+        } else {
+            response += '**Messages:** None';
+        }
+
+        return await sendSuccessResponse( response, services, context );
+    } catch ( error ) {
+        logger.error( `Error listing specific chat command: ${ error.message }` );
+        return await sendResponse( '❌ Error loading chat command details', services, context );
+    }
+}
+
+/**
  * Removes an alias for a chat command
  */
 async function removeAlias ( alias, services, context ) {
@@ -485,7 +606,15 @@ async function handleChatCommandCommand ( { command, args, services, context } )
         const subcommand = parts[ 0 ]?.toLowerCase();
 
         if ( !subcommand ) {
-            return await sendErrorResponse( `Usage: \`!chatCommand <subcommand> [args]\`\n\nSubcommands:\n\`add <command>\` - Create a new chat command\n\`remove <command>\` - Delete a chat command\n\`addMessage <command> <message>\` - Add a message\n\`removeMessage <command> <message>\` - Remove a message\n\`addImage <command> <url>\` - Add an image\n\`removeImage <command> <url>\` - Remove an image\n\`addAlias <command> <alias>\` - Create an alias\n\`removeAlias <alias>\` - Remove an alias` );
+            return await sendErrorResponse( `Usage: \`!chatCommand <subcommand> [args]\`\n\nSubcommands:\n\`list\` - List all chat commands\n\`list <command>\` - List specific command details\n\`add <command>\` - Create a new chat command\n\`remove <command>\` - Delete a chat command\n\`addMessage <command> <message>\` - Add a message\n\`removeMessage <command> <message>\` - Remove a message\n\`addImage <command> <url>\` - Add an image\n\`removeImage <command> <url>\` - Remove an image\n\`addAlias <command> <alias>\` - Create an alias\n\`removeAlias <alias>\` - Remove an alias` );
+        }
+
+        if ( subcommand === 'list' ) {
+            const listCommand = parts[ 1 ]?.toLowerCase();
+            if ( listCommand ) {
+                return await listSpecificCommand( listCommand, services, context );
+            }
+            return await listAllCommands( services, context );
         }
 
         if ( subcommand === 'add' ) {

@@ -1,5 +1,5 @@
 // src/commands/handleImageValidatorCommand.js
-const { logger } = require( '../lib/logging.js' );
+const { logger } = require( '../../lib/logging.js' );
 
 /**
  * Validate chat command images and remove dead links

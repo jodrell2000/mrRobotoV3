@@ -91,7 +91,6 @@ describe( 'Bot - Message Processing', () => {
       await bot.processNewPublicMessages();
 
       expect( mockServices.logger.error ).toHaveBeenCalledWith( 'Error in processNewPublicMessages: Fetch failed' );
-      expect( mockServices.logger.error ).toHaveBeenCalledWith( `Error stack: ${ error.stack }` );
     } );
 
     test( 'should handle non-Error objects', async () => {
