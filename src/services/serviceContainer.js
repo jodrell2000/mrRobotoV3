@@ -10,6 +10,7 @@ const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
 const StateService = require( './stateService.js' );
 const DataService = require( './dataService.js' );
+const DatabaseService = require( './databaseService.js' );
 const FeaturesService = require( './featuresService.js' );
 const MachineLearningService = require( './machineLearningService.js' );
 const TriggerService = require( './triggerService.js' );
@@ -52,6 +53,16 @@ const initializeData = async () => {
   }
 };
 
+// Initialize database service
+const initializeDatabase = async () => {
+  try {
+    services.databaseService = new DatabaseService( logger );
+    await services.databaseService.initialize();
+  } catch ( err ) {
+    logger.error( 'Failed to initialize DatabaseService:', err );
+  }
+};
+
 const services = {
   // External services
   messageService,
@@ -64,6 +75,7 @@ const services = {
   logger,
   config,
   dataService,
+  databaseService: null, // Will be initialized async
   featuresService,
   retryService,
   validationService,
@@ -140,6 +152,11 @@ const cometchatApi = require( './cometchatApi.js' );
 cometchatApi.setRetryService( retryService );
 
 // Initialize data asynchronously
-initializeData();
+const initializeServices = async () => {
+  await initializeData();
+  await initializeDatabase();
+};
+
+initializeServices();
 
 module.exports = services;
