@@ -87,8 +87,10 @@ if [ "$($DOCKER_COMPOSE_CMD ps -q)" ]; then
     read -p "Do you want to restart the containers? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}🔄 Stopping containers...${NC}"
-        $DOCKER_COMPOSE_CMD down
+        echo -e "${BLUE}🛑 Gracefully stopping containers (giving them 30s to shut down cleanly)...${NC}"
+        $DOCKER_COMPOSE_CMD stop -t 30 || true
+        echo -e "${BLUE}🔄 Removing stopped containers...${NC}"
+        $DOCKER_COMPOSE_CMD rm -f || true
     else
         echo -e "${GREEN}✅ Keeping existing containers running${NC}"
         exit 0
@@ -124,7 +126,7 @@ echo -e "${GREEN}🎉 Docker setup complete!${NC}"
 echo ""
 echo -e "${BLUE}Useful commands:${NC}"
 echo "  View logs:     $DOCKER_COMPOSE_CMD logs -f"
-echo "  Stop:          $DOCKER_COMPOSE_CMD down"
-echo "  Restart:       $DOCKER_COMPOSE_CMD restart"
+echo "  Safe stop:     ./docker-stop-safe.sh"
+echo "  Restart:       ./docker-start-safe.sh"
 echo "  Shell access:  $DOCKER_COMPOSE_CMD exec mrroboto-bot sh"
 echo ""

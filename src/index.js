@@ -13,6 +13,23 @@ services.logger.info( '======================================= Application Start
   services.logger.debug( '🚀 Starting application async function' );
 
   try {
+    // Wait for database initialization to complete
+    services.logger.debug( '⏳ Waiting for database service initialization...' );
+    let maxWaitTime = 30000; // 30 seconds max wait
+    let elapsedTime = 0;
+    const dbCheckInterval = 100; // Check every 100ms
+    while ( !services.databaseService || !services.databaseService.initialized ) {
+      if ( elapsedTime >= maxWaitTime ) {
+        services.logger.warn( '⚠️ Database service initialization timeout - proceeding without full DB initialization' );
+        break;
+      }
+      await new Promise( resolve => setTimeout( resolve, dbCheckInterval ) );
+      elapsedTime += dbCheckInterval;
+    }
+    if ( services.databaseService && services.databaseService.initialized ) {
+      services.logger.info( '✅ Database service initialized successfully' );
+    }
+
     // Fetch bot's nickname using BOT_UID and hangUserService
     services.logger.debug( '🔍 About to fetch bot nickname' );
     try {

@@ -157,6 +157,10 @@ const initializeServices = async () => {
   await initializeDatabase();
 };
 
-initializeServices();
+// Call initializeServices but don't block module export
+initializeServices().catch( err => {
+  logger.error( 'Failed to initialize services:', err );
+} );
 
 module.exports = services;
+module.exports.initializeServices = initializeServices;

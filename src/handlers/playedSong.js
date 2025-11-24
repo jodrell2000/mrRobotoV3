@@ -167,6 +167,59 @@ async function playedSong ( message, state, services ) {
     services.logger.debug( `[playedSong] Current song info extracted: ${ !!currentSongInfo }` );
     if ( currentSongInfo ) {
       services.logger.debug( `[playedSong] Current song data: ${ JSON.stringify( currentSongInfo, null, 2 ) }` );
+
+      // --- DATABASE LOGIC: Upsert DJ, upsert song, record play ---
+      if (services.databaseService && services.databaseService.initialized) {
+        try {
+          // Upsert DJ (nickname unknown here, so use UUID as fallback)
+          services.databaseService.insertOrUpdateDjNickname({
+            uuid: currentSongInfo.djUuid,
+            nickname: currentSongInfo.djUuid // fallback, real nickname should be updated elsewhere
+          });
+
+          // Extract provider IDs if available from hangoutState
+          let appleId, spotifyId, youtubeId;
+          let songId;
+          if (services.hangoutState?.nowPlaying?.song) {
+            const song = services.hangoutState.nowPlaying.song;
+            appleId = song.appleId;
+            spotifyId = song.spotifyId;
+            youtubeId = song.youtubeId;
+            // Compose a unique songId (e.g., appleId|spotifyId|youtubeId|artist|track)
+            songId = appleId || spotifyId || youtubeId || `${song.artistName || ''}|${song.trackName || ''}`;
+          } else {
+            songId = `${currentSongInfo.artistName}|${currentSongInfo.trackName}`;
+          }
+
+          // Upsert song
+          services.databaseService.upsertSong({
+            songId,
+            artistName: currentSongInfo.artistName,
+            trackName: currentSongInfo.trackName,
+            appleId,
+            spotifyId,
+            youtubeId
+          });
+
+          // Record song play (use vote counts from global.previousPlayedSong if available)
+          let voteCounts = { likes: 0, dislikes: 0, stars: 0 };
+          if (global.previousPlayedSong && global.previousPlayedSong.voteCounts) {
+            voteCounts = global.previousPlayedSong.voteCounts;
+          } else if (services.hangoutState?.voteCounts) {
+            voteCounts = services.hangoutState.voteCounts;
+          }
+          services.databaseService.recordSongPlay({
+            songId,
+            djUuid: currentSongInfo.djUuid,
+            likes: voteCounts.likes || 0,
+            dislikes: voteCounts.dislikes || 0,
+            stars: voteCounts.stars || 0
+          });
+          services.logger.debug(`[playedSong] Recorded song play in database: songId=${songId}, djUuid=${currentSongInfo.djUuid}`);
+        } catch (err) {
+          services.logger.error(`[playedSong] Failed to record song play in database: ${err.message}`);
+        }
+      }
     }
 
     // Get the stored previous song info from the last playedSong call

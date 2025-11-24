@@ -6,6 +6,23 @@ const path = require('path');
  * Separate from DataService which handles JSON configuration data
  */
 class DatabaseService {
+        /**
+         * Insert DJ if not exists, or update nickname if changed. Never update firstSeen after insert.
+         */
+        insertOrUpdateDjNickname({ uuid, nickname }) {
+            if (!this.initialized) throw new Error('DatabaseService not initialized');
+            const row = this.db.prepare('SELECT nickname FROM djs WHERE uuid = ?').get(uuid);
+            if (!row) {
+                // Insert new DJ (firstSeen will be set)
+                this.upsertDj({ uuid, nickname });
+                return { action: 'inserted', uuid, nickname };
+            } else if (row.nickname !== nickname) {
+                // Only update nickname, never update firstSeen
+                this.db.prepare('UPDATE djs SET nickname = ? WHERE uuid = ?').run(nickname, uuid);
+                return { action: 'updated', uuid, oldNickname: row.nickname, newNickname: nickname };
+            }
+            return { action: 'none', uuid, nickname };
+        }
     constructor(logger) {
         this.db = null;
         this.logger = logger;
@@ -26,179 +43,103 @@ class DatabaseService {
     }
 
     createTables() {
+        // DJs table
+        const createDjsTable = `
+            CREATE TABLE IF NOT EXISTS djs (
+                uuid TEXT PRIMARY KEY,
+                nickname TEXT,
+                firstSeen DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `;
+        // Songs table
         const createSongsTable = `
-            CREATE TABLE IF NOT EXISTS played_songs (
+            CREATE TABLE IF NOT EXISTS songs (
+                song_id TEXT PRIMARY KEY,
+                artist_name TEXT,
+                track_name TEXT,
+                apple_id TEXT,
+                spotify_id TEXT,
+                youtube_id TEXT
+            )
+        `;
+        // Songs played table
+        const createSongsPlayedTable = `
+            CREATE TABLE IF NOT EXISTS songs_played (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                dj_uuid TEXT NOT NULL,
-                dj_nickname TEXT,
-                artist_name TEXT NOT NULL,
-                track_name TEXT NOT NULL,
+                song_id TEXT,
+                dj_uuid TEXT,
                 likes INTEGER DEFAULT 0,
                 dislikes INTEGER DEFAULT 0,
-                stars INTEGER DEFAULT 0
+                stars INTEGER DEFAULT 0,
+                FOREIGN KEY(song_id) REFERENCES songs(song_id),
+                FOREIGN KEY(dj_uuid) REFERENCES djs(uuid)
             )
         `;
-
-        const createConversationTable = `
-            CREATE TABLE IF NOT EXISTS conversation_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                question TEXT NOT NULL,
-                response TEXT NOT NULL,
-                user_uuid TEXT,
-                command_used TEXT
-            )
-        `;
-
-        const createImageCacheTable = `
-            CREATE TABLE IF NOT EXISTS image_validation_cache (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                url TEXT UNIQUE NOT NULL,
-                status TEXT NOT NULL,
-                status_code INTEGER,
-                last_checked DATETIME DEFAULT CURRENT_TIMESTAMP,
-                attempts INTEGER DEFAULT 1,
-                error_message TEXT
-            )
-        `;
-
-        // Create tables
+        this.db.exec(createDjsTable);
         this.db.exec(createSongsTable);
-        this.db.exec(createConversationTable);
-        this.db.exec(createImageCacheTable);
-
-        // Create indexes for performance
+        this.db.exec(createSongsPlayedTable);
+        // Indexes
         const indexes = [
-            'CREATE INDEX IF NOT EXISTS idx_songs_timestamp ON played_songs(timestamp)',
-            'CREATE INDEX IF NOT EXISTS idx_songs_dj_uuid ON played_songs(dj_uuid)',
-            'CREATE INDEX IF NOT EXISTS idx_songs_artist ON played_songs(artist_name)',
-            'CREATE INDEX IF NOT EXISTS idx_conversation_timestamp ON conversation_history(timestamp)',
-            'CREATE INDEX IF NOT EXISTS idx_image_cache_url ON image_validation_cache(url)',
-            'CREATE INDEX IF NOT EXISTS idx_image_cache_status ON image_validation_cache(status)'
+            'CREATE INDEX IF NOT EXISTS idx_songs_played_timestamp ON songs_played(timestamp)',
+            'CREATE INDEX IF NOT EXISTS idx_songs_played_song_id ON songs_played(song_id)',
+            'CREATE INDEX IF NOT EXISTS idx_songs_played_dj_uuid ON songs_played(dj_uuid)'
         ];
-
         indexes.forEach(index => this.db.exec(index));
     }
 
     /**
-     * Record a song play with vote counts
+     * Upsert a DJ
      */
-    recordSongPlay(songData) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
+    /**
+     * Insert DJ if not exists, set firstSeen only on insert
+     */
+    upsertDj({ uuid, nickname }) {
+        if (!this.initialized) throw new Error('DatabaseService not initialized');
+        // Check if DJ exists
+        const exists = this.db.prepare('SELECT 1 FROM djs WHERE uuid = ?').get(uuid);
+        if (exists) {
+            // Only update nickname if changed, never update firstSeen
+            const stmt = this.db.prepare('UPDATE djs SET nickname = ? WHERE uuid = ?');
+            return stmt.run(nickname, uuid);
+        } else {
+            // Insert with firstSeen as now
+            const stmt = this.db.prepare('INSERT INTO djs (uuid, nickname) VALUES (?, ?)');
+            return stmt.run(uuid, nickname);
         }
-
-        const stmt = this.db.prepare(`
-            INSERT INTO played_songs (dj_uuid, dj_nickname, artist_name, track_name, likes, dislikes, stars)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        return stmt.run(
-            songData.djUuid,
-            songData.djNickname || null,
-            songData.artistName,
-            songData.trackName,
-            songData.voteCounts?.likes || 0,
-            songData.voteCounts?.dislikes || 0,
-            songData.voteCounts?.stars || 0
-        );
     }
 
     /**
-     * Get recent song history
+     * Upsert a song
      */
-    getRecentSongs(limit = 50) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
-        }
-
+    upsertSong({ songId, artistName, trackName, appleId, spotifyId, youtubeId }) {
+        if (!this.initialized) throw new Error('DatabaseService not initialized');
         const stmt = this.db.prepare(`
-            SELECT * FROM played_songs 
-            ORDER BY timestamp DESC 
-            LIMIT ?
+            INSERT INTO songs (song_id, artist_name, track_name, apple_id, spotify_id, youtube_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(song_id) DO UPDATE SET
+                artist_name=excluded.artist_name,
+                track_name=excluded.track_name,
+                apple_id=excluded.apple_id,
+                spotify_id=excluded.spotify_id,
+                youtube_id=excluded.youtube_id
         `);
-
-        return stmt.all(limit);
+        return stmt.run(songId, artistName, trackName, appleId, spotifyId, youtubeId);
     }
 
     /**
-     * Get songs played by a specific DJ
+     * Record a song play
      */
-    getSongsByDJ(djUuid, limit = 50) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
-        }
-
+    recordSongPlay({ songId, djUuid, likes = 0, dislikes = 0, stars = 0 }) {
+        if (!this.initialized) throw new Error('DatabaseService not initialized');
         const stmt = this.db.prepare(`
-            SELECT * FROM played_songs 
-            WHERE dj_uuid = ? 
-            ORDER BY timestamp DESC 
-            LIMIT ?
+            INSERT INTO songs_played (song_id, dj_uuid, likes, dislikes, stars)
+            VALUES (?, ?, ?, ?, ?)
         `);
-
-        return stmt.all(djUuid, limit);
+        return stmt.run(songId, djUuid, likes, dislikes, stars);
     }
 
-    /**
-     * Get song statistics for a time period
-     */
-    getSongStats(startDate, endDate) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
-        }
-
-        const stmt = this.db.prepare(`
-            SELECT 
-                COUNT(*) as total_songs,
-                COUNT(DISTINCT dj_uuid) as unique_djs,
-                AVG(likes) as avg_likes,
-                AVG(dislikes) as avg_dislikes,
-                AVG(stars) as avg_stars,
-                SUM(likes + dislikes + stars) as total_votes
-            FROM played_songs 
-            WHERE timestamp BETWEEN ? AND ?
-        `);
-
-        return stmt.get(startDate, endDate);
-    }
-
-    /**
-     * Save conversation entry for ML context
-     */
-    saveConversation(question, response, userUuid = null, command = null) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
-        }
-
-        const stmt = this.db.prepare(`
-            INSERT INTO conversation_history (question, response, user_uuid, command_used)
-            VALUES (?, ?, ?, ?)
-        `);
-
-        return stmt.run(question, response, userUuid, command);
-    }
-
-    /**
-     * Get recent conversation history for ML context
-     */
-    getConversationHistory(hoursBack = 1, limit = 20) {
-        if (!this.initialized) {
-            throw new Error('DatabaseService not initialized');
-        }
-
-        const cutoffTime = new Date(Date.now() - (hoursBack * 60 * 60 * 1000)).toISOString();
-
-        const stmt = this.db.prepare(`
-            SELECT question, response, timestamp 
-            FROM conversation_history 
-            WHERE timestamp > ? 
-            ORDER BY timestamp ASC 
-            LIMIT ?
-        `);
-
-        return stmt.all(cutoffTime, limit);
-    }
+    // ...existing code...
 
     /**
      * Close database connection

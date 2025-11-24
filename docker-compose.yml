@@ -19,9 +19,7 @@ services:
 
     # Mount volumes for persistent data
     volumes:
-      # Persistent storage for data directory (bot's memory and config)
       - ./data:/usr/src/app/data
-      # Persistent storage for logs
       - ./logs:/usr/src/app/logs
       # Optional: Mount config if you want to modify it without rebuilding
       # - ./src/config.js:/usr/src/app/src/config.js:ro
@@ -59,10 +57,3 @@ services:
 networks:
   mrroboto-network:
     driver: bridge
-
-# Volumes (if you prefer named volumes instead of bind mounts)
-volumes:
-  mrroboto-data:
-    driver: local
-  mrroboto-logs:
-    driver: local
