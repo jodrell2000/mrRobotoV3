@@ -93,12 +93,14 @@ async function executeSongAICommand ( commandParams, config ) {
         const hangoutName = services.stateService.getHangoutName();
         const botName = dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
 
-        const theQuestion = questionTemplate
-            .replace( /\{trackName\}/g, trackName )
-            .replace( /\{artistName\}/g, artistName )
-            .replace( /\{username\}/g, username )
-            .replace( /\{hangoutName\}/g, hangoutName )
-            .replace( /\{botName\}/g, botName );
+        // Use tokenService for token replacement to support all dynamic tokens including {last5plays}
+        const theQuestion = await services.tokenService.replaceTokens( questionTemplate, {
+            trackName,
+            artistName,
+            username,
+            hangoutName,
+            botName
+        }, true );
 
         // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 

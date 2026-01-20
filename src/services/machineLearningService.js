@@ -11,10 +11,59 @@ class MachineLearningService {
     this.genAI = null;
     this.services = services;
     this.currentChat = null; // Store the active chat session
+    this.availableModels = []; // Will be populated with text generation models from API
 
     if ( this.googleAIKey ) {
       this.genAI = new GoogleGenAI( { apiKey: this.googleAIKey } );
+      // Don't await initialization in constructor - it will happen asynchronously
+      // This keeps tests simple and doesn't block initialization
+      this.initializeAvailableModels().catch( err => {
+        logger.warn( `🤖 [MachineLearningService] Failed to load available models on init: ${ err.message }` );
+      } );
     }
+  }
+
+  /**
+   * Initialize the list of available text generation models from the API
+   * This allows us to build a dynamic fallback chain
+   */
+  async initializeAvailableModels () {
+    try {
+      const models = await this.genAI.models.list();
+
+      // Handle different response formats
+      let modelList = [];
+      if ( Array.isArray( models ) ) {
+        modelList = models;
+      } else if ( models.models ) {
+        modelList = models.models;
+      } else if ( models.pageInternal ) {
+        modelList = models.pageInternal;
+      }
+
+      // Filter for text generation models that support generateContent
+      this.availableModels = modelList
+        .filter( m => m.supportedActions && m.supportedActions.includes( 'generateContent' ) )
+        .map( m => m.name.replace( 'models/', '' ) )
+        .sort();
+
+      logger.info( `🤖 [MachineLearningService] Loaded ${ this.availableModels.length } available text generation models` );
+    } catch ( error ) {
+      logger.warn( `🤖 [MachineLearningService] Could not load available models: ${ error.message }` );
+      this.availableModels = [];
+    }
+  }
+
+  /**
+   * Get the next fallback model from the available models list
+   * Skips the provided model and returns the next available one
+   * @param {string} currentModel - The model to skip
+   * @returns {string|null} The next available model or null
+   */
+  getNextFallbackModel ( currentModel ) {
+    const cleanCurrent = currentModel.replace( 'models/', '' );
+    const remaining = this.availableModels.filter( m => m !== cleanCurrent );
+    return remaining.length > 0 ? remaining[ 0 ] : null;
   }
 
   /**
@@ -117,7 +166,7 @@ class MachineLearningService {
    * @param {string} model - The model to use for the chat
    * @param {Array} conversationHistory - The conversation history
    * @param {Array} systemInstruction - System instructions for the chat as array of strings
-   * @returns {Object} The chat instance
+   * @returns {Promise<Object>} Promise that resolves to the chat instance
    */
   async getOrCreateChat ( model, conversationHistory, systemInstruction ) {
     // Format the conversation history for the chat API
@@ -134,11 +183,12 @@ class MachineLearningService {
       config.systemInstruction = systemInstruction;
     }
 
-    // logger.debug( `🤖 [MachineLearningService] chatConfig: ${ JSON.stringify( { config } ) }` );
+    logger.debug( `🤖 [MachineLearningService] Creating chat with model: ${ model }` );
+    logger.debug( `🤖 [MachineLearningService] Chat config: ${ JSON.stringify( { config }, null, 2 ) }` );
 
     // Always create a new chat session with the current history and context
     // This ensures we have the most up-to-date conversation context
-    this.currentChat = this.genAI.chats.create( {
+    this.currentChat = await this.genAI.chats.create( {
       model: model,
       config
     } );
@@ -165,17 +215,7 @@ class MachineLearningService {
       const instructions = this.services.dataService.getValue( 'Instructions.MLInstructions' );
 
       // Always start with the hardcoded safety instruction
-      const systemInstructionArray = [ "Under no circumstances should any response contain any sexist, racist, or homophobic language" ];
-
-      // Add personality if available
-      if ( personality ) {
-        const processedPersonality = this.services.tokenService
-          ? await this.services.tokenService.replaceTokens( personality, {}, true )
-          : personality
-            .replace( /\{hangoutName\}/g, hangoutName )
-            .replace( /\{botName\}/g, botName );
-        systemInstructionArray.push( processedPersonality );
-      }
+      const systemInstructionArray = [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language." ];
 
       // Add instructions if available
       if ( instructions ) {
@@ -184,7 +224,17 @@ class MachineLearningService {
           : instructions
             .replace( /\{hangoutName\}/g, hangoutName )
             .replace( /\{botName\}/g, botName );
-        systemInstructionArray.push( processedInstructions );
+        systemInstructionArray.push( "\n" + processedInstructions );
+      }
+
+      // Add personality if available
+      if ( personality ) {
+        const processedPersonality = this.services.tokenService
+          ? await this.services.tokenService.replaceTokens( personality, {}, true )
+          : personality
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
+        systemInstructionArray.push( "\n" + processedPersonality );
       }
 
       return systemInstructionArray;
@@ -205,7 +255,29 @@ class MachineLearningService {
   }
 
   /**
+   * List all available models from Google AI API
+   * @returns {Promise<Array>} Array of available model names, or empty array if error
+   */
+  async listModels () {
+    if ( !this.genAI ) {
+      logger.warn( "🤖 [MachineLearningService] Google AI service not configured. Cannot list models." );
+      return [];
+    }
+
+    try {
+      const models = await this.genAI.models.list();
+      const modelNames = models.map( m => m.name.replace( 'models/', '' ) );
+      logger.info( `🤖 [MachineLearningService] Available models: ${ modelNames.join( ', ' ) }` );
+      return modelNames;
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error listing models: ${ error.message }` );
+      return [];
+    }
+  }
+
+  /**
    * Ask Google AI a question and get a response using conversation context
+   * Tries primary model, then dynamically falls back through available models
    * @param {string} theQuestion - The question to ask the AI
    * @param {Object} chatFunctions - Optional chat functions (reserved for future use)
    * @returns {Promise<string>} The AI's response or error message
@@ -220,107 +292,104 @@ class MachineLearningService {
       await this.services.dataService.loadData();
     }
 
-    // Try primary model first
-    const primaryModel = "gemini-2.5-flash";
-    const fallbackModel = "gemini-2.0-flash";
+    // TEMPORARY: Use only Gemma models
+    const primaryModel = "gemma-3-27b-it";
+    const secondaryModel = "gemma-3-12b-it";
 
-    try {
-      // Load conversation history (skip data load since we already loaded)
-      const conversationHistory = await this.loadConversationHistory( true );
+    // Create fallback chain with guaranteed models first, then dynamically-loaded ones
+    const modelsToTry = [ primaryModel, secondaryModel ];
 
-      // Get system instructions (skip data load since we already loaded)
-      const systemInstruction = await this.createSystemInstruction( true );
-
-      // Get or create chat session with conversation history
-      const chat = await this.getOrCreateChat( primaryModel, conversationHistory, systemInstruction );
-
-      // Log the full request being sent to AI
-      logger.debug( `🤖 [MachineLearningService] The Question: ${ JSON.stringify( {
-        theQuestion
-      }, null, 2 ) }` );
-
-      // Send the message to the chat
-      const response = await chat.sendMessage( {
-        message: theQuestion
-      } );
-      const theResponse = response.text;
-
-      // Log the raw response from AI
-      // logger.debug( `🤖 [MachineLearningService] Raw AI Chat Response: ${ JSON.stringify( {
-      //   model: primaryModel,
-      //   response: theResponse,
-      //   fullResponseObject: response
-      // }, null, 2 ) }` );
-
-      if ( theResponse && theResponse !== "No response text available" ) {
-        // Save this conversation entry (skip data load since we already loaded)
-        await this.saveConversationEntry( theQuestion, theResponse, true );
-
-        return theResponse;
-      } else {
-        // Primary model failed, try fallback
-        return await this.tryFallbackModel( theQuestion, fallbackModel );
+    // Add any other available gemma models that aren't already in the chain
+    if ( this.availableModels && this.availableModels.length > 0 ) {
+      for ( const model of this.availableModels ) {
+        if ( model.includes( 'gemma' ) && !modelsToTry.includes( model ) ) {
+          modelsToTry.push( model );
+        }
       }
-    } catch ( error ) {
-      logger.warn( `🤖 [MachineLearningService] Error with ${ primaryModel }: ${ error.message }, trying fallback model: ${ fallbackModel }` );
-      // Primary model errored, try fallback
-      return await this.tryFallbackModel( theQuestion, fallbackModel );
     }
+
+    // Try each model in the fallback chain
+    for ( const model of modelsToTry ) {
+      try {
+        const result = await this.tryModel( model, theQuestion );
+        if ( result ) {
+          return result;
+        }
+      } catch ( error ) {
+        logger.warn( `🤖 [MachineLearningService] Error with model ${ model }: ${ error.message }` );
+        // Continue to next model in chain
+      }
+    }
+
+    // All models failed
+    logger.error( `🤖 [MachineLearningService] All available models exhausted (${ modelsToTry.length } attempted). Unable to get response.` );
+    return "I'm unable to process your request at the moment. Please try again later.";
   }
 
   /**
-   * Try the fallback model when the primary model fails
-   * @param {string} theQuestion - The question to ask the AI
-   * @param {string} fallbackModel - The fallback model to use
-   * @returns {Promise<string>} The AI's response or error message
+   * Try a single model with the given question
+   * @param {string} model - The model name to try
+   * @param {string} theQuestion - The question to ask
+   * @returns {Promise<string|null>} The response or null if unsuccessful
    */
-  async tryFallbackModel ( theQuestion, fallbackModel ) {
-    try {
-      // Load conversation history (skip data load since we already loaded in main method)
-      const conversationHistory = await this.loadConversationHistory( true );
+  async tryModel ( model, theQuestion ) {
+    // Load conversation history (data already loaded in askGoogleAI)
+    const conversationHistory = await this.loadConversationHistory( true );
 
-      // Get system instructions (skip data load since we already loaded in main method)
-      const systemInstruction = await this.createSystemInstruction( true );
+    // Get system instructions
+    const systemInstruction = await this.createSystemInstruction( true );
 
-      // Get or create chat session with fallback model
-      const chat = await this.getOrCreateChat( fallbackModel, conversationHistory, systemInstruction );
+    // For Gemma models, include instructions in the question with proper turn tokens; for others, pass separately
+    let instructionsForChat = null;
+    let questionToSend = theQuestion;
 
-      // Log the full fallback request being sent to AI
-      // logger.debug( `🤖 [MachineLearningService] Full AI Fallback Chat Request: ${ JSON.stringify( {
-      //   model: fallbackModel,
-      //   systemInstruction: systemInstruction,
-      //   message: theQuestion,
-      //   conversationHistory: conversationHistory
-      // }, null, 2 ) }` );
+    if ( model.includes( 'gemma' ) ) {
+      // Gemma models: format with turn tokens as per documentation
+      // https://ai.google.dev/gemma/docs/core/prompt-structure
+      let prompt = '<start_of_turn>user\n';
 
-      // Send the message to the fallback chat
-      const response = await chat.sendMessage( {
-        message: theQuestion
-      } );
-      const theResponse = response.text;
-
-      // Log the raw response from fallback AI
-      // logger.debug( `🤖 [MachineLearningService] Raw AI Fallback Chat Response: ${ JSON.stringify( {
-      //   model: fallbackModel,
-      //   response: theResponse,
-      //   fullResponseObject: response
-      // }, null, 2 ) }` );
-
-      if ( theResponse && theResponse !== "No response text available" ) {
-        // Save this conversation entry (skip data load since we already loaded in main method)
-        await this.saveConversationEntry( theQuestion, theResponse, true );
-
-        return theResponse;
-      } else {
-        logger.error( `🤖 [MachineLearningService] No response from fallback model ${ fallbackModel }` );
-        return "No response";
+      // Add instructions if available
+      if ( systemInstruction && systemInstruction.length > 0 ) {
+        prompt += systemInstruction.join( '\n\n' ) + '\n\n';
       }
-    } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error with fallback model ${ fallbackModel }: ${ error.message }` );
-      console.error( "Google AI error (fallback):", error );
-      return "An error occurred while connecting to Google Gemini. Please wait a minute and try again";
+
+      // Add the actual question and close the turn
+      prompt += theQuestion + '<end_of_turn>\n<start_of_turn>model\n';
+
+      questionToSend = prompt;
+    } else {
+      // Other models: pass instructions separately
+      instructionsForChat = systemInstruction;
     }
+
+    // Get or create chat session with conversation history
+    const chat = await this.getOrCreateChat( model, conversationHistory, instructionsForChat );
+
+    logger.debug( `🤖 [MachineLearningService] Trying model ${ model }. The Question: ${ JSON.stringify( {
+      theQuestion
+    }, null, 2 ) }` );
+
+    // Send the message to the chat
+    const response = await chat.sendMessage( {
+      message: questionToSend
+    } );
+
+    logger.debug( `🤖 [MachineLearningService] Full API Request sent to model ${ model }:` );
+    logger.debug( `🤖 [MachineLearningService] Message: ${ JSON.stringify( questionToSend, null, 2 ) }` );
+    logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
+
+    const theResponse = response.text;
+
+    if ( theResponse && theResponse !== "No response text available" ) {
+      logger.info( `🤖 [MachineLearningService] Successfully used model: ${ model }` );
+      // Conversation history storage disabled - no longer saving entries
+      return theResponse;
+    }
+
+    logger.warn( `🤖 [MachineLearningService] Model ${ model } returned no response` );
+    return null;
   }
+
 }
 
 module.exports = MachineLearningService;

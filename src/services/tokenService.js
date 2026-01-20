@@ -19,6 +19,7 @@ class TokenService {
             '{senderUsername}': ( context ) => this.getSenderUsername( context ),
             '{djUsername}': ( context ) => this.getDjUsername( context ),
             '{userlist}': () => this.getUserList(),
+            '{last5plays}': () => this.getLastFivePlays(),
             '{timezone}': () => this.getConfigValue( 'timezone', 'Europe/London' ),
             '{locale}': () => this.getConfigValue( 'locale', 'en-GB' ),
             '{dateFormat}': () => this.getConfigValue( 'dateFormat', 'DD/MM/YYYY' ),
@@ -260,7 +261,53 @@ class TokenService {
             this.logger.debug( `[TokenService] Error getting user list: ${ error.message }` );
             return '';
         }
-    }    /**
+    }
+
+    /**
+     * Get the last 5 songs played (excluding the current song) formatted as a list
+     * @returns {Promise<string>} Formatted list of last 5 plays
+     */
+    async getLastFivePlays () {
+        try {
+            if ( !this.services?.databaseService || !this.services.databaseService.initialized ) {
+                return 'No play history available';
+            }
+
+            // Get 6 songs so we can skip the most recent one (current song)
+            const recentSongs = this.services.databaseService.getRecentSongs( 6 );
+
+            if ( !recentSongs || recentSongs.length === 0 ) {
+                return 'No songs have been played yet';
+            }
+
+            // Skip the first (most recent) song and use the next 5
+            const previousSongs = recentSongs.slice( 1 );
+
+            if ( previousSongs.length === 0 ) {
+                return 'No previous songs in history';
+            }
+
+            let result = 'The last 5 songs played were:\n';
+            previousSongs.forEach( ( play ) => {
+                const trackName = play.track_name || 'Unknown Track';
+                const artistName = play.artist_name || 'Unknown Artist';
+                const djName = play.nickname;
+
+                if ( djName ) {
+                    result += `- ${ djName } played ${ trackName } by ${ artistName }\n`;
+                } else {
+                    result += `- ${ trackName } by ${ artistName }\n`;
+                }
+            } );
+
+            return result.trim();
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting last 5 plays: ${ error.message }` );
+            return 'Unable to retrieve play history';
+        }
+    }
+
+    /**
      * Get all available tokens (built-in + custom)
      * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
      * @returns {Object} Object containing all available tokens and their resolvers
@@ -412,8 +459,11 @@ class TokenService {
                         resolvedValue = tokenConfig;
                     }
 
+                    // Ensure resolvedValue is a string
+                    const resolvedString = resolvedValue !== null && resolvedValue !== undefined ? String( resolvedValue ) : '';
+
                     // Replace all instances of this token
-                    processedText = processedText.replace( new RegExp( tokenName.replace( /[{}]/g, '\\$&' ), 'g' ), resolvedValue || '' );
+                    processedText = processedText.replace( new RegExp( tokenName.replace( /[{}]/g, '\\$&' ), 'g' ), resolvedString );
                 }
             }
 
@@ -510,6 +560,8 @@ class TokenService {
             '{greetingTime}': 'Time-based greeting (morning, afternoon, evening, night)',
             '{senderUsername}': 'Username of the person who sent the command (formatted as mention)',
             '{djUsername}': 'Username of the current DJ playing music (formatted as mention)',
+            '{userlist}': 'Comma-separated list of all users currently in the hangout',
+            '{last5plays}': 'Last 5 songs played with DJ names',
             '{timezone}': 'Configured timezone (e.g., Europe/London)',
             '{locale}': 'Configured locale (e.g., en-GB)',
             '{dateFormat}': 'Configured date format (e.g., DD/MM/YYYY)',
