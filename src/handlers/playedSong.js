@@ -129,10 +129,35 @@ function extractSongInfo ( message, services ) {
     }
   }
 
-  // If we have song info but no DJ UUID from patch, try to get it from full state
-  if ( !djUuid && ( artistName || trackName ) ) {
-    if ( services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
-      djUuid = services.hangoutState.djs[ 0 ].uuid;
+  // If we don't have all required info from patches, try to get from full state
+  if ( !djUuid || !artistName || !trackName || !songShortId ) {
+    const nowPlaying = services.hangoutState?.nowPlaying?.song;
+    if ( nowPlaying ) {
+      if ( !djUuid && services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
+        djUuid = services.hangoutState.djs[ 0 ].uuid;
+      }
+      if ( !artistName ) {
+        artistName = nowPlaying.artistName;
+      }
+      if ( !trackName ) {
+        trackName = nowPlaying.trackName;
+      }
+      if ( !songShortId ) {
+        songShortId = nowPlaying.songShortId;
+      }
+      // Also fill in missing provider IDs if available
+      if ( !sevenDigitalId ) {
+        sevenDigitalId = nowPlaying.musicProviders?.sevenDigital;
+      }
+      if ( !spotifyId ) {
+        spotifyId = nowPlaying.musicProviders?.spotify;
+      }
+      if ( !appleId ) {
+        appleId = nowPlaying.musicProviders?.apple;
+      }
+      if ( !youtubeId ) {
+        youtubeId = nowPlaying.musicProviders?.youtube;
+      }
     }
   }
 

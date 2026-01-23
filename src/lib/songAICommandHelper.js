@@ -4,6 +4,75 @@
  */
 
 /**
+ * Add a message pair (user question + model response) to the ML conversation history
+ * @param {string} userContent - The user's question/task
+ * @param {string} modelContent - The model's response
+ * @param {Object} dataService - DataService instance for persistence
+ */
+async function addToConversationHistory ( userContent, modelContent, dataService ) {
+    try {
+        let history = dataService.getValue( 'mlConversationHistory' ) || [];
+
+        // Add new pair entry with shared timestamp
+        history.push( {
+            timestamp: new Date().toISOString(),
+            pair: [
+                { role: 'user', content: userContent },
+                { role: 'model', content: modelContent }
+            ]
+        } );
+
+        // Keep only the last 5 pairs
+        if ( history.length > 5 ) {
+            history = history.slice( -5 );
+        }
+
+        // Persist back to dataService
+        await dataService.setValue( 'mlConversationHistory', history );
+    } catch ( error ) {
+        // Log but don't fail - conversation history is non-critical
+        console.error( '[songAICommandHelper] Failed to save conversation history:', error.message );
+    }
+}
+
+/**
+ * Replace all user nicknames in text with their mention format
+ * @param {string} text - The text to process
+ * @param {Object} hangoutState - The hangout state containing user data
+ * @param {Object} logger - Logger instance
+ * @returns {string} Text with all usernames replaced by mentions
+ */
+function replaceAllUsernamesWithMentions ( text, hangoutState, logger ) {
+    if ( !text || !hangoutState?.allUserData ) {
+        return text;
+    }
+
+    let processedText = text;
+
+    try {
+        // Iterate through all users and replace their nicknames with mention format
+        for ( const [ uuid, userData ] of Object.entries( hangoutState.allUserData ) ) {
+            const nickname = userData?.userProfile?.nickname;
+
+            if ( nickname && uuid ) {
+                // Create a case-sensitive regex to find the nickname
+                // Use word boundaries to avoid partial matches
+                const nicknameRegex = new RegExp( `\\b${ nickname.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }\\b`, 'g' );
+                const mentionFormat = `<@uid:${ uuid }>`;
+
+                // Replace all instances
+                processedText = processedText.replace( nicknameRegex, mentionFormat );
+            }
+        }
+    } catch ( error ) {
+        logger.warn( `[songAICommandHelper] Error replacing usernames with mentions: ${ error.message }` );
+        return text;
+    }
+
+    return processedText;
+}
+
+/**
  * Executes a song-based AI command with standardized error handling and response formatting
  * @param {Object} commandParams - Standard command parameters
  * @param {Object} config - Command-specific configuration
@@ -93,19 +162,39 @@ async function executeSongAICommand ( commandParams, config ) {
         const hangoutName = services.stateService.getHangoutName();
         const botName = dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
 
+        // Get sender's actual username (plain text for AI, not formatted mention)
+        let senderUsername = 'User';
+        if ( context?.sender ) {
+            try {
+                const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
+                if ( senderUuid ) {
+                    senderUsername = await services.hangUserService.getUserNicknameByUuid( senderUuid ) || 'User';
+                }
+            } catch ( error ) {
+                logger.debug( `[${ config.commandName }] Could not get sender username: ${ error.message }` );
+            }
+        }
+
         // Use tokenService for token replacement to support all dynamic tokens including {last5plays}
         const theQuestion = await services.tokenService.replaceTokens( questionTemplate, {
             trackName,
             artistName,
             username,
             hangoutName,
-            botName
+            botName,
+            sender: context?.sender,
+            senderUsername
         }, true );
 
         // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
         // Get response from the machine learning service
         const aiResponse = await machineLearningService.askGoogleAI( theQuestion );
+
+        // Store the task (question) and response in conversation history as a pair
+        // Extract just the task section from the full question (everything after "## Task")
+        const taskMatch = theQuestion.match( /## Task\n([\s\S]*)/ );
+        const taskOnly = taskMatch ? taskMatch[ 1 ] : theQuestion;
 
         // Debug: Log the raw AI response
         // logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
@@ -118,24 +207,16 @@ async function executeSongAICommand ( commandParams, config ) {
 
         if ( !isValidResponse ) {
             logger.warn( `[${ config.commandName }] Invalid AI response detected - aiResponse: "${ aiResponse }"` );
+        } else {
+            // Store question and response together as a pair with shared timestamp
+            await addToConversationHistory( taskOnly, aiResponse, dataService );
         }
 
-        // Replace DJ display name with mention format in AI response
+        // Replace all user nicknames with mention format in AI response
         let processedAiResponse = aiResponse;
-        if ( aiResponse && username !== 'Someone' && username !== usernameMention ) {
-            // logger.debug( `[${ config.commandName }] Attempting mention replacement - username: "${ username }", mention: "${ usernameMention }"` );
-
-            // Replace all instances of the display name with the mention format
-            const usernameRegex = new RegExp( username.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ), 'g' );
-            processedAiResponse = aiResponse.replace( usernameRegex, usernameMention );
-
-            // if ( processedAiResponse !== aiResponse ) {
-            //     logger.debug( `[${ config.commandName }] Mention replacement performed - original: "${ aiResponse }", processed: "${ processedAiResponse }"` );
-            // } else {
-            //     logger.debug( `[${ config.commandName }] No mention replacement needed - username not found in response` );
-            // }
-        } else {
-            logger.debug( `[${ config.commandName }] Skipping mention replacement - aiResponse: ${ !!aiResponse }, username: "${ username }", mention: "${ usernameMention }"` );
+        if ( aiResponse ) {
+            // Replace all usernames with mentions (handles current DJ, requester, and any other users mentioned)
+            processedAiResponse = replaceAllUsernamesWithMentions( aiResponse, hangoutState, logger );
         }
 
         // Format the response
@@ -222,5 +303,7 @@ async function executeSongAICommand ( commandParams, config ) {
 }
 
 module.exports = {
-    executeSongAICommand
+    executeSongAICommand,
+    addToConversationHistory,
+    replaceAllUsernamesWithMentions
 };

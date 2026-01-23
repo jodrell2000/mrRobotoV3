@@ -22,7 +22,7 @@
   "mlQuestions": {
     "popfactsQuestion": "## Task\nTell me three short interesting facts about the song and/or the artist {trackName} by {artistName}.\n- When searching note that it may or may not be a cover version\n- Do not tell me that you're giving me three facts as part of the reply\n- **Format:** Limit response to 200 words",
     "whatyearQuestion": "## Task\nTell me what year was the song {trackName} by {artistName} originally released?\n- You MUST cite your source\n- **Format:** Limit response to 50 words",
-    "meaningQuestion": "## Task\nTell me the meaning of the lyrics of the song {trackName} by {artistName}\n- **Format:** Limit response to 2000 words",
+    "meaningQuestion": "## Task\nTell me the meaning of the lyrics of the song {trackName} by {artistName}\n- **Format:** Limit response to 200 words",
     "bandQuestion": "## Task\nTell me some interesting information about the band or artist called {artistName}.\n**Suggested information to include**\n- when and where they formed\n- when their first and most notable or recent releases were plus how well these releases performed in the charts in both the UK and USA\n- notable former band members\n- **Format:** Limit response to 300 words",
     "introQuestion": "## Task\nIntroduce the song {trackName} by {artistName} as chosen by {username}\n1. Verify song facts using MusicBrainz/Wikipedia.\n2. Comment on how this fits the current vibe and previously played songs.\n- **Format:** Limit response to 150 words"
   },

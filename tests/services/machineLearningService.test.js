@@ -441,10 +441,220 @@ describe( 'MachineLearningService', () => {
         ] );
       } );
 
+      it( 'should format ML conversation history with new role/content format', () => {
+        const history = [
+          { role: 'user', content: 'Tell me about the song', timestamp: '2023-01-01T00:00:00Z' },
+          { role: 'model', content: 'The song is amazing!', timestamp: '2023-01-01T00:00:00Z' }
+        ];
+
+        const result = service.formatChatHistory( history );
+
+        expect( result ).toEqual( [
+          { role: 'user', parts: [ { text: 'Tell me about the song' } ] },
+          { role: 'model', parts: [ { text: 'The song is amazing!' } ] }
+        ] );
+      } );
+
       it( 'should handle empty history', () => {
         const result = service.formatChatHistory( [] );
 
         expect( result ).toEqual( [] );
+      } );
+    } );
+
+    describe( 'loadMLConversationHistory', () => {
+      it( 'should return empty array when no data service available', async () => {
+        const serviceWithoutData = new MachineLearningService( {} );
+
+        const result = await serviceWithoutData.loadMLConversationHistory();
+
+        expect( result ).toEqual( [] );
+      } );
+
+      it( 'should return empty array when no ML conversation history exists', async () => {
+        mockServices.dataService.getValue.mockReturnValue( [] );
+
+        const result = await service.loadMLConversationHistory();
+
+        expect( result ).toEqual( [] );
+      } );
+
+      it( 'should return last 3 pairs flattened to role/content format', async () => {
+        const mlHistory = [
+          {
+            timestamp: '2023-01-01T00:00:00Z',
+            pair: [
+              { role: 'user', content: 'Question 1' },
+              { role: 'model', content: 'Response 1' }
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:01:00Z',
+            pair: [
+              { role: 'user', content: 'Question 2' },
+              { role: 'model', content: 'Response 2' }
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:02:00Z',
+            pair: [
+              { role: 'user', content: 'Question 3' },
+              { role: 'model', content: 'Response 3' }
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:03:00Z',
+            pair: [
+              { role: 'user', content: 'Question 4' },
+              { role: 'model', content: 'Response 4' }
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:04:00Z',
+            pair: [
+              { role: 'user', content: 'Question 5' },
+              { role: 'model', content: 'Response 5' }
+            ]
+          }
+        ];
+
+        mockServices.dataService.getValue.mockReturnValue( mlHistory );
+
+        const result = await service.loadMLConversationHistory();
+
+        // Should return last 3 pairs (6 entries total)
+        expect( result ).toHaveLength( 6 );
+
+        // Verify structure and content
+        expect( result ).toEqual( [
+          { role: 'user', content: 'Question 3', timestamp: '2023-01-01T00:02:00Z' },
+          { role: 'model', content: 'Response 3', timestamp: '2023-01-01T00:02:00Z' },
+          { role: 'user', content: 'Question 4', timestamp: '2023-01-01T00:03:00Z' },
+          { role: 'model', content: 'Response 4', timestamp: '2023-01-01T00:03:00Z' },
+          { role: 'user', content: 'Question 5', timestamp: '2023-01-01T00:04:00Z' },
+          { role: 'model', content: 'Response 5', timestamp: '2023-01-01T00:04:00Z' }
+        ] );
+      } );
+
+      it( 'should handle partial pairs gracefully', async () => {
+        const mlHistory = [
+          {
+            timestamp: '2023-01-01T00:00:00Z',
+            pair: [
+              { role: 'user', content: 'Question 1' }
+              // Missing model response
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:01:00Z',
+            pair: [
+              { role: 'user', content: 'Question 2' },
+              { role: 'model', content: 'Response 2' }
+            ]
+          }
+        ];
+
+        mockServices.dataService.getValue.mockReturnValue( mlHistory );
+
+        const result = await service.loadMLConversationHistory();
+
+        // Should include all available messages
+        expect( result ).toHaveLength( 3 );
+      } );
+
+      it( 'should handle errors gracefully', async () => {
+        mockServices.dataService.loadData.mockRejectedValue( new Error( 'Data load error' ) );
+
+        const result = await service.loadMLConversationHistory();
+
+        expect( result ).toEqual( [] );
+      } );
+
+      it( 'should clean Gemini tokens from loaded history responses', async () => {
+        const mlHistory = [
+          {
+            timestamp: '2023-01-01T00:00:00Z',
+            pair: [
+              { role: 'user', content: 'Question 1' },
+              { role: 'model', content: 'Response 1 with token<end_of_turn>' }
+            ]
+          },
+          {
+            timestamp: '2023-01-01T00:01:00Z',
+            pair: [
+              { role: 'user', content: '<start_of_turn>user\nQuestion 2<end_of_turn>' },
+              { role: 'model', content: '<start_of_turn>model\nResponse 2<end_of_turn>' }
+            ]
+          }
+        ];
+
+        mockServices.dataService.getValue.mockReturnValue( mlHistory );
+
+        const result = await service.loadMLConversationHistory();
+
+        // Verify tokens were removed
+        expect( result[ 1 ].content ).toBe( 'Response 1 with token' );
+        expect( result[ 3 ].content ).toBe( 'Response 2' );
+      } );
+    } );
+
+    describe( 'cleanGeminiTokens', () => {
+      it( 'should remove <end_of_turn> tokens', () => {
+        const text = 'This is a response.<end_of_turn>';
+
+        const result = service.cleanGeminiTokens( text );
+
+        expect( result ).toBe( 'This is a response.' );
+      } );
+
+      it( 'should remove <start_of_turn> tokens', () => {
+        const text = '<start_of_turn>user\nThis is a question';
+
+        const result = service.cleanGeminiTokens( text );
+
+        expect( result ).toBe( 'This is a question' );
+      } );
+
+      it( 'should remove multiple turn tokens', () => {
+        const text = '<start_of_turn>user\nQuestion<end_of_turn>\n<start_of_turn>model\nAnswer<end_of_turn>';
+
+        const result = service.cleanGeminiTokens( text );
+
+        expect( result ).toBe( 'Question\nAnswer' );
+      } );
+
+      it( 'should trim whitespace after token removal', () => {
+        const text = 'Response text<end_of_turn>   ';
+
+        const result = service.cleanGeminiTokens( text );
+
+        expect( result ).toBe( 'Response text' );
+      } );
+
+      it( 'should handle null text gracefully', () => {
+        const result = service.cleanGeminiTokens( null );
+
+        expect( result ).toBeNull();
+      } );
+
+      it( 'should handle empty string gracefully', () => {
+        const result = service.cleanGeminiTokens( '' );
+
+        expect( result ).toBe( '' );
+      } );
+
+      it( 'should handle non-string input gracefully', () => {
+        const result = service.cleanGeminiTokens( 123 );
+
+        expect( result ).toBe( 123 );
+      } );
+
+      it( 'should preserve content without tokens', () => {
+        const text = 'This is a normal response with no tokens.';
+
+        const result = service.cleanGeminiTokens( text );
+
+        expect( result ).toBe( text );
       } );
     } );
   } );

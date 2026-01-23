@@ -442,6 +442,12 @@ class TokenService {
             // Replace each token found in the text
             for ( const [ tokenName, tokenConfig ] of Object.entries( allTokens ) ) {
                 if ( processedText.includes( tokenName ) ) {
+                    // Skip {senderUsername} from built-in processing if context.senderUsername is provided
+                    // This allows AI commands to pass plain text username instead of chat mention format
+                    if ( tokenName === '{senderUsername}' && context.senderUsername ) {
+                        continue;
+                    }
+
                     let resolvedValue;
 
                     if ( typeof tokenConfig === 'function' ) {
@@ -485,6 +491,11 @@ class TokenService {
             }
             if ( context.stars !== undefined ) {
                 processedText = processedText.replace( /\{stars\}/g, context.stars );
+            }
+
+            // Handle context-provided senderUsername first (plain text for AI usage)
+            if ( context.senderUsername ) {
+                processedText = processedText.replace( /\{senderUsername\}/g, context.senderUsername );
             }
 
             // Handle dynamic username tokens separately if they weren't processed above

@@ -67,6 +67,26 @@ class MachineLearningService {
   }
 
   /**
+   * Remove Gemini turn tokens from response text
+   * Cleans up tokens like <start_of_turn>user, <start_of_turn>model, <end_of_turn> that may be included in the response
+   * @param {string} text - The response text to clean
+   * @returns {string} Cleaned text without Gemini tokens
+   */
+  cleanGeminiTokens ( text ) {
+    if ( !text || typeof text !== 'string' ) {
+      return text;
+    }
+
+    // Remove Gemini turn tokens with their role designations
+    return text
+      .replace( /<start_of_turn>user\n/g, '' )
+      .replace( /<start_of_turn>model\n/g, '' )
+      .replace( /<start_of_turn>/g, '' )
+      .replace( /<end_of_turn>/g, '' )
+      .trim();
+  }
+
+  /**
    * Load conversation history from data service
    * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
    * @returns {Array} Array of conversation entries within the last hour
@@ -92,6 +112,48 @@ class MachineLearningService {
       return recentHistory;
     } catch ( error ) {
       logger.error( `🤖 [MachineLearningService] Error loading conversation history: ${ error.message }` );
+      return [];
+    }
+  }
+
+  /**
+   * Load ML conversation history (structured as pairs with user/model roles)
+   * Returns the last 3 pairs formatted for the chat API
+   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   * @returns {Array} Array of conversation entries (last 3 pairs)
+   */
+  async loadMLConversationHistory ( skipDataLoad = false ) {
+    try {
+      if ( !this.services?.dataService ) {
+        return [];
+      }
+
+      if ( !skipDataLoad ) {
+        await this.services.dataService.loadData();
+      }
+
+      const allHistory = this.services.dataService.getValue( 'mlConversationHistory' ) || [];
+
+      // Get the last 3 pairs
+      const last3Pairs = allHistory.slice( -3 );
+
+      // Convert paired structure to flat history format
+      const flatHistory = [];
+      for ( const pairEntry of last3Pairs ) {
+        if ( pairEntry.pair && Array.isArray( pairEntry.pair ) ) {
+          for ( const message of pairEntry.pair ) {
+            flatHistory.push( {
+              role: message.role,
+              content: this.cleanGeminiTokens( message.content ),
+              timestamp: pairEntry.timestamp
+            } );
+          }
+        }
+      }
+
+      return flatHistory;
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error loading ML conversation history: ${ error.message }` );
       return [];
     }
   }
@@ -138,6 +200,7 @@ class MachineLearningService {
 
   /**
    * Convert conversation history to Google AI chat history format
+   * Supports both old format (with question/response fields) and new format (with role/content fields)
    * @param {Array} history - Array of conversation entries
    * @returns {Array} Array of Google AI chat history objects
    */
@@ -145,17 +208,24 @@ class MachineLearningService {
     const chatHistory = [];
 
     for ( const entry of history ) {
-      // Add user message
-      chatHistory.push( {
-        role: 'user',
-        parts: [ { text: entry.question } ]
-      } );
-
-      // Add model response
-      chatHistory.push( {
-        role: 'model',
-        parts: [ { text: entry.response } ]
-      } );
+      // Support both old format (question/response) and new format (role/content)
+      if ( entry.role && entry.content ) {
+        // New ML conversation history format
+        chatHistory.push( {
+          role: entry.role,
+          parts: [ { text: entry.content } ]
+        } );
+      } else if ( entry.question && entry.response ) {
+        // Old conversation history format (if still used)
+        chatHistory.push( {
+          role: 'user',
+          parts: [ { text: entry.question } ]
+        } );
+        chatHistory.push( {
+          role: 'model',
+          parts: [ { text: entry.response } ]
+        } );
+      }
     }
 
     return chatHistory;
@@ -215,17 +285,7 @@ class MachineLearningService {
       const instructions = this.services.dataService.getValue( 'Instructions.MLInstructions' );
 
       // Always start with the hardcoded safety instruction
-      const systemInstructionArray = [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language." ];
-
-      // Add instructions if available
-      if ( instructions ) {
-        const processedInstructions = this.services.tokenService
-          ? await this.services.tokenService.replaceTokens( instructions, {}, true )
-          : instructions
-            .replace( /\{hangoutName\}/g, hangoutName )
-            .replace( /\{botName\}/g, botName );
-        systemInstructionArray.push( "\n" + processedInstructions );
-      }
+      const systemInstructionArray = [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise." ];
 
       // Add personality if available
       if ( personality ) {
@@ -235,6 +295,16 @@ class MachineLearningService {
             .replace( /\{hangoutName\}/g, hangoutName )
             .replace( /\{botName\}/g, botName );
         systemInstructionArray.push( "\n" + processedPersonality );
+      }
+
+      // Add instructions if available
+      if ( instructions ) {
+        const processedInstructions = this.services.tokenService
+          ? await this.services.tokenService.replaceTokens( instructions, {}, true )
+          : instructions
+            .replace( /\{hangoutName\}/g, hangoutName )
+            .replace( /\{botName\}/g, botName );
+        systemInstructionArray.push( "\n" + processedInstructions );
       }
 
       return systemInstructionArray;
@@ -333,8 +403,8 @@ class MachineLearningService {
    * @returns {Promise<string|null>} The response or null if unsuccessful
    */
   async tryModel ( model, theQuestion ) {
-    // Load conversation history (data already loaded in askGoogleAI)
-    const conversationHistory = await this.loadConversationHistory( true );
+    // Load ML conversation history (data already loaded in askGoogleAI)
+    const conversationHistory = await this.loadMLConversationHistory( true );
 
     // Get system instructions
     const systemInstruction = await this.createSystemInstruction( true );
@@ -378,7 +448,10 @@ class MachineLearningService {
     logger.debug( `🤖 [MachineLearningService] Message: ${ JSON.stringify( questionToSend, null, 2 ) }` );
     logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
 
-    const theResponse = response.text;
+    let theResponse = response.text;
+
+    // Clean Gemini turn tokens from the response
+    theResponse = this.cleanGeminiTokens( theResponse );
 
     if ( theResponse && theResponse !== "No response text available" ) {
       logger.info( `🤖 [MachineLearningService] Successfully used model: ${ model }` );
