@@ -34,6 +34,7 @@ class DatabaseService {
         try {
             this.db = new Database( this.dbPath );
             this.createTables();
+            this.createViews();
             this.initialized = true;
             this.logger.info( 'DatabaseService initialized successfully' );
         } catch ( error ) {
@@ -87,6 +88,23 @@ class DatabaseService {
             'CREATE INDEX IF NOT EXISTS idx_songs_played_dj_uuid ON songs_played(dj_uuid)'
         ];
         indexes.forEach( index => this.db.exec( index ) );
+    }
+
+    createViews () {
+        // View for song play history
+        const createSongPlayHistoryView = `
+            CREATE VIEW IF NOT EXISTS song_play_history AS
+            SELECT
+                sp.timestamp,
+                s.artist_name,
+                s.track_name,
+                d.nickname
+            FROM songs_played sp
+            JOIN songs s ON sp.song_id = s.song_id
+            JOIN djs d ON sp.dj_uuid = d.uuid
+            ORDER BY sp.timestamp DESC
+        `;
+        this.db.exec( createSongPlayHistoryView );
     }
 
     /**
