@@ -36,7 +36,9 @@ class TokenService {
     getConfigValue ( key, defaultValue ) {
         try {
             if ( this.services?.dataService ) {
-                return this.services.dataService.getValue( `configuration.${ key }` ) || defaultValue;
+                const value = this.services.dataService.getValue( `configuration.${ key }` );
+                // Return value if it's not undefined or null
+                return ( value !== undefined && value !== null ) ? value : defaultValue;
             }
         } catch ( error ) {
             this.logger.debug( `[TokenService] Could not get config value ${ key }: ${ error.message }` );
@@ -61,10 +63,21 @@ class TokenService {
                 minute: '2-digit'
             };
 
-            return new Date().toLocaleTimeString( locale, options );
+            let timeString = new Date().toLocaleTimeString( locale, options );
+
+            // Fix edge case where 24-hour format returns "24:XX" instead of "00:XX" for midnight
+            if ( timeFormat === '24' && timeString.startsWith( '24:' ) ) {
+                timeString = '00:' + timeString.substring( 3 );
+            }
+
+            return timeString;
         } catch ( error ) {
             this.logger.debug( `[TokenService] Error formatting time: ${ error.message }` );
-            return new Date().toLocaleTimeString( 'en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' } );
+            let fallbackTime = new Date().toLocaleTimeString( 'en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' } );
+            if ( fallbackTime.startsWith( '24:' ) ) {
+                fallbackTime = '00:' + fallbackTime.substring( 3 );
+            }
+            return fallbackTime;
         }
     }
 
@@ -281,13 +294,13 @@ class TokenService {
             }
 
             // Skip the first (most recent) song and use the next 5
-            const previousSongs = recentSongs.slice( 1 );
+            const previousSongs = recentSongs.slice( 1 ).reverse();
 
             if ( previousSongs.length === 0 ) {
                 return 'No previous songs in history';
             }
 
-            let result = 'The last 5 songs played were:\n';
+            let result = 'The last 5 songs played (in ascending order) were:\n';
             previousSongs.forEach( ( play ) => {
                 const trackName = play.track_name || 'Unknown Track';
                 const artistName = play.artist_name || 'Unknown Artist';
