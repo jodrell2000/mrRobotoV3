@@ -75,6 +75,16 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Use `stateService._getDjs()` to get the current DJ list
 - When accessing hangout state from services that don't have direct stateService methods, use `services.stateService._getCurrentState()` to get live updates
 
+### DatabaseService Usage
+- **Use `services.databaseService` for historical data storage** - SQLite database for long-term data persistence
+- DatabaseService handles: song play history, conversation logs, image validation cache
+- **Record song plays**: `services.databaseService.recordSongPlay({ djUuid, djNickname, artistName, trackName, voteCounts })`
+- **Query song history**: `services.databaseService.getRecentSongs(limit)`, `services.databaseService.getSongsByDJ(djUuid)`
+- **Save conversations**: `services.databaseService.saveConversation({ messageId, userId, userName, messageText, timestamp })`
+- **Always check initialization**: Database initializes asynchronously, check `services.databaseService.initialized` before use
+- **Separation of concerns**: Use DataService for JSON config data, DatabaseService for historical records
+- **Database file**: Stored at `./data/mrroboto.db`, persists across container restarts via Docker volumes
+
 ### Service Container Pattern
 - All new services must be registered in `serviceContainer.js`
 - Services should be accessed through the `services` parameter, never imported directly

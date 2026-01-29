@@ -12,7 +12,7 @@ if ( !global.previousPlayedSong ) global.previousPlayedSong = null;
  */
 async function announceJustPlayed ( previousSongInfo, services ) {
   try {
-    services.logger.debug( '[playedSong] Starting announceJustPlayed with data:', previousSongInfo );
+    // services.logger.debug( '[playedSong] Starting announceJustPlayed with data:', previousSongInfo );
 
     let messageTemplate = services.dataService.getValue( 'editableMessages.justPlayedMessage' );
     if ( !messageTemplate ) {
@@ -23,11 +23,11 @@ async function announceJustPlayed ( previousSongInfo, services ) {
       Stats: 👍 {likes} 👎 {dislikes} ❤️ {stars}`;
     }
 
-    services.logger.debug( '[playedSong] Using justPlayedMessage template:', messageTemplate );
+    // services.logger.debug( '[playedSong] Using justPlayedMessage template:', messageTemplate );
 
     // Replace placeholders with actual values
     const djMention = services.messageService.formatMention( previousSongInfo.djUuid );
-    services.logger.debug( '[playedSong] DJ mention formatted as:', djMention );
+    // services.logger.debug( '[playedSong] DJ mention formatted as:', djMention );
 
     const announcement = messageTemplate
       .replace( '{username}', djMention )
@@ -37,9 +37,9 @@ async function announceJustPlayed ( previousSongInfo, services ) {
       .replace( '{dislikes}', previousSongInfo.voteCounts.dislikes || 0 )
       .replace( '{stars}', previousSongInfo.voteCounts.stars || 0 );
 
-    services.logger.info( '[playedSong] Sending justPlayed announcement:', announcement );
+    // services.logger.info( '[playedSong] Sending justPlayed announcement:', announcement );
     await services.messageService.sendGroupMessage( announcement, { services } );
-    services.logger.debug( '[playedSong] Successfully sent justPlayed announcement' );
+    // services.logger.debug( '[playedSong] Successfully sent justPlayed announcement' );
   } catch ( error ) {
     services.logger.error( `[playedSong] Failed to announce just played song: ${ error.message }` );
     services.logger.error( `[playedSong] Error stack: ${ error.stack }` );
@@ -91,6 +91,11 @@ function extractSongInfo ( message, services ) {
   let djUuid = null;
   let artistName = null;
   let trackName = null;
+  let songShortId = null;
+  let sevenDigitalId = null;
+  let spotifyId = null;
+  let appleId = null;
+  let youtubeId = null;
 
   // Look through the patches to find the song and DJ information
   for ( const patch of statePatch ) {
@@ -101,24 +106,64 @@ function extractSongInfo ( message, services ) {
         artistName = patch.value;
       } else if ( patch.path === '/nowPlaying/song/trackName' ) {
         trackName = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/songShortId' ) {
+        songShortId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/sevenDigital' ) {
+        sevenDigitalId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/spotify' ) {
+        spotifyId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/apple' ) {
+        appleId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/youtube' ) {
+        youtubeId = patch.value;
       } else if ( patch.path === '/nowPlaying' && patch.value?.song ) {
         // Handle case where entire nowPlaying object is replaced
         artistName = patch.value.song.artistName;
         trackName = patch.value.song.trackName;
+        songShortId = patch.value.song.songShortId;
+        sevenDigitalId = patch.value.song.musicProviders?.sevenDigital;
+        spotifyId = patch.value.song.musicProviders?.spotify;
+        appleId = patch.value.song.musicProviders?.apple;
+        youtubeId = patch.value.song.musicProviders?.youtube;
       }
     }
   }
 
-  // If we have song info but no DJ UUID from patch, try to get it from full state
-  if ( !djUuid && ( artistName || trackName ) ) {
-    if ( services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
-      djUuid = services.hangoutState.djs[ 0 ].uuid;
+  // If we don't have all required info from patches, try to get from full state
+  if ( !djUuid || !artistName || !trackName || !songShortId ) {
+    const nowPlaying = services.hangoutState?.nowPlaying?.song;
+    if ( nowPlaying ) {
+      if ( !djUuid && services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
+        djUuid = services.hangoutState.djs[ 0 ].uuid;
+      }
+      if ( !artistName ) {
+        artistName = nowPlaying.artistName;
+      }
+      if ( !trackName ) {
+        trackName = nowPlaying.trackName;
+      }
+      if ( !songShortId ) {
+        songShortId = nowPlaying.songShortId;
+      }
+      // Also fill in missing provider IDs if available
+      if ( !sevenDigitalId ) {
+        sevenDigitalId = nowPlaying.musicProviders?.sevenDigital;
+      }
+      if ( !spotifyId ) {
+        spotifyId = nowPlaying.musicProviders?.spotify;
+      }
+      if ( !appleId ) {
+        appleId = nowPlaying.musicProviders?.apple;
+      }
+      if ( !youtubeId ) {
+        youtubeId = nowPlaying.musicProviders?.youtube;
+      }
     }
   }
 
   // Only return song info if we have all required pieces
-  if ( djUuid && artistName && trackName ) {
-    return { djUuid, artistName, trackName };
+  if ( djUuid && artistName && trackName && songShortId ) {
+    return { djUuid, artistName, trackName, songShortId, sevenDigitalId, spotifyId, appleId, youtubeId };
   }
 
   return null;
@@ -155,7 +200,7 @@ async function announceSong ( songInfo, services ) {
 
 async function playedSong ( message, state, services ) {
   try {
-    services.logger.debug( `[playedSong] Handler called with message patches: ${ message.statePatch?.length || 0 } patches` );
+    // services.logger.debug( `[playedSong] Handler called with message patches: ${ message.statePatch?.length || 0 } patches` );
 
     // Log all the patches for debugging
     // if ( message.statePatch && message.statePatch.length > 0 ) {
@@ -164,21 +209,71 @@ async function playedSong ( message, state, services ) {
 
     // Extract current song information from the patches
     const currentSongInfo = extractSongInfo( message, services );
-    services.logger.debug( `[playedSong] Current song info extracted: ${ !!currentSongInfo }` );
+    // services.logger.debug( `[playedSong] Current song info extracted: ${ !!currentSongInfo }` );
     if ( currentSongInfo ) {
-      services.logger.debug( `[playedSong] Current song data: ${ JSON.stringify( currentSongInfo, null, 2 ) }` );
+      // services.logger.debug( `[playedSong] Current song data: ${ JSON.stringify( currentSongInfo, null, 2 ) }` );
+
+      // --- DATABASE LOGIC: Upsert DJ, upsert song, record play ---
+      if ( services.databaseService && services.databaseService.initialized ) {
+        try {
+          // Extract provider IDs if available from hangoutState
+          let appleId, spotifyId, youtubeId;
+          let songId;
+          if ( services.hangoutState?.nowPlaying?.song ) {
+            const song = services.hangoutState.nowPlaying.song;
+            appleId = currentSongInfo.appleId || song.appleId;
+            spotifyId = currentSongInfo.spotifyId || song.spotifyId;
+            youtubeId = currentSongInfo.youtubeId || song.youtubeId;
+            songId = currentSongInfo.songShortId;
+          } else {
+            appleId = currentSongInfo.appleId;
+            spotifyId = currentSongInfo.spotifyId;
+            youtubeId = currentSongInfo.youtubeId;
+            songId = currentSongInfo.songShortId;
+          }
+
+          // Upsert song
+          services.databaseService.upsertSong( {
+            songId,
+            sevenDigitalId: currentSongInfo.sevenDigitalId,
+            artistName: currentSongInfo.artistName,
+            trackName: currentSongInfo.trackName,
+            appleId,
+            spotifyId,
+            youtubeId
+          } );
+
+          // Record song play (use vote counts from global.previousPlayedSong if available)
+          let voteCounts = { likes: 0, dislikes: 0, stars: 0 };
+          if ( global.previousPlayedSong && global.previousPlayedSong.voteCounts ) {
+            voteCounts = global.previousPlayedSong.voteCounts;
+          } else if ( services.hangoutState?.voteCounts ) {
+            voteCounts = services.hangoutState.voteCounts;
+          }
+          services.databaseService.recordSongPlay( {
+            songId,
+            djUuid: currentSongInfo.djUuid,
+            likes: voteCounts.likes || 0,
+            dislikes: voteCounts.dislikes || 0,
+            stars: voteCounts.stars || 0
+          } );
+          // services.logger.debug( `[playedSong] Recorded song play in database: songId=${ songId }, djUuid=${ currentSongInfo.djUuid }` );
+        } catch ( err ) {
+          services.logger.error( `[playedSong] Failed to record song play in database: ${ err.message }` );
+        }
+      }
     }
 
     // Get the stored previous song info from the last playedSong call
     const previousSongInfo = global.previousPlayedSong;
-    services.logger.debug( `[playedSong] Previous stored song info: ${ !!previousSongInfo }` );
-    if ( previousSongInfo ) {
-      services.logger.debug( `[playedSong] Previous stored song data: ${ JSON.stringify( previousSongInfo, null, 2 ) }` );
-    }
+    // services.logger.debug( `[playedSong] Previous stored song info: ${ !!previousSongInfo }` );
+    // if ( previousSongInfo ) {
+    //   services.logger.debug( `[playedSong] Previous stored song data: ${ JSON.stringify( previousSongInfo, null, 2 ) }` );
+    // }
 
     // Check if justPlayed feature is enabled
     const justPlayedEnabled = services.featuresService.isFeatureEnabled( 'justPlayed' );
-    services.logger.debug( `[playedSong] justPlayed feature enabled: ${ justPlayedEnabled }` );
+    // services.logger.debug( `[playedSong] justPlayed feature enabled: ${ justPlayedEnabled }` );
 
     // Check if nowPlaying became null (song ended)
     const nowPlayingBecameNull = message.statePatch?.some( patch =>
@@ -196,10 +291,10 @@ async function playedSong ( message, state, services ) {
       let shouldAnnounce = false;
 
       if ( nowPlayingBecameNull ) {
-        services.logger.debug( '[playedSong] Song ended (nowPlaying became null) - will announce justPlayed' );
+        // services.logger.debug( '[playedSong] Song ended (nowPlaying became null) - will announce justPlayed' );
         shouldAnnounce = true;
       } else if ( currentSongInfo ) {
-        services.logger.debug( '[playedSong] Checking if current song is different from previous...' );
+        // services.logger.debug( '[playedSong] Checking if current song is different from previous...' );
 
         const songChanged = (
           currentSongInfo.trackName !== previousSongInfo.trackName ||
@@ -210,7 +305,7 @@ async function playedSong ( message, state, services ) {
         // Check if playId changed - this indicates a new song play even if song details are the same
         const songPlayIdChanged = hasPlayIdChanged( message );
 
-        services.logger.debug( `[playedSong] Song changed: ${ songChanged }, PlayId changed: ${ songPlayIdChanged }` );
+        // services.logger.debug( `[playedSong] Song changed: ${ songChanged }, PlayId changed: ${ songPlayIdChanged }` );
 
         if ( songChanged ) {
           const comparison = {
@@ -224,21 +319,21 @@ async function playedSong ( message, state, services ) {
             oldDJ: previousSongInfo.djUuid,
             djsDifferent: currentSongInfo.djUuid !== previousSongInfo.djUuid
           };
-          services.logger.debug( `[playedSong] Song comparison: ${ JSON.stringify( comparison, null, 2 ) }` );
+          // services.logger.debug( `[playedSong] Song comparison: ${ JSON.stringify( comparison, null, 2 ) }` );
           shouldAnnounce = true;
         } else if ( songPlayIdChanged ) {
-          services.logger.debug( '[playedSong] PlayId changed - will announce justPlayed (same song played again)' );
+          // services.logger.debug( '[playedSong] PlayId changed - will announce justPlayed (same song played again)' );
           shouldAnnounce = true;
         } else {
-          services.logger.debug( '[playedSong] Not announcing justPlayed - same song as previous and no playId change' );
+          // services.logger.debug( '[playedSong] Not announcing justPlayed - same song as previous and no playId change' );
         }
       } else {
-        services.logger.debug( '[playedSong] PlayId changed but no current song info - will announce justPlayed using previous song data' );
+        // services.logger.debug( '[playedSong] PlayId changed but no current song info - will announce justPlayed using previous song data' );
         shouldAnnounce = true;
       }
 
       if ( shouldAnnounce ) {
-        services.logger.info( `[playedSong] Announcing justPlayed for: ${ previousSongInfo.trackName } by ${ previousSongInfo.artistName }` );
+        // services.logger.info( `[playedSong] Announcing justPlayed for: ${ previousSongInfo.trackName } by ${ previousSongInfo.artistName }` );
 
         // Use the stored vote counts (which get updated by votedOnSong and playedOneTimeAnimation handlers)
         // If no vote counts are stored, fall back to current hangout state
@@ -249,13 +344,13 @@ async function playedSong ( message, state, services ) {
       }
     } else {
       if ( !previousSongInfo ) {
-        services.logger.debug( '[playedSong] No justPlayed announcement - no previous song stored' );
+        // services.logger.debug( '[playedSong] No justPlayed announcement - no previous song stored' );
       }
       if ( !justPlayedEnabled ) {
-        services.logger.debug( '[playedSong] No justPlayed announcement - feature disabled' );
+        // services.logger.debug( '[playedSong] No justPlayed announcement - feature disabled' );
       }
       if ( !currentSongInfo && !nowPlayingBecameNull ) {
-        services.logger.debug( '[playedSong] No justPlayed announcement - no current song info extracted and nowPlaying did not become null' );
+        // services.logger.debug( '[playedSong] No justPlayed announcement - no current song info extracted and nowPlaying did not become null' );
       }
     }
 
@@ -268,16 +363,16 @@ async function playedSong ( message, state, services ) {
       if ( !global.previousPlayedSong ) {
         // Bot startup: use current vote counts from hangout state
         initialVoteCounts = services.hangoutState?.voteCounts || { likes: 0, dislikes: 0, stars: 0 };
-        services.logger.debug( '[playedSong] Bot startup: initializing vote counts from hangout state:', initialVoteCounts );
+        // services.logger.debug( '[playedSong] Bot startup: initializing vote counts from hangout state:', initialVoteCounts );
       } else {
         // Normal operation: reset vote counts for new song
         initialVoteCounts = { likes: 0, dislikes: 0, stars: 0 };
-        services.logger.debug( '[playedSong] New song: resetting vote counts to 0' );
+        // services.logger.debug( '[playedSong] New song: resetting vote counts to 0' );
 
         // Also reset the hangout state vote counts for the new song
         if ( services.hangoutState && services.hangoutState.voteCounts ) {
           services.hangoutState.voteCounts = { likes: 0, dislikes: 0, stars: 0 };
-          services.logger.debug( '[playedSong] Reset hangout state vote counts for new song' );
+          // services.logger.debug( '[playedSong] Reset hangout state vote counts for new song' );
         }
       }
 
@@ -285,7 +380,7 @@ async function playedSong ( message, state, services ) {
         ...currentSongInfo,
         voteCounts: { ...initialVoteCounts }
       };
-      services.logger.debug( `[playedSong] Stored current song for next comparison: ${ JSON.stringify( global.previousPlayedSong, null, 2 ) }` );
+      // services.logger.debug( `[playedSong] Stored current song for next comparison: ${ JSON.stringify( global.previousPlayedSong, null, 2 ) }` );
     }
 
     // Determine song info for both announcements and triggers
@@ -303,7 +398,7 @@ async function playedSong ( message, state, services ) {
           artistName: hangoutSong.artistName,
           trackName: hangoutSong.trackName
         };
-        services.logger.debug( '[playedSong] Using hangout state for song processing (playId changed, same song)' );
+        // services.logger.debug( '[playedSong] Using hangout state for song processing (playId changed, same song)' );
       }
     }
 

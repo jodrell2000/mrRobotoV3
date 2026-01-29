@@ -13,28 +13,52 @@ class DataService {
      * @throws {Error} If the file cannot be read or parsed
      */
     async loadData () {
-        try {
-            const dataPath = path.join( process.cwd(), 'data', 'botConfig.json' );
-            const fileContent = await fs.readFile( dataPath, 'utf8' );
-
+        const maxRetries = 5;
+        let lastError;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                this.data = JSON.parse( fileContent );
-                logger.info( 'Successfully loaded data from botConfig.json' );
-                // logger.debug(`data: ${JSON.stringify(this.data, null, 2)}`);
-                return this.data;
-            } catch ( parseError ) {
-                logger.error( `Failed to parse botConfig.json: ${ parseError.message }` );
-                throw parseError;
+                const dataPath = path.join( process.cwd(), 'data', 'botConfig.json' );
+                const fileContent = await fs.readFile( dataPath, 'utf8' );
+
+                // Check if file is empty
+                if (!fileContent || fileContent.trim().length === 0) {
+                    throw new Error('File is empty');
+                }
+
+                try {
+                    this.data = JSON.parse( fileContent );
+                    logger.info( 'Successfully loaded data from botConfig.json' );
+                    // logger.debug(`data: ${JSON.stringify(this.data, null, 2)}`);
+                    return this.data;
+                } catch ( parseError ) {
+                    logger.error( `Failed to parse botConfig.json (attempt ${attempt}/${maxRetries}): ${ parseError.message }` );
+                    lastError = parseError;
+                    if (attempt < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+                        continue;
+                    }
+                    throw parseError;
+                }
+            } catch ( error ) {
+                lastError = error;
+                if ( error.code === 'ENOENT' ) {
+                    logger.warn( 'botConfig.json not found, using empty data object' );
+                    this.data = {};
+                    return this.data;
+                }
+                
+                if (attempt < maxRetries) {
+                    logger.warn( `Error loading botConfig.json (attempt ${attempt}/${maxRetries}): ${ error.message }. Retrying...` );
+                    await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+                } else {
+                    logger.error( `Error loading botConfig.json after ${maxRetries} attempts: ${ error.message }` );
+                    throw error;
+                }
             }
-        } catch ( error ) {
-            if ( error.code === 'ENOENT' ) {
-                logger.warn( 'botConfig.json not found, using empty data object' );
-                this.data = {};  // Reset to empty object
-                return this.data;
-            }
-            logger.error( `Error loading botConfig.json: ${ error.message }` );
-            throw error;
         }
+        
+        throw lastError || new Error('Failed to load botConfig.json after retries');
     }
 
     /**
