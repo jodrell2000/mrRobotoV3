@@ -39,6 +39,17 @@ describe( 'handleIntroCommand', () => {
             },
             hangUserService: {
                 getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
+            },
+            tokenService: {
+                replaceTokens: jest.fn().mockImplementation( async ( template, tokens ) => {
+                    let result = template;
+                    if ( tokens ) {
+                        Object.entries( tokens ).forEach( ( [ key, value ] ) => {
+                            result = result.replace( `{${ key }}`, value );
+                        } );
+                    }
+                    return result;
+                } )
             }
         };
 

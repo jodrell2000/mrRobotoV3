@@ -18,7 +18,7 @@ describe( 'Vote count updating across handlers', () => {
             },
             hangSocketServices: { upVote: jest.fn().mockResolvedValue() },
             hangoutState: {
-                nowPlaying: { song: { artistName: 'Test Artist', trackName: 'Test Song' } },
+                nowPlaying: { song: { artistName: 'Test Artist', trackName: 'Test Song', songShortId: 'song-123' } },
                 djs: [ { uuid: 'dj-uuid-123' } ],
                 voteCounts: { likes: 0, dislikes: 0, stars: 0 }
             },
@@ -43,12 +43,13 @@ describe( 'Vote count updating across handlers', () => {
         };
     } );
 
-    test( 'should store song with vote counts from hangout state on bot startup', () => {
+    test( 'should store song with vote counts from hangout state on bot startup', async () => {
         const message = {
             statePatch: [
                 { op: 'replace', path: '/djs/0/uuid', value: 'dj-uuid-123' },
                 { op: 'replace', path: '/nowPlaying/song/artistName', value: 'Test Artist' },
-                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'Test Song' }
+                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'Test Song' },
+                { op: 'replace', path: '/nowPlaying/song/songShortId', value: 'song-123' }
             ]
         };
 
@@ -56,12 +57,17 @@ describe( 'Vote count updating across handlers', () => {
         global.previousPlayedSong = null;
         services.hangoutState.voteCounts = { likes: 5, dislikes: 1, stars: 2 };
 
-        playedSong( message, {}, services );
+        await playedSong( message, {}, services );
 
         expect( global.previousPlayedSong ).toEqual( {
             djUuid: 'dj-uuid-123',
             artistName: 'Test Artist',
             trackName: 'Test Song',
+            songShortId: 'song-123',
+            sevenDigitalId: null,
+            spotifyId: null,
+            appleId: null,
+            youtubeId: null,
             voteCounts: { likes: 5, dislikes: 1, stars: 2 }
         } );
     } );
@@ -81,11 +87,13 @@ describe( 'Vote count updating across handlers', () => {
             statePatch: [
                 { op: 'replace', path: '/djs/0/uuid', value: 'dj-uuid-456' },
                 { op: 'replace', path: '/nowPlaying/song/artistName', value: 'New Artist' },
-                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' }
+                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' },
+                { op: 'replace', path: '/nowPlaying/song/songShortId', value: 'song-456' }
             ]
         };
 
         // Update hangout state to reflect the new song
+        services.hangoutState.nowPlaying.song = { artistName: 'New Artist', trackName: 'New Song', songShortId: 'song-456' };
         services.hangoutState.voteCounts = { likes: 10, dislikes: 3, stars: 5 }; // Old vote counts
         services.hangoutState.djs = [ { uuid: 'dj-uuid-456' } ]; // New DJ
 
@@ -96,6 +104,11 @@ describe( 'Vote count updating across handlers', () => {
             djUuid: 'dj-uuid-456',
             artistName: 'New Artist',
             trackName: 'New Song',
+            songShortId: 'song-456',
+            sevenDigitalId: null,
+            spotifyId: null,
+            appleId: null,
+            youtubeId: null,
             voteCounts: { likes: 0, dislikes: 0, stars: 0 }
         } );
 
@@ -158,7 +171,7 @@ describe( 'Vote count updating across handlers', () => {
         } );
     } );
 
-    test( 'should announce justPlayed with updated vote counts when song changes', () => {
+    test( 'should announce justPlayed with updated vote counts when song changes', async () => {
         // First, store a song
         global.previousPlayedSong = {
             djUuid: 'dj-uuid-123',
@@ -172,11 +185,12 @@ describe( 'Vote count updating across handlers', () => {
             statePatch: [
                 { op: 'replace', path: '/djs/0/uuid', value: 'dj-uuid-456' },
                 { op: 'replace', path: '/nowPlaying/song/artistName', value: 'New Artist' },
-                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' }
+                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' },
+                { op: 'replace', path: '/nowPlaying/song/songShortId', value: 'song-456' }
             ]
         };
 
-        playedSong( newSongMessage, {}, services );
+        await playedSong( newSongMessage, {}, services );
 
         // Should have announced the previous song with its vote counts
         expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -185,7 +199,7 @@ describe( 'Vote count updating across handlers', () => {
         );
     } );
 
-    test( 'should integrate snag emoji star votes with justPlayed announcements', () => {
+    test( 'should integrate snag emoji star votes with justPlayed announcements', async () => {
         // First, store a song
         global.previousPlayedSong = {
             djUuid: 'dj-uuid-123',
@@ -219,11 +233,12 @@ describe( 'Vote count updating across handlers', () => {
             statePatch: [
                 { op: 'replace', path: '/djs/0/uuid', value: 'dj-uuid-456' },
                 { op: 'replace', path: '/nowPlaying/song/artistName', value: 'New Artist' },
-                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' }
+                { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Song' },
+                { op: 'replace', path: '/nowPlaying/song/songShortId', value: 'song-456' }
             ]
         };
 
-        playedSong( newSongMessage, {}, services );
+        await playedSong( newSongMessage, {}, services );
 
         // Should announce with the updated star count (3 instead of 2)
         expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
