@@ -254,7 +254,7 @@ class MachineLearningService {
     }
 
     logger.debug( `🤖 [MachineLearningService] Creating chat with model: ${ model }` );
-    logger.debug( `🤖 [MachineLearningService] Chat config: ${ JSON.stringify( { config }, null, 2 ) }` );
+    // logger.debug( `🤖 [MachineLearningService] Chat config: ${ JSON.stringify( { config }, null, 2 ) }` );
 
     // Always create a new chat session with the current history and context
     // This ensures we have the most up-to-date conversation context
@@ -446,7 +446,7 @@ class MachineLearningService {
 
     logger.debug( `🤖 [MachineLearningService] Full API Request sent to model ${ model }:` );
     logger.debug( `🤖 [MachineLearningService] Message: ${ JSON.stringify( questionToSend, null, 2 ) }` );
-    logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
+    // logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
 
     let theResponse = response.text;
 
