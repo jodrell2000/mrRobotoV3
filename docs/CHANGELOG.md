@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[0.9.6_beta](changelog/0.9.6_beta.md)** | 2026-01-29 | 🤖 Gemma Model Migration & Enhanced ML | Dynamic Gemma model discovery, refined prompts, song history tracking, turn token cleaning, time formatting fixes |
 | **[0.9.5_beta](changelog/0.9.5_beta.md)** | 2025-11-20 | 🗄️ SQLite Database Integration | Historical data storage, song tracking, conversation logs, persistent data across restarts |
 | **[0.9.1_beta](changelog/0.9.1_beta.md)** | 2025-11-13 | 🐛 Permission Fixes & Chat Command Enhancements | Fixed coOwner permissions, added chat command list feature, cleaned up redundant code |
 | **[0.9.0_beta](changelog/0.9.0_beta.md)** | 2025-11-12 | 🎉 Chat Command Management System & Image Validation Tool | Full CRUD for chat commands, image validation, improved message handling |
