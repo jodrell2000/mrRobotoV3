@@ -162,6 +162,23 @@ async function userJoined ( message, state, services ) {
       return;
     }
 
+    // Upsert DJ in database (only if databaseService is available and initialized)
+    if (services.databaseService && services.databaseService.initialized) {
+      try {
+        const result = services.databaseService.insertOrUpdateDjNickname({
+          uuid: userData.userUUID,
+          nickname: userData.nickname
+        });
+        if (result.action === 'inserted') {
+          services.logger.debug(`Inserted new DJ in database: ${userData.userUUID} (${userData.nickname})`);
+        } else if (result.action === 'updated') {
+          services.logger.debug(`Updated DJ nickname in database: ${userData.userUUID} (${result.oldNickname} → ${result.newNickname})`);
+        }
+      } catch (err) {
+        services.logger.error(`Failed to upsert DJ in database: ${err.message}`);
+      }
+    }
+
     // Initialize private message tracking for the new user
     await initializePrivateMessageTracking( userData.userUUID, services );
 

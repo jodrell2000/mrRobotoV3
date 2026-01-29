@@ -91,6 +91,11 @@ function extractSongInfo ( message, services ) {
   let djUuid = null;
   let artistName = null;
   let trackName = null;
+  let songShortId = null;
+  let sevenDigitalId = null;
+  let spotifyId = null;
+  let appleId = null;
+  let youtubeId = null;
 
   // Look through the patches to find the song and DJ information
   for ( const patch of statePatch ) {
@@ -101,24 +106,64 @@ function extractSongInfo ( message, services ) {
         artistName = patch.value;
       } else if ( patch.path === '/nowPlaying/song/trackName' ) {
         trackName = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/songShortId' ) {
+        songShortId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/sevenDigital' ) {
+        sevenDigitalId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/spotify' ) {
+        spotifyId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/apple' ) {
+        appleId = patch.value;
+      } else if ( patch.path === '/nowPlaying/song/musicProviders/youtube' ) {
+        youtubeId = patch.value;
       } else if ( patch.path === '/nowPlaying' && patch.value?.song ) {
         // Handle case where entire nowPlaying object is replaced
         artistName = patch.value.song.artistName;
         trackName = patch.value.song.trackName;
+        songShortId = patch.value.song.songShortId;
+        sevenDigitalId = patch.value.song.musicProviders?.sevenDigital;
+        spotifyId = patch.value.song.musicProviders?.spotify;
+        appleId = patch.value.song.musicProviders?.apple;
+        youtubeId = patch.value.song.musicProviders?.youtube;
       }
     }
   }
 
-  // If we have song info but no DJ UUID from patch, try to get it from full state
-  if ( !djUuid && ( artistName || trackName ) ) {
-    if ( services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
-      djUuid = services.hangoutState.djs[ 0 ].uuid;
+  // If we don't have all required info from patches, try to get from full state
+  if ( !djUuid || !artistName || !trackName || !songShortId ) {
+    const nowPlaying = services.hangoutState?.nowPlaying?.song;
+    if ( nowPlaying ) {
+      if ( !djUuid && services.hangoutState?.djs && services.hangoutState.djs.length > 0 ) {
+        djUuid = services.hangoutState.djs[ 0 ].uuid;
+      }
+      if ( !artistName ) {
+        artistName = nowPlaying.artistName;
+      }
+      if ( !trackName ) {
+        trackName = nowPlaying.trackName;
+      }
+      if ( !songShortId ) {
+        songShortId = nowPlaying.songShortId;
+      }
+      // Also fill in missing provider IDs if available
+      if ( !sevenDigitalId ) {
+        sevenDigitalId = nowPlaying.musicProviders?.sevenDigital;
+      }
+      if ( !spotifyId ) {
+        spotifyId = nowPlaying.musicProviders?.spotify;
+      }
+      if ( !appleId ) {
+        appleId = nowPlaying.musicProviders?.apple;
+      }
+      if ( !youtubeId ) {
+        youtubeId = nowPlaying.musicProviders?.youtube;
+      }
     }
   }
 
   // Only return song info if we have all required pieces
-  if ( djUuid && artistName && trackName ) {
-    return { djUuid, artistName, trackName };
+  if ( djUuid && artistName && trackName && songShortId ) {
+    return { djUuid, artistName, trackName, songShortId, sevenDigitalId, spotifyId, appleId, youtubeId };
   }
 
   return null;
@@ -167,6 +212,56 @@ async function playedSong ( message, state, services ) {
     services.logger.debug( `[playedSong] Current song info extracted: ${ !!currentSongInfo }` );
     if ( currentSongInfo ) {
       services.logger.debug( `[playedSong] Current song data: ${ JSON.stringify( currentSongInfo, null, 2 ) }` );
+
+      // --- DATABASE LOGIC: Upsert DJ, upsert song, record play ---
+      if ( services.databaseService && services.databaseService.initialized ) {
+        try {
+          // Extract provider IDs if available from hangoutState
+          let appleId, spotifyId, youtubeId;
+          let songId;
+          if ( services.hangoutState?.nowPlaying?.song ) {
+            const song = services.hangoutState.nowPlaying.song;
+            appleId = currentSongInfo.appleId || song.appleId;
+            spotifyId = currentSongInfo.spotifyId || song.spotifyId;
+            youtubeId = currentSongInfo.youtubeId || song.youtubeId;
+            songId = currentSongInfo.songShortId;
+          } else {
+            appleId = currentSongInfo.appleId;
+            spotifyId = currentSongInfo.spotifyId;
+            youtubeId = currentSongInfo.youtubeId;
+            songId = currentSongInfo.songShortId;
+          }
+
+          // Upsert song
+          services.databaseService.upsertSong( {
+            songId,
+            sevenDigitalId: currentSongInfo.sevenDigitalId,
+            artistName: currentSongInfo.artistName,
+            trackName: currentSongInfo.trackName,
+            appleId,
+            spotifyId,
+            youtubeId
+          } );
+
+          // Record song play (use vote counts from global.previousPlayedSong if available)
+          let voteCounts = { likes: 0, dislikes: 0, stars: 0 };
+          if ( global.previousPlayedSong && global.previousPlayedSong.voteCounts ) {
+            voteCounts = global.previousPlayedSong.voteCounts;
+          } else if ( services.hangoutState?.voteCounts ) {
+            voteCounts = services.hangoutState.voteCounts;
+          }
+          services.databaseService.recordSongPlay( {
+            songId,
+            djUuid: currentSongInfo.djUuid,
+            likes: voteCounts.likes || 0,
+            dislikes: voteCounts.dislikes || 0,
+            stars: voteCounts.stars || 0
+          } );
+          services.logger.debug( `[playedSong] Recorded song play in database: songId=${ songId }, djUuid=${ currentSongInfo.djUuid }` );
+        } catch ( err ) {
+          services.logger.error( `[playedSong] Failed to record song play in database: ${ err.message }` );
+        }
+      }
     }
 
     // Get the stored previous song info from the last playedSong call

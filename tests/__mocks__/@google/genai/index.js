@@ -4,6 +4,7 @@ const mockModelsGenerateContent = jest.fn();
 const mockSendMessage = jest.fn();
 const mockChatsCreate = jest.fn();
 const mockGetGenerativeModel = jest.fn();
+const mockModelsList = jest.fn();
 
 // Mock chat instance
 const mockChat = {
@@ -12,7 +13,8 @@ const mockChat = {
 
 // Mock for the new client.models.generateContent API
 const mockModels = {
-    generateContent: mockModelsGenerateContent
+    generateContent: mockModelsGenerateContent,
+    list: mockModelsList
 };
 
 // Mock for the new client.chats.create API
@@ -31,7 +33,8 @@ class MockGoogleGenAI {
 // Configure default behavior
 mockModelsGenerateContent.mockResolvedValue({ text: 'Mock AI response' });
 mockSendMessage.mockResolvedValue({ text: 'Mock AI chat response' });
-mockChatsCreate.mockReturnValue( mockChat );
+mockChatsCreate.mockResolvedValue( mockChat ); // Return Promise that resolves to mock chat
+mockModelsList.mockResolvedValue( [] ); // Default to empty list for initialization
 
 module.exports = {
     GoogleGenAI: MockGoogleGenAI,
@@ -39,5 +42,6 @@ module.exports = {
     __mockModelsGenerateContent: mockModelsGenerateContent,
     __mockSendMessage: mockSendMessage,
     __mockChatsCreate: mockChatsCreate,
-    __mockGetGenerativeModel: mockGetGenerativeModel
+    __mockGetGenerativeModel: mockGetGenerativeModel,
+    __mockModelsList: mockModelsList
 };

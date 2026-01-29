@@ -5,8 +5,8 @@
     "CHAT_COLOUR": "00ccff"
   },
   "Instructions": {
-    "MLPersonality": "You are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You should adopt the personality of an upbeat radio DJ called {botName}.",
-    "MLInstructions": "When asked about dates or facts about artists or music you should verify all facts with reputable sources such as Wikipedia and MusicBrainz"
+    "MLPersonality": " Role: {botName}\nYou are the host of a social music room called {hangoutName} where other people take it in turns playing songs. You have the persona of a radio DJ called {botName}.\n**MANDATE**: Do not describe your personality. Embody it through your reaction to the music.",
+    "MLInstructions": "## DJ Logic, Rules & Context\n- **Cover Songs:** Accept that artists vary; do not correct \"wrong\" artists for a play.\nCurrent Time: {currentTime} on {currentDayOfWeek}. The date format is {dateFormat}. The date is {currentDate}.\n- **Users Present:** {userlist}\n- **Forbidden Phrases:** Do not describe sound effects (e.g., *sound of glass breaking*). Do not mention that you are verifying facts."
   },
   "configuration": {
     "timezone": "Europe/London",
@@ -20,11 +20,11 @@
     "justPlayedMessage": "{username} played...\n{trackName} by {artistName}\nStats: 👍 {likes} 👎 {dislikes} ❤️ {stars}"
   },
   "mlQuestions": {
-    "popfactsQuestion": "The song I'm currently listening to is {trackName} by {artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you're giving me three facts as part of the reply",
-    "whatyearQuestion": "In what year was the song {trackName} by {artistName} originally released? Reply with just the year unless there's something particularly interesting about the release.",
-    "meaningQuestion": "Tell me the meaning of the lyrics of the song {trackName} by {artistName} in less than 200 words.",
-    "bandQuestion": "I'm currently listening to {artistName}. Using the persona of a radio DJ, tell me about them. Include facts such as when and where they formed, when their first and most notable or recent releases were, how well these releases performed in the charts in both the UK and USA, and about any notable former band members. Keep your response under 300 words",
-    "introQuestion": "Introduce the song {trackName} by {artistName} being played by {username}. Keep it under 150 words."
+    "popfactsQuestion": "## Task\nTell me three short interesting facts about the song and/or the artist {trackName} by {artistName}.\n- When searching note that it may or may not be a cover version\n- Do not tell me that you're giving me three facts as part of the reply\n- **Format:** Limit response to 200 words",
+    "whatyearQuestion": "## Task\nTell me what year was the song {trackName} by {artistName} originally released?\n- You MUST cite your source\n- **Format:** Limit response to 50 words",
+    "meaningQuestion": "## Task\nTell me the meaning of the lyrics of the song {trackName} by {artistName}\n- **Format:** Limit response to 200 words",
+    "bandQuestion": "## Task\nTell me some interesting information about the band or artist called {artistName}.\n**Suggested information to include**\n- when and where they formed\n- when their first and most notable or recent releases were plus how well these releases performed in the charts in both the UK and USA\n- notable former band members\n- **Format:** Limit response to 300 words",
+    "introQuestion": "## Task\nIntroduce the song {trackName} by {artistName} as chosen by {username}\n1. Verify song facts using MusicBrainz/Wikipedia.\n2. Comment on how this fits the current vibe and previously played songs.\n- **Format:** Limit response to 150 words"
   },
   "disabledCommands": [
   ],

@@ -19,6 +19,7 @@ class TokenService {
             '{senderUsername}': ( context ) => this.getSenderUsername( context ),
             '{djUsername}': ( context ) => this.getDjUsername( context ),
             '{userlist}': () => this.getUserList(),
+            '{last5plays}': () => this.getLastFivePlays(),
             '{timezone}': () => this.getConfigValue( 'timezone', 'Europe/London' ),
             '{locale}': () => this.getConfigValue( 'locale', 'en-GB' ),
             '{dateFormat}': () => this.getConfigValue( 'dateFormat', 'DD/MM/YYYY' ),
@@ -35,7 +36,9 @@ class TokenService {
     getConfigValue ( key, defaultValue ) {
         try {
             if ( this.services?.dataService ) {
-                return this.services.dataService.getValue( `configuration.${ key }` ) || defaultValue;
+                const value = this.services.dataService.getValue( `configuration.${ key }` );
+                // Return value if it's not undefined or null
+                return ( value !== undefined && value !== null ) ? value : defaultValue;
             }
         } catch ( error ) {
             this.logger.debug( `[TokenService] Could not get config value ${ key }: ${ error.message }` );
@@ -60,10 +63,21 @@ class TokenService {
                 minute: '2-digit'
             };
 
-            return new Date().toLocaleTimeString( locale, options );
+            let timeString = new Date().toLocaleTimeString( locale, options );
+
+            // Fix edge case where 24-hour format returns "24:XX" instead of "00:XX" for midnight
+            if ( timeFormat === '24' && timeString.startsWith( '24:' ) ) {
+                timeString = '00:' + timeString.substring( 3 );
+            }
+
+            return timeString;
         } catch ( error ) {
             this.logger.debug( `[TokenService] Error formatting time: ${ error.message }` );
-            return new Date().toLocaleTimeString( 'en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' } );
+            let fallbackTime = new Date().toLocaleTimeString( 'en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' } );
+            if ( fallbackTime.startsWith( '24:' ) ) {
+                fallbackTime = '00:' + fallbackTime.substring( 3 );
+            }
+            return fallbackTime;
         }
     }
 
@@ -260,7 +274,53 @@ class TokenService {
             this.logger.debug( `[TokenService] Error getting user list: ${ error.message }` );
             return '';
         }
-    }    /**
+    }
+
+    /**
+     * Get the last 5 songs played (excluding the current song) formatted as a list
+     * @returns {Promise<string>} Formatted list of last 5 plays
+     */
+    async getLastFivePlays () {
+        try {
+            if ( !this.services?.databaseService || !this.services.databaseService.initialized ) {
+                return 'No play history available';
+            }
+
+            // Get 6 songs so we can skip the most recent one (current song)
+            const recentSongs = this.services.databaseService.getRecentSongs( 6 );
+
+            if ( !recentSongs || recentSongs.length === 0 ) {
+                return 'No songs have been played yet';
+            }
+
+            // Skip the first (most recent) song and use the next 5
+            const previousSongs = recentSongs.slice( 1 ).reverse();
+
+            if ( previousSongs.length === 0 ) {
+                return 'No previous songs in history';
+            }
+
+            let result = 'The last 5 songs played (in ascending order) were:\n';
+            previousSongs.forEach( ( play ) => {
+                const trackName = play.track_name || 'Unknown Track';
+                const artistName = play.artist_name || 'Unknown Artist';
+                const djName = play.nickname;
+
+                if ( djName ) {
+                    result += `- ${ djName } played ${ trackName } by ${ artistName }\n`;
+                } else {
+                    result += `- ${ trackName } by ${ artistName }\n`;
+                }
+            } );
+
+            return result.trim();
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting last 5 plays: ${ error.message }` );
+            return 'Unable to retrieve play history';
+        }
+    }
+
+    /**
      * Get all available tokens (built-in + custom)
      * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
      * @returns {Object} Object containing all available tokens and their resolvers
@@ -395,6 +455,12 @@ class TokenService {
             // Replace each token found in the text
             for ( const [ tokenName, tokenConfig ] of Object.entries( allTokens ) ) {
                 if ( processedText.includes( tokenName ) ) {
+                    // Skip {senderUsername} from built-in processing if context.senderUsername is provided
+                    // This allows AI commands to pass plain text username instead of chat mention format
+                    if ( tokenName === '{senderUsername}' && context.senderUsername ) {
+                        continue;
+                    }
+
                     let resolvedValue;
 
                     if ( typeof tokenConfig === 'function' ) {
@@ -412,8 +478,11 @@ class TokenService {
                         resolvedValue = tokenConfig;
                     }
 
+                    // Ensure resolvedValue is a string
+                    const resolvedString = resolvedValue !== null && resolvedValue !== undefined ? String( resolvedValue ) : '';
+
                     // Replace all instances of this token
-                    processedText = processedText.replace( new RegExp( tokenName.replace( /[{}]/g, '\\$&' ), 'g' ), resolvedValue || '' );
+                    processedText = processedText.replace( new RegExp( tokenName.replace( /[{}]/g, '\\$&' ), 'g' ), resolvedString );
                 }
             }
 
@@ -435,6 +504,11 @@ class TokenService {
             }
             if ( context.stars !== undefined ) {
                 processedText = processedText.replace( /\{stars\}/g, context.stars );
+            }
+
+            // Handle context-provided senderUsername first (plain text for AI usage)
+            if ( context.senderUsername ) {
+                processedText = processedText.replace( /\{senderUsername\}/g, context.senderUsername );
             }
 
             // Handle dynamic username tokens separately if they weren't processed above
@@ -510,6 +584,8 @@ class TokenService {
             '{greetingTime}': 'Time-based greeting (morning, afternoon, evening, night)',
             '{senderUsername}': 'Username of the person who sent the command (formatted as mention)',
             '{djUsername}': 'Username of the current DJ playing music (formatted as mention)',
+            '{userlist}': 'Comma-separated list of all users currently in the hangout',
+            '{last5plays}': 'Last 5 songs played with DJ names',
             '{timezone}': 'Configured timezone (e.g., Europe/London)',
             '{locale}': 'Configured locale (e.g., en-GB)',
             '{dateFormat}': 'Configured date format (e.g., DD/MM/YYYY)',
