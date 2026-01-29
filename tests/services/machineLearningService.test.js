@@ -108,9 +108,9 @@ describe( 'MachineLearningService', () => {
       const result = await service.getSystemInstructions();
 
       expect( result ).toEqual( [
-        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
-        'You are a DJ called Test Bot in Test Hangout',
-        'You are a DJ called Test Bot in Test Hangout'
+        "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise.",
+        "\nYou are a DJ called Test Bot in Test Hangout",
+        "\nYou are a DJ called Test Bot in Test Hangout"
       ] );
       expect( mockServices.dataService.loadData ).toHaveBeenCalled();
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLPersonality' );
@@ -122,7 +122,7 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.getSystemInstructions();
 
-      expect( result ).toEqual( [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ] );
+      expect( result ).toEqual( [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise." ] );
     } );
 
     it( 'should return null when dataService is not available', async () => {
@@ -152,9 +152,9 @@ describe( 'MachineLearningService', () => {
       const result = await service.createSystemInstruction();
 
       expect( result ).toEqual( [
-        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
-        'I am Test Bot hosting Test Hangout',
-        'Follow these rules for Test Hangout'
+        "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise.",
+        "\nI am Test Bot hosting Test Hangout",
+        "\nFollow these rules for Test Hangout"
       ] );
       expect( mockServices.dataService.loadData ).toHaveBeenCalled();
       expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'Instructions.MLPersonality' );
@@ -169,8 +169,8 @@ describe( 'MachineLearningService', () => {
       const result = await service.createSystemInstruction();
 
       expect( result ).toEqual( [
-        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
-        'I am Test Bot'
+        "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise.",
+        "\nI am Test Bot"
       ] );
     } );
 
@@ -182,8 +182,8 @@ describe( 'MachineLearningService', () => {
       const result = await service.createSystemInstruction();
 
       expect( result ).toEqual( [
-        'Under no circumstances should any response contain any sexist, racist, or homophobic language',
-        'Follow these rules'
+        "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise.",
+        "\nFollow these rules"
       ] );
     } );
 
@@ -192,7 +192,7 @@ describe( 'MachineLearningService', () => {
 
       const result = await service.createSystemInstruction();
 
-      expect( result ).toEqual( [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ] );
+      expect( result ).toEqual( [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise." ] );
     } );
   } );
 
@@ -279,18 +279,18 @@ describe( 'MachineLearningService', () => {
       await service.askGoogleAI( 'Test question' );
 
       // Verify chats.create was called with correct config (using gemma models)
+      // For Gemma models, systemInstruction is included in the question, not passed separately
       expect( mockChatsCreate ).toHaveBeenCalledWith( {
         model: "gemma-3-27b-it",
         config: {
-          systemInstruction: [ 'Under no circumstances should any response contain any sexist, racist, or homophobic language' ],
           history: [],
-          temperature: 0.9
+          temperature: 2.0
         }
       } );
 
       // Verify sendMessage was called with the question
       expect( mockSendMessage ).toHaveBeenCalledWith( {
-        message: 'Test question'
+        message: expect.stringContaining( 'Test question' )
       } );
     } );
   } );

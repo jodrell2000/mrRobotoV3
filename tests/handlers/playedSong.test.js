@@ -88,15 +88,17 @@ describe( 'playedSong handler', () => {
           op: 'replace',
           path: '/nowPlaying/song/trackName',
           value: 'Cradle Of Love'
+        },
+        {
+          op: 'replace',
+          path: '/nowPlaying/song/songShortId',
+          value: 'song-123'
         }
       ]
     };
 
     services.hangoutState.nowPlaying = { song: 'test' };
-    playedSong( message, {}, services );
-
-    // Wait for async announcement
-    await Promise.resolve();
+    await playedSong( message, {}, services );
 
     expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc' );
     expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -148,6 +150,11 @@ describe( 'playedSong handler', () => {
           op: 'replace',
           path: '/nowPlaying/song/trackName',
           value: 'Cradle Of Love'
+        },
+        {
+          op: 'replace',
+          path: '/nowPlaying/song/songShortId',
+          value: 'song-123'
         }
       ]
     };
@@ -155,7 +162,7 @@ describe( 'playedSong handler', () => {
     services.messageService.sendGroupMessage.mockRejectedValueOnce( new Error( 'Network error' ) );
     services.hangoutState.nowPlaying = { song: 'test' };
 
-    playedSong( message, {}, services );
+    await playedSong( message, {}, services );
 
     // Wait for async announcement and error handling
     await Promise.resolve();
@@ -191,12 +198,17 @@ describe( 'playedSong handler', () => {
           op: 'replace',
           path: '/nowPlaying/song/trackName',
           value: 'Cradle Of Love'
+        },
+        {
+          op: 'replace',
+          path: '/nowPlaying/song/songShortId',
+          value: 'song-123'
         }
       ]
     };
 
     services.hangoutState.nowPlaying = { song: 'test' };
-    playedSong( message, {}, services );
+    await playedSong( message, {}, services );
 
     // Wait for async announcement
     await Promise.resolve();
@@ -227,12 +239,17 @@ describe( 'playedSong handler', () => {
           op: 'replace',
           path: '/nowPlaying/song/trackName',
           value: 'Cradle Of Love'
+        },
+        {
+          op: 'replace',
+          path: '/nowPlaying/song/songShortId',
+          value: 'song-123'
         }
       ]
     };
 
     services.hangoutState.nowPlaying = { song: 'test' };
-    playedSong( message, {}, services );
+    await playedSong( message, {}, services );
 
     // Wait for async announcement
     await Promise.resolve();
@@ -261,12 +278,17 @@ describe( 'playedSong handler', () => {
           op: 'replace',
           path: '/nowPlaying/song/trackName',
           value: 'Another One Bites The Dust (Remastered 2011)'
+        },
+        {
+          op: 'replace',
+          path: '/nowPlaying/song/songShortId',
+          value: 'song-123'
         }
       ]
     };
 
     services.hangoutState.nowPlaying = { song: 'test' };
-    playedSong( message, {}, services );
+    await playedSong( message, {}, services );
 
     // Wait for async announcement
     await Promise.resolve();
@@ -295,6 +317,7 @@ describe( 'playedSong handler', () => {
               crateSongUuid: '765af0f4-6a39-415c-b8fc-f0d4b4312cb6',
               artistName: 'The Cure',
               trackName: 'Killing An Arab (Live)',
+              songShortId: 'song-123',
               musicProviders: {
                 sevenDigital: '91860310'
               },
@@ -309,7 +332,7 @@ describe( 'playedSong handler', () => {
     };
 
     services.hangoutState.nowPlaying = { song: 'test' };
-    playedSong( message, {}, services );
+    await playedSong( message, {}, services );
 
     // Wait for async announcement
     await Promise.resolve();
@@ -377,7 +400,7 @@ describe( 'playedSong handler', () => {
       };
     } );
 
-    test( 'should announce just played song when feature is enabled', () => {
+    test( 'should announce just played song when feature is enabled', async () => {
       // Store a previous song that was playing
       global.previousPlayedSong = {
         djUuid: 'dj-uuid-123',
@@ -400,17 +423,27 @@ describe( 'playedSong handler', () => {
       } );
 
       services.hangoutState = {
+        nowPlaying: {
+          song: {
+            artistName: 'New Artist',
+            trackName: 'New Track',
+            songShortId: 'song-123'
+          }
+        },
         djs: [ { uuid: 'new-dj-uuid-456' } ],
         voteCounts: { likes: 3, dislikes: 1, stars: 0 }
       };
 
       const message = {
         statePatch: [
-          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track' } } }
+          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track', songShortId: 'song-123' } } }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
+
+      // Wait for async announcement
+      await Promise.resolve();
 
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -419,7 +452,7 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should not announce just played song when feature is disabled', () => {
+    test( 'should not announce just played song when feature is disabled', async () => {
       services.featuresService.isFeatureEnabled.mockImplementation( ( feature ) => {
         if ( feature === 'justPlayed' ) return false;
         if ( feature === 'nowPlayingMessage' ) return false;
@@ -428,18 +461,18 @@ describe( 'playedSong handler', () => {
 
       const message = {
         statePatch: [
-          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track' } } }
+          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track', songShortId: 'song-123' } } }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       // Should not call any message functions
       expect( services.messageService.formatMention ).not.toHaveBeenCalled();
       expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
     } );
 
-    test( 'should use default template when justPlayedMessage is not configured', () => {
+    test( 'should use default template when justPlayedMessage is not configured', async () => {
       // Store a previous song that was playing
       global.previousPlayedSong = {
         djUuid: 'dj-uuid-123',
@@ -457,17 +490,24 @@ describe( 'playedSong handler', () => {
       services.dataService.getValue.mockReturnValue( null ); // No custom template
 
       services.hangoutState = {
+        nowPlaying: {
+          song: {
+            artistName: 'New Artist',
+            trackName: 'New Track',
+            songShortId: 'song-123'
+          }
+        },
         djs: [ { uuid: 'new-dj-uuid-456' } ],
         voteCounts: { likes: 3, dislikes: 1, stars: 0 }
       };
 
       const message = {
         statePatch: [
-          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track' } } }
+          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track', songShortId: 'song-123' } } }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
         '<@uid:dj-uuid-123> played...\n      Previous Track by Previous Artist\n      Stats: 👍 5 👎 2 ❤️ 1',
@@ -475,7 +515,7 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should handle missing vote counts gracefully', () => {
+    test( 'should handle missing vote counts gracefully', async () => {
       // Store a previous song that was playing (with no vote counts stored)
       global.previousPlayedSong = {
         djUuid: 'dj-uuid-123',
@@ -485,6 +525,13 @@ describe( 'playedSong handler', () => {
       };
 
       services.hangoutState = {
+        nowPlaying: {
+          song: {
+            artistName: 'New Artist',
+            trackName: 'New Track',
+            songShortId: 'song-123'
+          }
+        },
         djs: [ { uuid: 'new-dj-uuid-456' } ],
         voteCounts: null // No vote counts in hangout state either
       };
@@ -497,11 +544,11 @@ describe( 'playedSong handler', () => {
 
       const message = {
         statePatch: [
-          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track' } } }
+          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track', songShortId: 'song-123' } } }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
         '<@uid:dj-uuid-123> played Previous Track by Previous Artist 👍0 👎0 ⭐0',
@@ -509,7 +556,7 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should not announce just played when no previous song data exists', () => {
+    test( 'should not announce just played when no previous song data exists', async () => {
       services.hangoutState.nowPlaying = null; // No previous song
       services.featuresService.isFeatureEnabled.mockImplementation( ( feature ) => {
         if ( feature === 'justPlayed' ) return true;
@@ -519,18 +566,18 @@ describe( 'playedSong handler', () => {
 
       const message = {
         statePatch: [
-          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track' } } }
+          { op: 'replace', path: '/nowPlaying', value: { song: { artistName: 'New Artist', trackName: 'New Track', songShortId: 'song-123' } } }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       // Should not call message functions since there's no previous song
       expect( services.messageService.formatMention ).not.toHaveBeenCalled();
       expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
     } );
 
-    test( 'should not announce just played when song starts playing (same song)', () => {
+    test( 'should not announce just played when song starts playing (same song)', async () => {
       // Set up scenario where the same song is just starting to play
       services.hangoutState = {
         nowPlaying: null, // No song was playing before
@@ -552,21 +599,22 @@ describe( 'playedSong handler', () => {
             value: {
               song: {
                 artistName: 'The Sundays',
-                trackName: "Here's Where The Story Ends"
+                trackName: "Here's Where The Story Ends",
+                songShortId: 'song-123'
               }
             }
           }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       // Should not announce justPlayed since there was no previous song
       expect( services.messageService.formatMention ).not.toHaveBeenCalled();
       expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
     } );
 
-    test( 'should announce just played when song ends (nowPlaying becomes null)', () => {
+    test( 'should announce just played when song ends (nowPlaying becomes null)', async () => {
       // Store a previous song that was playing
       global.previousPlayedSong = {
         djUuid: 'dj-uuid-123',
@@ -598,7 +646,7 @@ describe( 'playedSong handler', () => {
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -607,7 +655,7 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should announce just played when different song starts playing', () => {
+    test( 'should announce just played when different song starts playing', async () => {
       // Store a previous song that was playing
       global.previousPlayedSong = {
         djUuid: 'dj-uuid-123',
@@ -645,11 +693,12 @@ describe( 'playedSong handler', () => {
         statePatch: [
           { op: 'replace', path: '/djs/0/uuid', value: 'dj-uuid-456' },
           { op: 'replace', path: '/nowPlaying/song/artistName', value: 'New Artist' },
-          { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Track' }
+          { op: 'replace', path: '/nowPlaying/song/trackName', value: 'New Track' },
+          { op: 'replace', path: '/nowPlaying/song/songShortId', value: 'song-456' }
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -658,7 +707,7 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should announce just played when playId changes (same song played again)', () => {
+    test( 'should announce just played when playId changes (same song played again)', async () => {
       // Set up previous song data
       global.previousPlayedSong = {
         trackName: 'Hanging On The Telephone - Remastered',
@@ -675,7 +724,7 @@ describe( 'playedSong handler', () => {
             trackName: 'Hanging On The Telephone - Remastered'
           }
         },
-        djs: [{ uuid: 'dj-uuid-123' }],
+        djs: [ { uuid: 'dj-uuid-123' } ],
         voteCounts: { likes: 2, dislikes: 0, stars: 1 }
       };
 
@@ -702,7 +751,7 @@ describe( 'playedSong handler', () => {
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -711,16 +760,17 @@ describe( 'playedSong handler', () => {
       );
     } );
 
-    test( 'should announce nowPlaying when playId changes (same song played again)', () => {
+    test( 'should announce nowPlaying when playId changes (same song played again)', async () => {
       // Set up hangout state with current song
       services.hangoutState = {
         nowPlaying: {
           song: {
             artistName: 'Test Artist',
-            trackName: 'Test Track'
+            trackName: 'Test Track',
+            songShortId: 'song-123'
           }
         },
-        djs: [{ uuid: 'dj-uuid-123' }]
+        djs: [ { uuid: 'dj-uuid-123' } ]
       };
 
       services.featuresService.isFeatureEnabled.mockImplementation( ( feature ) => {
@@ -745,7 +795,7 @@ describe( 'playedSong handler', () => {
         ]
       };
 
-      playedSong( message, {}, services );
+      await playedSong( message, {}, services );
 
       // Should announce nowPlaying using hangout state since no song info in patch
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123' );

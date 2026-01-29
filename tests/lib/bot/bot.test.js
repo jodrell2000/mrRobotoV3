@@ -1,5 +1,18 @@
 const path = require( 'path' );
 
+// Mock better-sqlite3 - must be done before requiring serviceContainer
+jest.mock( 'better-sqlite3', () => {
+  return jest.fn().mockImplementation( () => ( {
+    exec: jest.fn(),
+    prepare: jest.fn().mockReturnValue( {
+      run: jest.fn(),
+      get: jest.fn(),
+      all: jest.fn()
+    } ),
+    close: jest.fn()
+  } ) );
+} );
+
 // Mock fs promises - must be done before requiring Bot
 const mockAppendFile = jest.fn();
 jest.mock( 'fs', () => ( {

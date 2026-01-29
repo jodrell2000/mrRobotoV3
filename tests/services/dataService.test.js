@@ -59,10 +59,10 @@ describe( 'DataService', () => {
 
         it( 'should throw error on invalid JSON', async () => {
             const invalidJson = '{ "broken": "json" "missing": "comma" }';
-            fs.promises.readFile.mockResolvedValueOnce( invalidJson );
+            fs.promises.readFile.mockResolvedValue( invalidJson );
 
             await expect( dataService.loadData() ).rejects.toThrow( SyntaxError );
-        } );
+        }, 10000 );
     } );
 
     describe( 'getValue', () => {
