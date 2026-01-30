@@ -1,5 +1,6 @@
 const { GoogleGenAI } = require( "@google/genai" );
 const { logger } = require( "../lib/logging" );
+const { normalizeText } = require( "../lib/textUtils" );
 
 /**
  * Machine Learning Service
@@ -357,6 +358,11 @@ class MachineLearningService {
       return "Google AI service is not configured. Please check your googleAIKey environment variable.";
     }
 
+    // Normalize the question to convert decorative Unicode characters to ASCII equivalents
+    // This helps prevent ML model confusion from fancy fonts and character sets
+    const normalizedQuestion = normalizeText( theQuestion );
+    logger.debug( `🤖 [MachineLearningService] Normalized question for AI processing` );
+
     // Load data once at the start
     if ( this.services?.dataService ) {
       await this.services.dataService.loadData();
@@ -381,7 +387,7 @@ class MachineLearningService {
     // Try each model in the fallback chain
     for ( const model of modelsToTry ) {
       try {
-        const result = await this.tryModel( model, theQuestion );
+        const result = await this.tryModel( model, normalizedQuestion );
         if ( result ) {
           return result;
         }
@@ -431,6 +437,9 @@ class MachineLearningService {
       // Other models: pass instructions separately
       instructionsForChat = systemInstruction;
     }
+
+    // Normalize the complete message before sending to convert decorative Unicode to ASCII
+    questionToSend = normalizeText( questionToSend );
 
     // Get or create chat session with conversation history
     const chat = await this.getOrCreateChat( model, conversationHistory, instructionsForChat );
