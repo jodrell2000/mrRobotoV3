@@ -1,7 +1,7 @@
 const config = require( '../../config.js' );
 const { getMappings, addMapping, removeMapping, normalizeText, clearCache } = require( '../../lib/textUtils' );
 
-const requiredRole = 'OWNER';
+const requiredRole = 'MODERATOR';
 const description = 'Manage special character to ASCII mappings';
 const example = 'charmap list | charmap add ᕼ H | charmap remove ᕼ | charmap test ᕼEᒪᒪO';
 const hidden = false;

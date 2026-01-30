@@ -47,7 +47,7 @@ describe( 'handleCharmapCommand', () => {
 
     describe( 'metadata', () => {
         it( 'should have correct metadata properties', () => {
-            expect( handleCharmapCommand.requiredRole ).toBe( 'OWNER' );
+            expect( handleCharmapCommand.requiredRole ).toBe( 'MODERATOR' );
             expect( handleCharmapCommand.description ).toBe( 'Manage special character to ASCII mappings' );
             expect( handleCharmapCommand.example ).toBeDefined();
             expect( handleCharmapCommand.hidden ).toBe( false );
