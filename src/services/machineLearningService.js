@@ -1,6 +1,7 @@
 const { GoogleGenAI } = require( "@google/genai" );
 const { logger } = require( "../lib/logging" );
 const { normalizeText } = require( "../lib/textUtils" );
+const MusicBrainzService = require( "./musicBrainzService" );
 
 /**
  * Machine Learning Service
@@ -14,6 +15,15 @@ class MachineLearningService {
     this.currentChat = null; // Store the active chat session
     this.availableModels = []; // Will be populated with text generation models from API
 
+    // Initialize MusicBrainz service with unique bot identifier for User-Agent
+    // Use first block of BOT_UID (before the first hyphen) as it's stable and unique per deployment
+    const botUid = process.env.BOT_UID || '';
+    const botIdentifier = botUid.split( '-' )[ 0 ] || 'MrRobotoBot';
+    this.musicBrainzService = new MusicBrainzService( botIdentifier );
+
+    // Define function declarations for tool use
+    this.functionDeclarations = this.initializeFunctionDeclarations();
+
     if ( this.googleAIKey ) {
       this.genAI = new GoogleGenAI( { apiKey: this.googleAIKey } );
       // Don't await initialization in constructor - it will happen asynchronously
@@ -21,6 +31,52 @@ class MachineLearningService {
       this.initializeAvailableModels().catch( err => {
         logger.warn( `🤖 [MachineLearningService] Failed to load available models on init: ${ err.message }` );
       } );
+    }
+  }
+
+  /**
+   * Initialize function declarations for tool use with the AI model
+   * These functions can be called by the model to get real-time data
+   * @returns {Array} Array of function declaration objects
+   */
+  initializeFunctionDeclarations () {
+    return [
+      {
+        name: "getSongDetails",
+        description: "Get factual information about a song from the MusicBrainz database including: original release year, release date, album name(s) the song appeared on, song duration, and music genres. Use this function when the user asks about WHEN a song was released, WHAT YEAR it came out, WHAT ALBUM it appeared on, or other verifiable facts about a recording. This provides accurate, real-world data rather than relying on training data which may be outdated or incorrect.",
+        parameters: {
+          type: "object",
+          properties: {
+            artist: {
+              type: "string",
+              description: "The name of the artist or band who performed the song"
+            },
+            track: {
+              type: "string",
+              description: "The name of the song/track"
+            }
+          },
+          required: [ "artist", "track" ]
+        }
+      }
+    ];
+  }
+
+  /**
+   * Execute a function call requested by the AI model
+   * @param {string} functionName - Name of the function to execute
+   * @param {Object} args - Arguments passed by the model
+   * @returns {Promise<Object>} Result of the function execution
+   */
+  async executeFunction ( functionName, args ) {
+    logger.info( `🤖 [MachineLearningService] Executing function: ${ functionName } with args: ${ JSON.stringify( args ) }` );
+
+    switch ( functionName ) {
+      case "getSongDetails":
+        return await this.musicBrainzService.getSongDetails( args.artist, args.track );
+      default:
+        logger.warn( `🤖 [MachineLearningService] Unknown function requested: ${ functionName }` );
+        return { error: `Unknown function: ${ functionName }` };
     }
   }
 
@@ -237,9 +293,10 @@ class MachineLearningService {
    * @param {string} model - The model to use for the chat
    * @param {Array} conversationHistory - The conversation history
    * @param {Array} systemInstruction - System instructions for the chat as array of strings
+   * @param {boolean} enableTools - Whether to enable function calling tools
    * @returns {Promise<Object>} Promise that resolves to the chat instance
    */
-  async getOrCreateChat ( model, conversationHistory, systemInstruction ) {
+  async getOrCreateChat ( model, conversationHistory, systemInstruction, enableTools = true ) {
     // Format the conversation history for the chat API
     const formattedHistory = this.formatChatHistory( conversationHistory );
 
@@ -252,6 +309,12 @@ class MachineLearningService {
     // Add system instruction if available
     if ( systemInstruction ) {
       config.systemInstruction = systemInstruction;
+    }
+
+    // Add function declarations for tool use if enabled
+    if ( enableTools && this.functionDeclarations && this.functionDeclarations.length > 0 ) {
+      config.tools = [ { functionDeclarations: this.functionDeclarations } ];
+      logger.debug( `🤖 [MachineLearningService] Enabled ${ this.functionDeclarations.length } function(s) for tool use` );
     }
 
     logger.debug( `🤖 [MachineLearningService] Creating chat with model: ${ model }` );
@@ -442,19 +505,59 @@ class MachineLearningService {
     questionToSend = normalizeText( questionToSend );
 
     // Get or create chat session with conversation history
-    const chat = await this.getOrCreateChat( model, conversationHistory, instructionsForChat );
+    const chat = await this.getOrCreateChat( model, conversationHistory, instructionsForChat, true );
 
     logger.debug( `🤖 [MachineLearningService] Trying model ${ model }. The Question: ${ JSON.stringify( {
       theQuestion
     }, null, 2 ) }` );
 
     // Send the message to the chat
-    const response = await chat.sendMessage( {
+    let response = await chat.sendMessage( {
       message: questionToSend
     } );
 
     logger.debug( `🤖 [MachineLearningService] Full API Request sent to model ${ model }:` );
     logger.debug( `🤖 [MachineLearningService] Message: ${ JSON.stringify( questionToSend, null, 2 ) }` );
+
+    // Handle function calls if the model requests them
+    // Loop to handle multiple sequential function calls if needed
+    let functionCallCount = 0;
+    const maxFunctionCalls = 3; // Prevent infinite loops
+
+    while ( functionCallCount < maxFunctionCalls ) {
+      // Check if the model wants to call a function
+      const functionCalls = response.functionCalls;
+
+      if ( !functionCalls || functionCalls.length === 0 ) {
+        // No function call requested, break out of the loop
+        break;
+      }
+
+      functionCallCount++;
+      const functionCall = functionCalls[ 0 ]; // Process first function call
+
+      logger.info( `🤖 [MachineLearningService] Model requested function call: ${ functionCall.name }` );
+
+      // Execute the function
+      const functionResult = await this.executeFunction( functionCall.name, functionCall.args );
+
+      logger.debug( `🤖 [MachineLearningService] Function result: ${ JSON.stringify( functionResult, null, 2 ) }` );
+
+      // Send the function result back to the model
+      response = await chat.sendMessage( {
+        functionResponse: {
+          name: functionCall.name,
+          response: functionResult
+        }
+      } );
+
+      logger.debug( `🤖 [MachineLearningService] Sent function response back to model` );
+    }
+
+    if ( functionCallCount >= maxFunctionCalls ) {
+      logger.warn( `🤖 [MachineLearningService] Reached maximum function call limit (${ maxFunctionCalls })` );
+    }
+
     // logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
 
     let theResponse = response.text;

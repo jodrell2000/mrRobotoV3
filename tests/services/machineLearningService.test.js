@@ -280,11 +280,21 @@ describe( 'MachineLearningService', () => {
 
       // Verify chats.create was called with correct config (using gemma models)
       // For Gemma models, systemInstruction is included in the question, not passed separately
+      // Config should include tools with function declarations
       expect( mockChatsCreate ).toHaveBeenCalledWith( {
         model: "gemma-3-27b-it",
         config: {
           history: [],
-          temperature: 2.0
+          temperature: 2.0,
+          tools: expect.arrayContaining( [
+            expect.objectContaining( {
+              functionDeclarations: expect.arrayContaining( [
+                expect.objectContaining( {
+                  name: "getSongDetails"
+                } )
+              ] )
+            } )
+          ] )
         }
       } );
 
