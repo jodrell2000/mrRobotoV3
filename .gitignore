@@ -76,6 +76,7 @@ data/chat.json
 data/aliases.json
 data/themes.json
 data/image-validation-cache.json
+data/specialCharacters.json
 
 # SQLite database files
 data/*.db
