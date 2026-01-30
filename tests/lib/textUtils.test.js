@@ -189,6 +189,23 @@ describe( 'textUtils', () => {
             expect( result.message ).toContain( 'ASCII character is required' );
         } );
 
+        it( 'should fail with non-ASCII replacement character', () => {
+            const result = textUtils.addMapping( 'ᘔ', 'ᕼ' );
+
+            expect( result.success ).toBe( false );
+            expect( result.message ).toContain( 'Invalid replacement character' );
+        } );
+
+        it( 'should accept valid ASCII characters', () => {
+            // Load mappings first
+            textUtils.loadMappings();
+
+            const result = textUtils.addMapping( 'ᘔ', 'Z' );
+
+            expect( result.success ).toBe( true );
+            expect( result.message ).toContain( 'Added' );
+        } );
+
         it( 'should handle save failure', () => {
             fs.writeFileSync.mockImplementation( () => {
                 throw new Error( 'Write error' );

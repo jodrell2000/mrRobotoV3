@@ -7,6 +7,7 @@ const MAPPINGS_FILE = path.join( process.cwd(), 'data', 'specialCharacters.json'
 
 /**
  * Load character mappings from the JSON file
+ * Creates the file from the example template if it doesn't exist
  * @param {boolean} forceReload - Force reload from disk even if cached
  * @returns {Object} Character mappings object
  */
@@ -21,8 +22,21 @@ function loadMappings ( forceReload = false ) {
             characterMappings = JSON.parse( fileContent );
             logger.debug( `[textUtils] Loaded ${ Object.keys( characterMappings ).length } character mappings` );
         } else {
-            logger.warn( '[textUtils] specialCharacters.json not found, using empty mappings' );
-            characterMappings = {};
+            // Create the file from the example template
+            const exampleFile = path.join( process.cwd(), 'data', 'specialCharacters.json_example' );
+            if ( fs.existsSync( exampleFile ) ) {
+                const exampleContent = fs.readFileSync( exampleFile, 'utf8' );
+                const dirPath = path.dirname( MAPPINGS_FILE );
+                if ( !fs.existsSync( dirPath ) ) {
+                    fs.mkdirSync( dirPath, { recursive: true } );
+                }
+                fs.writeFileSync( MAPPINGS_FILE, exampleContent, 'utf8' );
+                characterMappings = JSON.parse( exampleContent );
+                logger.info( `[textUtils] Created specialCharacters.json from example template with ${ Object.keys( characterMappings ).length } mappings` );
+            } else {
+                logger.warn( '[textUtils] specialCharacters.json and example template not found, using empty mappings' );
+                characterMappings = {};
+            }
         }
     } catch ( error ) {
         logger.error( `[textUtils] Failed to load character mappings: ${ error.message }` );
@@ -83,6 +97,22 @@ function normalizeText ( text ) {
 }
 
 /**
+ * Check if a character is a standard ASCII character
+ * Standard ASCII is typically printable characters 32-126
+ * @param {string} char - The character to check
+ * @returns {boolean} True if character is standard ASCII
+ */
+function isStandardASCII ( char ) {
+    if ( !char || char.length !== 1 ) {
+        return false;
+    }
+    const code = char.charCodeAt( 0 );
+    // Printable ASCII range: 33-126 (excludes space and control characters)
+    // Also allow space (32) for replacements
+    return code >= 32 && code <= 126;
+}
+
+/**
  * Add or update a character mapping
  * @param {string} fancyChar - The decorative character to map
  * @param {string} asciiChar - The ASCII equivalent
@@ -94,6 +124,14 @@ function addMapping ( fancyChar, asciiChar ) {
     }
     if ( !asciiChar || asciiChar.length === 0 ) {
         return { success: false, message: 'ASCII character is required' };
+    }
+
+    // Validate that replacement is a standard ASCII character
+    if ( !isStandardASCII( asciiChar ) ) {
+        return {
+            success: false,
+            message: `Invalid replacement character: "${ asciiChar }". Replacement must be a standard ASCII character (A-Z, a-z, 0-9, or common symbols).`
+        };
     }
 
     loadMappings();
@@ -159,5 +197,6 @@ module.exports = {
     addMapping,
     removeMapping,
     getMappings,
-    clearCache
+    clearCache,
+    isStandardASCII
 };
