@@ -489,4 +489,89 @@ describe( 'TokenService', () => {
             expect( time.length ).toBeGreaterThan( 0 );
         } );
     } );
+
+    describe( 'getReadTheme', () => {
+        it( 'should return empty string when theme is not set', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return undefined;
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( '' );
+        } );
+
+        it( 'should return empty string when theme is an empty string', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return '';
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( '' );
+        } );
+
+        it( 'should return empty string when theme is whitespace only', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return '   ';
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( '' );
+        } );
+
+        it( 'should return template with theme substituted when theme is set', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return '90s house music';
+                if ( key === 'editableMessages.readTheme' ) return 'The theme is currently {theme}';
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( 'The theme is currently 90s house music' );
+        } );
+
+        it( 'should use default template when readTheme message is not set', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return 'jazz';
+                if ( key === 'editableMessages.readTheme' ) return undefined;
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( 'The theme is currently jazz' );
+        } );
+
+        it( 'should replace multiple {theme} occurrences in template', () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return 'disco';
+                if ( key === 'editableMessages.readTheme' ) return '{theme}! The theme is {theme}';
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            expect( tokenService.getReadTheme() ).toBe( 'disco! The theme is disco' );
+        } );
+
+        it( 'should return empty string and not throw when dataService is unavailable', () => {
+            tokenService.services = {};
+            expect( tokenService.getReadTheme() ).toBe( '' );
+        } );
+
+        it( 'should replace {readTheme} token via replaceTokens', async () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return 'soul';
+                if ( key === 'editableMessages.readTheme' ) return 'Tonight: {theme}';
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            const result = await tokenService.replaceTokens( 'Welcome! {readTheme}', {} );
+            expect( result ).toBe( 'Welcome! Tonight: soul' );
+        } );
+
+        it( 'should replace {readTheme} with empty string via replaceTokens when theme is unset', async () => {
+            mockServices.dataService.getValue.mockImplementation( ( key ) => {
+                if ( key === 'editableMessages.theme' ) return undefined;
+                if ( key === 'customTokens' ) return {};
+                return undefined;
+            } );
+            const result = await tokenService.replaceTokens( 'Welcome! {readTheme}', {} );
+            expect( result ).toBe( 'Welcome! ' );
+        } );
+    } );
 } );
