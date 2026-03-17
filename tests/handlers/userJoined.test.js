@@ -1,9 +1,16 @@
+jest.mock( 'node:fs', () => ( {
+    existsSync: jest.fn().mockReturnValue( false ),
+    readFileSync: jest.fn()
+} ) );
+
+const fs = require( 'node:fs' );
 const userJoined = require( '../../src/handlers/userJoined' );
 
 // Mock the services
 jest.mock( '../../src/services/serviceContainer.js', () => ( {
     messageService: {
         sendGroupMessage: jest.fn().mockResolvedValue( undefined ),
+        sendGroupPictureMessage: jest.fn().mockResolvedValue( undefined ),
         formatMention: jest.fn().mockImplementation( ( uuid ) => `<@uid:${ uuid }>` )
     },
     stateService: {
@@ -37,6 +44,10 @@ describe( 'userJoined handler', () => {
     beforeEach( () => {
         // Clear all mocks before each test
         jest.clearAllMocks();
+        // Reset state that may have been changed by individual tests
+        services.data.welcomeMessage = "Hi {username}, welcome to '{hangoutName}'";
+        services.featuresService.isFeatureEnabled.mockReturnValue( true );
+        fs.existsSync.mockReturnValue( false );
     } );
 
     it( 'should send welcome message with correct replacements', async () => {
@@ -221,11 +232,85 @@ describe( 'userJoined handler', () => {
 
         // Should check if feature is enabled
         expect( services.featuresService.isFeatureEnabled ).toHaveBeenCalledWith( 'welcomeMessage' );
-        
+
         // Should not send welcome message when feature is disabled
         expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
-        
+
         // Should log that feature is disabled
         expect( services.logger.debug ).toHaveBeenCalledWith( 'Welcome message feature is disabled, skipping welcome message' );
+    } );
+
+    describe( 'per-user personalized welcome', () => {
+        const mockUuid = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+        const baseMessage = {
+            statePatch: [ {
+                op: 'add',
+                path: `/allUserData/${ mockUuid }`,
+                value: { userProfile: { nickname: 'TestDJ' } }
+            } ]
+        };
+
+        it( 'should send standard welcome when welcomeMessages.json does not exist', async () => {
+            fs.existsSync.mockReturnValue( false );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should send personalized text-only message when user has messages but no pictures', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                [ mockUuid ]: { messages: [ 'Hey {username}, great to see you!' ], pictures: [] }
+            } ) );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
+                `Hey <@uid:${ mockUuid }>, great to see you!`,
+                { services }
+            );
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should send picture message when user has both messages and pictures', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                [ mockUuid ]: {
+                    messages: [ 'Welcome back!' ],
+                    pictures: [ 'https://media.giphy.com/welcome.gif' ]
+                }
+            } ) );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupPictureMessage ).toHaveBeenCalledWith(
+                'Welcome back!',
+                'https://media.giphy.com/welcome.gif',
+                services
+            );
+            expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should fall back to standard welcome when user has no entry in file', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should fall back to standard welcome when file is malformed JSON', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( 'not valid json{{' );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should fall back to standard welcome when user entry has no messages', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {
+                [ mockUuid ]: { messages: [], pictures: [ 'https://media.giphy.com/img.gif' ] }
+            } ) );
+            await userJoined( baseMessage, {}, services );
+            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
     } );
 } );

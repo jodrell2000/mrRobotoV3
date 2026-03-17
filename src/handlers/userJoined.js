@@ -1,3 +1,8 @@
+const fs = require( 'node:fs' );
+const path = require( 'node:path' );
+
+const WELCOME_MESSAGES_PATH = path.join( __dirname, '../../data/welcomeMessages.json' );
+
 /**
  * Extracts user data from the state patch message
  * @param {Object} message - The stateful message containing user data
@@ -95,19 +100,67 @@ function getHangoutName ( services ) {
 }
 
 /**
+ * Looks up a per-user personalized welcome message and picture from welcomeMessages.json.
+ * Returns null if no custom data exists for this user.
+ * @param {Object} userData - User data extracted from patch
+ * @param {Object} services - Services container
+ * @returns {Promise<{message: string, picture: string|null}|null>}
+ */
+async function getPersonalizedWelcome ( userData, services ) {
+  try {
+    if ( !fs.existsSync( WELCOME_MESSAGES_PATH ) ) return null;
+    const welcomeData = JSON.parse( fs.readFileSync( WELCOME_MESSAGES_PATH, 'utf8' ) );
+    const entry = welcomeData[ userData.userUUID ];
+    if ( !entry ) return null;
+
+    const messages = ( entry.messages || [] ).filter( m => m );
+    if ( messages.length === 0 ) return null;
+
+    const randomMessage = messages[ Math.floor( Math.random() * messages.length ) ];
+    const tokenContext = { username: services.messageService.formatMention( userData.userUUID ) };
+
+    let processedMessage;
+    if ( services.tokenService ) {
+      processedMessage = await services.tokenService.replaceTokens( randomMessage, tokenContext, true );
+    } else {
+      processedMessage = randomMessage.replace( /\{username\}/g, tokenContext.username );
+    }
+
+    const pictures = ( entry.pictures || [] ).filter( p => p );
+    const randomPicture = pictures.length > 0
+      ? pictures[ Math.floor( Math.random() * pictures.length ) ]
+      : null;
+
+    return { message: processedMessage, picture: randomPicture };
+  } catch ( error ) {
+    services.logger.debug( `Could not load personalized welcome for ${ userData.userUUID }: ${ error.message }` );
+    return null;
+  }
+}
+
+/**
  * Creates and sends a personalized welcome message
  * @param {Object} userData - User data extracted from patch
  * @param {Object} services - Services container
  */
 async function sendWelcomeMessage ( userData, services ) {
+  // Check for per-user personalized welcome first
+  const personalized = await getPersonalizedWelcome( userData, services );
+  if ( personalized ) {
+    if ( personalized.picture ) {
+      await services.messageService.sendGroupPictureMessage( personalized.message, personalized.picture, services );
+    } else {
+      await services.messageService.sendGroupMessage( personalized.message, { services } );
+    }
+    return;
+  }
+
   // Get welcome message template from data service, fallback to default if not found
-  services.logger.debug( 'Getting welcome message from dataService...' );
   let messageTemplate = services.dataService.getValue( 'editableMessages.welcomeMessage' );
   if ( !messageTemplate ) {
     // Fallback to old structure for backward compatibility
     messageTemplate = services.dataService.getValue( 'welcomeMessage' ) || "👋 Welcome to {hangoutName}, {username}!";
   }
-  services.logger.debug( `Retrieved welcome message template: ${ messageTemplate }` );
 
   // Prepare context for token replacement
   const tokenContext = {
@@ -126,12 +179,8 @@ async function sendWelcomeMessage ( userData, services ) {
       .replace( '{hangoutName}', hangoutName );
   }
 
-  services.logger.debug( `Sending personalized welcome message: ${ personalizedMessage }` );
-
   // Send the personalized welcome message
   await services.messageService.sendGroupMessage( personalizedMessage, { services } );
-
-  services.logger.debug( `✅ Welcome message sent for user: ${ userData.userUUID }` );
 }
 
 /**
@@ -163,19 +212,19 @@ async function userJoined ( message, state, services ) {
     }
 
     // Upsert DJ in database (only if databaseService is available and initialized)
-    if (services.databaseService && services.databaseService.initialized) {
+    if ( services.databaseService && services.databaseService.initialized ) {
       try {
-        const result = services.databaseService.insertOrUpdateDjNickname({
+        const result = services.databaseService.insertOrUpdateDjNickname( {
           uuid: userData.userUUID,
           nickname: userData.nickname
-        });
-        if (result.action === 'inserted') {
-          services.logger.debug(`Inserted new DJ in database: ${userData.userUUID} (${userData.nickname})`);
-        } else if (result.action === 'updated') {
-          services.logger.debug(`Updated DJ nickname in database: ${userData.userUUID} (${result.oldNickname} → ${result.newNickname})`);
+        } );
+        if ( result.action === 'inserted' ) {
+          services.logger.debug( `Inserted new DJ in database: ${ userData.userUUID } (${ userData.nickname })` );
+        } else if ( result.action === 'updated' ) {
+          services.logger.debug( `Updated DJ nickname in database: ${ userData.userUUID } (${ result.oldNickname } → ${ result.newNickname })` );
         }
-      } catch (err) {
-        services.logger.error(`Failed to upsert DJ in database: ${err.message}`);
+      } catch ( err ) {
+        services.logger.error( `Failed to upsert DJ in database: ${ err.message }` );
       }
     }
 

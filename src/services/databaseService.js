@@ -198,6 +198,21 @@ class DatabaseService {
             this.initialized = false;
         }
     }
+
+    /**
+     * Find a DJ record by nickname (case-insensitive)
+     * @param {string} nickname - The nickname to search for
+     * @returns {Object|null} Row with uuid and nickname, or null if not found
+     */
+    findDjByNickname ( nickname ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        return this.db.prepare( 'SELECT uuid, nickname FROM djs WHERE LOWER(nickname) = LOWER(?) LIMIT 1' ).get( nickname ) || null;
+    }
+
+    getAllDjNicknames () {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        return this.db.prepare( 'SELECT uuid, nickname FROM djs ORDER BY nickname' ).all();
+    }
 }
 
 module.exports = DatabaseService;
