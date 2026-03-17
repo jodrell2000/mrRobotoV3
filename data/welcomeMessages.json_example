@@ -1,0 +1,12 @@
+{
+  "a1b2c3d4-e5f6-7890-abcd-ef1234567890": {
+    "messages": [
+      "Hey {username}! So glad you're here tonight! 🎉",
+      "Look who it is! Welcome {username}! Great to have you back 🙌"
+    ],
+    "pictures": [
+      "https://media.giphy.com/media/example1/giphy.gif",
+      "https://media.giphy.com/media/example2/giphy.gif"
+    ]
+  }
+}
