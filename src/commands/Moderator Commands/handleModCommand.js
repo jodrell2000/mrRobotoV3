@@ -1,5 +1,6 @@
 'use strict';
 
+const config = require( '../../config' );
 const { hasPermission } = require( '../../lib/roleUtils' );
 
 const requiredRole = 'MODERATOR';
@@ -130,7 +131,11 @@ async function handleModCommand ( commandParams ) {
         return handleRemoveDj( nameArg, services, context, responseChannel );
     }
 
-    const response = 'Usage: !mod listUsers | !mod remove <name>';
+    const cmdSwitch = config.COMMAND_SWITCH || '!';
+    const response =
+        `📋 **Mod Usage:**\n\n` +
+        `\`${ cmdSwitch }mod listUsers\` — List all users in the hangout\n` +
+        `\`${ cmdSwitch }mod remove <name>\` — Remove a DJ from the decks`;
     await messageService.sendResponse( response, {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
