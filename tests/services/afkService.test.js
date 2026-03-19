@@ -109,6 +109,13 @@ describe( 'AfkService', () => {
             expect( afkService.getActivitySnapshot()[ 0 ].warningLevel ).toBe( 0 );
         } );
 
+        it( 'should clear pending removal when activity is recorded', () => {
+            afkService.addUser( 'uuid-1', 'DJ Cool' );
+            afkService.setPendingRemoval( 'uuid-1' );
+            afkService.recordActivity( 'uuid-1', 'chat' );
+            expect( afkService.getPendingRemovals() ).not.toContain( 'uuid-1' );
+        } );
+
         it( 'mostRecent should equal the most recently stamped activity timestamp', () => {
             jest.useFakeTimers();
             afkService.addUser( 'uuid-1', 'DJ Cool' );
@@ -282,6 +289,40 @@ describe( 'AfkService', () => {
 
         it( 'is a no-op for an unknown UUID', () => {
             expect( () => afkService.resetActivity( 'uuid-ghost' ) ).not.toThrow();
+        } );
+    } );
+
+    describe( 'setPendingRemoval / clearPendingRemoval / getPendingRemovals', () => {
+        it( 'getPendingRemovals returns empty array initially', () => {
+            expect( afkService.getPendingRemovals() ).toEqual( [] );
+        } );
+
+        it( 'setPendingRemoval adds uuid to pending removals', () => {
+            afkService.setPendingRemoval( 'uuid-1' );
+            expect( afkService.getPendingRemovals() ).toContain( 'uuid-1' );
+        } );
+
+        it( 'clearPendingRemoval removes uuid from pending removals', () => {
+            afkService.setPendingRemoval( 'uuid-1' );
+            afkService.clearPendingRemoval( 'uuid-1' );
+            expect( afkService.getPendingRemovals() ).not.toContain( 'uuid-1' );
+        } );
+
+        it( 'getActivitySnapshot includes pendingRemoval flag', () => {
+            afkService.addUser( 'uuid-1', 'DJ Cool' );
+            afkService.addUser( 'uuid-2', 'DJ Sonic' );
+            afkService.setPendingRemoval( 'uuid-1' );
+            const snapshot = afkService.getActivitySnapshot();
+            const dj1 = snapshot.find( e => e.uuid === 'uuid-1' );
+            const dj2 = snapshot.find( e => e.uuid === 'uuid-2' );
+            expect( dj1.pendingRemoval ).toBe( true );
+            expect( dj2.pendingRemoval ).toBe( false );
+        } );
+
+        it( 'can track multiple pending removals at once', () => {
+            afkService.setPendingRemoval( 'uuid-1' );
+            afkService.setPendingRemoval( 'uuid-2' );
+            expect( afkService.getPendingRemovals() ).toHaveLength( 2 );
         } );
     } );
 } );

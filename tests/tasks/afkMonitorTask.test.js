@@ -230,11 +230,14 @@ describe( 'runAfkMonitorTick', () => {
         expect( services.messageService.sendResponse ).not.toHaveBeenCalled();
     } );
 
-    it( 'removes a DJ who has reached the remove threshold', async () => {
+    it( 'immediately removes a DJ who is NOT at position 0 when remove threshold is reached', async () => {
         const lastActive = new Date( Date.now() - REMOVE_MS );
         const services = makeServices( {
-            djs: [ { uuid: 'u1' } ],
-            snapshot: [ { uuid: 'u1', nickname: 'DJ Cool', mostRecent: lastActive, warningLevel: 3 } ],
+            djs: [ { uuid: 'u0' }, { uuid: 'u1' } ],
+            snapshot: [
+                { uuid: 'u0', nickname: 'DJ First', mostRecent: new Date(), warningLevel: 0 },
+                { uuid: 'u1', nickname: 'DJ Cool', mostRecent: lastActive, warningLevel: 3 },
+            ],
         } );
         await runAfkMonitorTick( services );
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'u1' );
@@ -244,7 +247,21 @@ describe( 'runAfkMonitorTick', () => {
         expect( msg ).toMatch( /removed from the decks/i );
     } );
 
-    it( 'sets warningLevel to 4 after removal to prevent repeated removal', async () => {
+    it( 'marks a DJ at position 0 as pending removal instead of removing immediately', async () => {
+        const lastActive = new Date( Date.now() - REMOVE_MS );
+        const services = makeServices( {
+            djs: [ { uuid: 'u1' } ],
+            snapshot: [ { uuid: 'u1', nickname: 'DJ Cool', mostRecent: lastActive, warningLevel: 3 } ],
+        } );
+        await runAfkMonitorTick( services );
+        expect( services.hangSocketServices.removeDj ).not.toHaveBeenCalled();
+        expect( services.afkService.getPendingRemovals() ).toContain( 'u1' );
+        expect( services.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );
+        const [ msg ] = services.messageService.sendResponse.mock.calls[ 0 ];
+        expect( msg ).toMatch( /after their current song/i );
+    } );
+
+    it( 'sets warningLevel to 4 after pending removal to prevent repeated messages', async () => {
         const lastActive = new Date( Date.now() - REMOVE_MS );
         const services = makeServices( {
             djs: [ { uuid: 'u1' } ],
@@ -252,6 +269,20 @@ describe( 'runAfkMonitorTick', () => {
         } );
         await runAfkMonitorTick( services );
         expect( services.afkService.getActivitySnapshot()[ 0 ].warningLevel ).toBe( 4 );
+    } );
+
+    it( 'sets warningLevel to 4 after immediate removal to prevent re-removal', async () => {
+        const lastActive = new Date( Date.now() - REMOVE_MS );
+        const services = makeServices( {
+            djs: [ { uuid: 'u0' }, { uuid: 'u1' } ],
+            snapshot: [
+                { uuid: 'u0', nickname: 'DJ First', mostRecent: new Date(), warningLevel: 0 },
+                { uuid: 'u1', nickname: 'DJ Cool', mostRecent: lastActive, warningLevel: 3 },
+            ],
+        } );
+        await runAfkMonitorTick( services );
+        const u1 = services.afkService.getActivitySnapshot().find( e => e.uuid === 'u1' );
+        expect( u1.warningLevel ).toBe( 4 );
     } );
 
     it( 'does not remove a DJ still at warning 3 but below remove threshold', async () => {
@@ -273,5 +304,16 @@ describe( 'runAfkMonitorTick', () => {
         } );
         await runAfkMonitorTick( services );
         expect( services.hangSocketServices.removeDj ).not.toHaveBeenCalled();
+    } );
+
+    it( 'deduplicates duplicate UUID entries in the djs array', async () => {
+        const lastActive = new Date( Date.now() - REMOVE_MS );
+        const services = makeServices( {
+            djs: [ { uuid: 'u1' }, { uuid: 'u1' }, { uuid: 'u1' }, { uuid: 'u1' } ],
+            snapshot: [ { uuid: 'u1', nickname: 'DJ Cool', mostRecent: lastActive, warningLevel: 3 } ],
+        } );
+        await runAfkMonitorTick( services );
+        expect( services.afkService.getPendingRemovals() ).toHaveLength( 1 );
+        expect( services.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );
     } );
 } );

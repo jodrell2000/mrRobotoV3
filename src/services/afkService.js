@@ -14,6 +14,7 @@ class AfkService {
     constructor () {
         this.activityMap = new Map();
         this.exemptedUuids = new Set();
+        this.pendingRemovalUuids = new Set();
     }
 
     addUser ( uuid, nickname ) {
@@ -48,6 +49,7 @@ class AfkService {
         entry.activity[ activityType ] = now;
         entry.mostRecent = now;
         entry.warningLevel = 0;
+        this.pendingRemovalUuids.delete( uuid );
         logger.debug( `[afkService] activity recorded: ${ entry.nickname || uuid } (${ uuid }) — ${ activityType } at ${ now.toISOString() }` );
     }
 
@@ -67,9 +69,22 @@ class AfkService {
     getActivitySnapshot () {
         const result = [];
         for ( const [ uuid, entry ] of this.activityMap ) {
-            result.push( { uuid, ...entry, exempted: this.exemptedUuids.has( uuid ) } );
+            result.push( { uuid, ...entry, exempted: this.exemptedUuids.has( uuid ), pendingRemoval: this.pendingRemovalUuids.has( uuid ) } );
         }
         return result;
+    }
+
+    setPendingRemoval ( uuid ) {
+        this.pendingRemovalUuids.add( uuid );
+        logger.debug( `[afkService] DJ marked for pending removal after current song: ${ uuid }` );
+    }
+
+    clearPendingRemoval ( uuid ) {
+        this.pendingRemovalUuids.delete( uuid );
+    }
+
+    getPendingRemovals () {
+        return Array.from( this.pendingRemovalUuids );
     }
 
     clear () {

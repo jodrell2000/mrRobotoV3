@@ -16,7 +16,13 @@ async function runAfkMonitorTick ( services ) {
     const warn3Ms = firstWarningMs + 2 * intervalMs;
     const removeMs = firstWarningMs + 3 * intervalMs;
 
-    const djs = services.stateService._getDjs();
+    const rawDjs = services.stateService._getDjs();
+    const seen = new Set();
+    const djs = rawDjs.filter( dj => {
+        if ( seen.has( dj.uuid ) ) return false;
+        seen.add( dj.uuid );
+        return true;
+    } );
     if ( !djs.length ) return;
 
     const snapshotByUuid = new Map(
@@ -48,11 +54,20 @@ async function runAfkMonitorTick ( services ) {
 
         if ( entry.warningLevel === 3 && inactiveMs >= removeMs ) {
             services.afkService.setWarningLevel( dj.uuid, 4 );
-            await services.hangSocketServices.removeDj( services.socket, dj.uuid );
-            await services.messageService.sendResponse(
-                `🚫 ${ nickname } has been removed from the decks for being AFK for ${ inactiveMinutes } minutes.`,
-                { responseChannel: 'public', services }
-            );
+            const isCurrentlyPlaying = djs[ 0 ]?.uuid === dj.uuid;
+            if ( isCurrentlyPlaying ) {
+                services.afkService.setPendingRemoval( dj.uuid );
+                await services.messageService.sendResponse(
+                    `⏳ ${ nickname } is AFK and will be removed from the decks after their current song ends.`,
+                    { responseChannel: 'public', services }
+                );
+            } else {
+                await services.hangSocketServices.removeDj( services.socket, dj.uuid );
+                await services.messageService.sendResponse(
+                    `🚫 ${ nickname } has been removed from the decks for being AFK for ${ inactiveMinutes } minutes.`,
+                    { responseChannel: 'public', services }
+                );
+            }
         } else if ( entry.warningLevel < 3 && inactiveMs >= warn3Ms ) {
             services.afkService.setWarningLevel( dj.uuid, 3 );
             await services.messageService.sendResponse(
