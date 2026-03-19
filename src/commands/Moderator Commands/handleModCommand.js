@@ -5,7 +5,7 @@ const { hasPermission } = require( '../../lib/roleUtils' );
 
 const requiredRole = 'MODERATOR';
 const description = 'Moderator tools (anonymous)';
-const example = 'mod listUsers | mod remove "DJ Name"';
+const example = 'mod listUsers | mod remove "DJ Name" | mod skip';
 const hidden = false;
 
 async function handleListUsers ( services, context, responseChannel ) {
@@ -103,6 +103,32 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
     return { success: true, shouldRespond: true, response };
 }
 
+async function handleSkipSong ( services, context, responseChannel ) {
+    const { messageService } = services;
+
+    try {
+        await services.hangSocketServices.skipSong( services.socket );
+    } catch ( err ) {
+        const response = `❌ Failed to skip song: ${ err.message }`;
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return { success: false, shouldRespond: true, response, error: err.message };
+    }
+
+    const response = '✅ Song skipped.';
+    await messageService.sendResponse( response, {
+        responseChannel,
+        isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+        sender: context?.sender,
+        services
+    } );
+    return { success: true, shouldRespond: true, response };
+}
+
 async function handleModCommand ( commandParams ) {
     const { args, services, context, responseChannel = 'request' } = commandParams;
     const { stateService, messageService } = services;
@@ -131,11 +157,16 @@ async function handleModCommand ( commandParams ) {
         return handleRemoveDj( nameArg, services, context, responseChannel );
     }
 
+    if ( subCommand === 'skip' ) {
+        return handleSkipSong( services, context, responseChannel );
+    }
+
     const cmdSwitch = config.COMMAND_SWITCH || '!';
     const response =
         `📋 **Mod Usage:**\n\n` +
         `\`${ cmdSwitch }mod listUsers\` — List all users in the hangout\n` +
-        `\`${ cmdSwitch }mod remove <name>\` — Remove a DJ from the decks`;
+        `\`${ cmdSwitch }mod remove <name>\` — Remove a DJ from the decks\n` +
+        `\`${ cmdSwitch }mod skip\` — Skip the currently playing song`;
     await messageService.sendResponse( response, {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,

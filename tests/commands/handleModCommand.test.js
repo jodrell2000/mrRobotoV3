@@ -12,7 +12,8 @@ const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} )
         sendResponse: jest.fn().mockResolvedValue( undefined )
     },
     hangSocketServices: {
-        removeDj: jest.fn().mockResolvedValue( undefined )
+        removeDj: jest.fn().mockResolvedValue( undefined ),
+        skipSong: jest.fn().mockResolvedValue( undefined )
     }
 } );
 
@@ -191,6 +192,30 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'socket failure' );
+        } );
+    } );
+
+    describe( 'skip subcommand', () => {
+        test( 'calls skipSong and returns success', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.hangSocketServices.skipSong ).toHaveBeenCalledWith( services.socket );
+        } );
+
+        test( 'is case-insensitive for the subcommand name', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'SKIP', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.hangSocketServices.skipSong ).toHaveBeenCalled();
+        } );
+
+        test( 'returns error response when socket action throws', async () => {
+            const services = makeServices();
+            services.hangSocketServices.skipSong.mockRejectedValueOnce( new Error( 'not allowed' ) );
+            const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'not allowed' );
         } );
     } );
 } );

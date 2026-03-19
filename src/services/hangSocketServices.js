@@ -4,7 +4,8 @@ const config = require( '../config.js' );
 // Action constants for socket actions
 const ActionName = {
   voteOnSong: 'voteOnSong',
-  removeDj: 'removeDj'
+  removeDj: 'removeDj',
+  skipSong: 'skipSong'
 };
 
 const hangSocketServices = {
@@ -71,6 +72,23 @@ const hangSocketServices = {
       const message = err instanceof Error ? err.message : String( err );
       logger.error( `hangSocketServices.removeDj: Error removing DJ ${ djUuid } - ${ message }` );
       logger.debug( `hangSocketServices.removeDj: raw error value:`, err );
+      throw err instanceof Error ? err : new Error( message );
+    }
+  },
+
+  skipSong: async function ( socket ) {
+    try {
+      logger.debug( `hangSocketServices.skipSong: Skipping song in room ${ config.HANGOUT_ID }` );
+
+      await socket.action( ActionName.skipSong, {
+        roomUuid: config.HANGOUT_ID,
+        userUuid: config.BOT_UID
+      } );
+
+      logger.debug( `hangSocketServices.skipSong: Successfully skipped song` );
+    } catch ( err ) {
+      const message = err instanceof Error ? err.message : String( err );
+      logger.error( `hangSocketServices.skipSong: Error skipping song - ${ message }` );
       throw err instanceof Error ? err : new Error( message );
     }
   }
