@@ -116,7 +116,7 @@ class Bot {
       return;
     }
 
-    this.services.logger.debug( `Applying ${ this.deferredPatches.length } deferred patches...` );
+    // this.services.logger.debug( `Applying ${ this.deferredPatches.length } deferred patches...` );
 
     for ( const deferredPatch of this.deferredPatches ) {
       try {
@@ -128,7 +128,7 @@ class Bot {
 
     // Clear deferred patches after applying
     this.deferredPatches = [];
-    this.services.logger.debug( 'All deferred patches applied and cleared' );
+    // this.services.logger.debug( 'All deferred patches applied and cleared' );
   }
 
   async _applyStatePatch ( message, statePatch ) {
@@ -149,14 +149,14 @@ class Bot {
             if ( current && typeof current === 'object' && part in current ) {
               current = current[ part ];
             } else {
-              this.services.logger.debug( `Skipping remove operation - path does not exist: ${ operation.path }` );
+              // this.services.logger.debug( `Skipping remove operation - path does not exist: ${ operation.path }` );
               return false; // Skip this operation
             }
           }
         }
         return true; // Operation is valid
       } catch ( validateError ) {
-        this.services.logger.debug( `Skipping invalid operation: ${ JSON.stringify( operation ) } - ${ validateError.message }` );
+        // this.services.logger.debug( `Skipping invalid operation: ${ JSON.stringify( operation ) } - ${ validateError.message }` );
         return false;
       }
     } );
@@ -174,14 +174,14 @@ class Bot {
       this.state = patchResult.newDocument;
       this.services.hangoutState = patchResult.newDocument;
 
-      this.services.logger.debug( `State updated via patch for message: ${ message.name }` );
-      this.services.logger.debug( `Applied ${ validOperations.length } patch operations` );
+      // this.services.logger.debug( `State updated via patch for message: ${ message.name }` );
+      // this.services.logger.debug( `Applied ${ validOperations.length } patch operations` );
 
       if ( validOperations.length < statePatch.length ) {
-        this.services.logger.debug( `Skipped ${ statePatch.length - validOperations.length } invalid operations` );
+        // this.services.logger.debug( `Skipped ${ statePatch.length - validOperations.length } invalid operations` );
       }
     } else {
-      this.services.logger.debug( `No valid operations to apply for message: ${ message.name }` );
+      // this.services.logger.debug( `No valid operations to apply for message: ${ message.name }` );
     }
   }
 
@@ -209,6 +209,27 @@ class Bot {
     // Now initialize the state service
     this.services.initializeStateService();
     this.services.logger.debug( 'StateService initialized successfully with validated state' );
+  }
+
+  _seedAfkServiceFromState () {
+    if ( !this.services.afkService || !this.services.stateService ) return;
+
+    const allUserData = this.services.hangoutState?.allUserData || {};
+    const djUuids = new Set( ( this.services.stateService._getDjs() || [] ).map( d => d.uuid ) );
+
+    for ( const [ uuid, userData ] of Object.entries( allUserData ) ) {
+      const nickname = userData?.userProfile?.nickname || uuid;
+      this.services.afkService.addUser( uuid, nickname );
+      if ( djUuids.has( uuid ) ) {
+        this.services.afkService.recordActivity( uuid, 'joinedDecks' );
+      } else {
+        this.services.afkService.recordActivity( uuid, 'joinedRoom' );
+      }
+    }
+
+    this.services.logger.debug(
+      `Seeded afkService with ${ Object.keys( allUserData ).length } users (${ djUuids.size } DJs) from initial state`
+    );
   }
 
   async _initializeMessageTracking () {
@@ -468,6 +489,11 @@ class Bot {
         throw stateError;
       }
 
+      // Seed afkService from initial room state — handles users/DJs already
+      // present when the bot (re)starts, since no addedDj/userJoined events
+      // fire for them during the join callback
+      this._seedAfkServiceFromState();
+
       // Log initial state if DEBUG logging is enabled
       if ( this.services.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
         try {
@@ -536,7 +562,7 @@ class Bot {
 
   _setupStatefulMessageListener () {
     this.socket.on( 'statefulMessage', async ( message ) => {
-      this.services.logger.debug( `statefulMessage - ${ message.name }` );
+      // this.services.logger.debug( `statefulMessage - ${ message.name }` );
 
       // Log payload to file
       await this._writeSocketMessagesToLogFile( 'statefulMessage.log', message );
@@ -597,7 +623,7 @@ class Bot {
 
   _setupServerMessageListener () {
     this.socket.on( "serverMessage", async ( payload ) => {
-      this.services.logger.debug( `serverMessage - ${ payload.message.name }` );
+      // this.services.logger.debug( `serverMessage - ${ payload.message.name }` );
 
       // Log payload to file
       await this._writeSocketMessagesToLogFile( 'serverMessage.log', payload );
@@ -611,13 +637,13 @@ class Bot {
           const handlers = require( '../handlers' );
           const handlerFn = handlers[ payload.message.name ];
           if ( typeof handlerFn === 'function' ) {
-            this.services.logger.debug( `Calling handler for serverMessage: ${ payload.message.name }` );
+            // this.services.logger.debug( `Calling handler for serverMessage: ${ payload.message.name }` );
             await handlerFn( payload.message, this.state, this.services );
           } else {
-            this.services.logger.debug( `No handler found for serverMessage: ${ payload.message.name }` );
+            // this.services.logger.debug( `No handler found for serverMessage: ${ payload.message.name }` );
           }
         } else {
-          this.services.logger.debug( `Skipping serverMessage handler for ${ payload.message.name } - handled by statefulMessage only` );
+          // this.services.logger.debug( `Skipping serverMessage handler for ${ payload.message.name } - handled by statefulMessage only` );
         }
       } catch ( err ) {
         this.services.logger.error( `Error calling handler for serverMessage ${ payload.message.name }: ${ err.message }` );
@@ -747,14 +773,26 @@ class Bot {
     // Use service state if available, fallback to local state
     const effectiveLastMessageId = serviceLastMessageId || localLastMessageId;
 
-    const messages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
+    // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
+    // regular chat messages before filtering down to commands for processing.
+    const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
       fromTimestamp: this.lastMessageIDs?.fromTimestamp,
       lastID: effectiveLastMessageId,
-      filterCommands: true, // Get command messages for processing
-      services: this.services // Pass services for state management
+      filterCommands: false,
+      services: this.services
     } );
 
-    return messages;
+    if ( allMessages?.length && this.services.afkService ) {
+      for ( const msg of allMessages ) {
+        const chatUuid = msg.data?.metadata?.chatMessage?.userUuid || msg.sender;
+        if ( chatUuid ) {
+          this.services.afkService.recordActivity( chatUuid, 'chat' );
+        }
+      }
+    }
+
+    // Return only command messages for the processing pipeline
+    return this.services.messageService.filterMessagesForCommands( allMessages || [] );
   }
 
   async _fetchNewPrivateMessages () {
@@ -1026,6 +1064,9 @@ class Bot {
       // TODO: Add additional message handling logic here
       // - Non-command message processing
       // - Context management
+
+      // AFK activity for chat is recorded upstream in _fetchNewMessages on the
+      // full (unfiltered) message list, so all messages including non-commands are covered.
     } catch ( error ) {
       // More defensive error handling
       const errorMessage = error && typeof error === 'object'

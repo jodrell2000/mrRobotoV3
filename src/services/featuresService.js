@@ -4,7 +4,7 @@
  */
 
 class FeaturesService {
-  constructor( dataService ) {
+  constructor ( dataService ) {
     this.dataService = dataService;
   }
 
@@ -13,7 +13,7 @@ class FeaturesService {
    * @param {string} featureName - Name of the feature to check
    * @returns {boolean} True if feature is enabled (not in disabled list)
    */
-  isFeatureEnabled( featureName ) {
+  isFeatureEnabled ( featureName ) {
     const disabledFeatures = this.dataService.getValue( 'disabledFeatures' ) || [];
     return !disabledFeatures.includes( featureName );
   }
@@ -23,16 +23,16 @@ class FeaturesService {
    * @param {string} featureName - Name of the feature to enable
    * @returns {boolean} True if feature was successfully enabled
    */
-  enableFeature( featureName ) {
+  enableFeature ( featureName ) {
     const disabledFeatures = this.dataService.getValue( 'disabledFeatures' ) || [];
     const index = disabledFeatures.indexOf( featureName );
-    
+
     if ( index > -1 ) {
       disabledFeatures.splice( index, 1 );
       this.dataService.setValue( 'disabledFeatures', disabledFeatures );
       return true;
     }
-    
+
     return false; // Feature was already enabled
   }
 
@@ -41,15 +41,15 @@ class FeaturesService {
    * @param {string} featureName - Name of the feature to disable
    * @returns {boolean} True if feature was successfully disabled
    */
-  disableFeature( featureName ) {
+  disableFeature ( featureName ) {
     const disabledFeatures = this.dataService.getValue( 'disabledFeatures' ) || [];
-    
+
     if ( !disabledFeatures.includes( featureName ) ) {
       disabledFeatures.push( featureName );
       this.dataService.setValue( 'disabledFeatures', disabledFeatures );
       return true;
     }
-    
+
     return false; // Feature was already disabled
   }
 
@@ -57,17 +57,18 @@ class FeaturesService {
    * Get all available features (both enabled and disabled)
    * @returns {Object} Object with enabled and disabled feature arrays
    */
-  getAllFeatures() {
+  getAllFeatures () {
     // Define all available features
     const allFeatures = [
       'welcomeMessage',
       'nowPlayingMessage',
-      'justPlayed'
+      'justPlayed',
+      'afkMonitor'
     ];
-    
+
     const disabledFeatures = this.dataService.getValue( 'disabledFeatures' ) || [];
     const enabledFeatures = allFeatures.filter( feature => !disabledFeatures.includes( feature ) );
-    
+
     return {
       enabled: enabledFeatures,
       disabled: disabledFeatures.filter( feature => allFeatures.includes( feature ) )

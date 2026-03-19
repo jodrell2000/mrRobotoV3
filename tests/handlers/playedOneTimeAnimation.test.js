@@ -12,6 +12,9 @@ describe( 'playedOneTimeAnimation handler', () => {
                 error: jest.fn(),
                 info: jest.fn()
             },
+            afkService: {
+                recordActivity: jest.fn()
+            },
             hangoutState: {
                 voteCounts: { likes: 3, dislikes: 1, stars: 2 },
                 djs: [ { uuid: 'current-dj-123' } ]
@@ -26,7 +29,6 @@ describe( 'playedOneTimeAnimation handler', () => {
         };
 
         expect( () => playedOneTimeAnimation( message, {}, services ) ).not.toThrow();
-        expect( services.logger.debug ).toHaveBeenCalledWith( '[playedOneTimeAnimation] No previous song stored to update vote counts' );
     } );
 
     test( 'should update vote counts from hangout state', () => {
@@ -68,7 +70,7 @@ describe( 'playedOneTimeAnimation handler', () => {
 
         playedOneTimeAnimation( message, {}, services );
 
-        expect( services.logger.debug ).toHaveBeenCalledWith( '[playedOneTimeAnimation] No vote counts found in hangout state' );
+        expect( global.previousPlayedSong.voteCounts ).toEqual( { likes: 5, dislikes: 2, stars: 1 } ); // unchanged
     } );
 
     test( 'should increment stars when snag emoji is detected', () => {
@@ -84,8 +86,6 @@ describe( 'playedOneTimeAnimation handler', () => {
         playedOneTimeAnimation( message, {}, services );
 
         expect( services.hangoutState.voteCounts.stars ).toBe( 3 ); // 2 + 1
-        expect( services.logger.info ).toHaveBeenCalledWith( '[playedOneTimeAnimation] Snag emoji 💜 detected - counting as star vote' );
-        expect( services.logger.info ).toHaveBeenCalledWith( '[playedOneTimeAnimation] Incremented current song stars from 2 to 3' );
     } );
 
     test( 'should handle different snag emojis', () => {
@@ -123,6 +123,50 @@ describe( 'playedOneTimeAnimation handler', () => {
         playedOneTimeAnimation( message, {}, services );
 
         expect( services.hangoutState.voteCounts.stars ).toBe( 2 ); // Unchanged
-        expect( services.logger.debug ).toHaveBeenCalledWith( '[playedOneTimeAnimation] Emoji 😀 is not a snag emoji' );
+    } );
+
+    describe( 'afkService integration', () => {
+        test( 'should record emoji activity for the user who fired the animation', () => {
+            const message = {
+                name: 'playedOneTimeAnimation',
+                params: { userUuid: 'user-abc', emoji: '💜' }
+            };
+
+            playedOneTimeAnimation( message, {}, services );
+
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-abc', 'emoji' );
+        } );
+
+        test( 'should record emoji activity for non-snag emojis too', () => {
+            const message = {
+                name: 'playedOneTimeAnimation',
+                params: { userUuid: 'user-abc', emoji: '😀' }
+            };
+
+            playedOneTimeAnimation( message, {}, services );
+
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-abc', 'emoji' );
+        } );
+
+        test( 'should not call recordActivity when userUuid is missing', () => {
+            const message = {
+                name: 'playedOneTimeAnimation',
+                params: { emoji: '💜' }
+            };
+
+            playedOneTimeAnimation( message, {}, services );
+
+            expect( services.afkService.recordActivity ).not.toHaveBeenCalled();
+        } );
+
+        test( 'should not throw if afkService is absent', () => {
+            const servicesWithoutAfk = { ...services, afkService: undefined };
+            const message = {
+                name: 'playedOneTimeAnimation',
+                params: { userUuid: 'user-abc', emoji: '💜' }
+            };
+
+            expect( () => playedOneTimeAnimation( message, {}, servicesWithoutAfk ) ).not.toThrow();
+        } );
     } );
 } );

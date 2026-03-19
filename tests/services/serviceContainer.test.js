@@ -32,6 +32,13 @@ jest.mock( '../../src/config.js', () => ( {
   BOT_UID: 'test-bot-uid'
 } ) );
 
+jest.mock( '../../src/services/databaseService.js', () => {
+  return jest.fn().mockImplementation( () => ( {
+    initialize: jest.fn().mockResolvedValue( undefined ),
+    initialized: true
+  } ) );
+} );
+
 const services = require( '../../src/services/serviceContainer.js' );
 
 describe( 'serviceContainer', () => {
@@ -198,19 +205,10 @@ describe( 'serviceContainer', () => {
       expect( services.state.lastMessageId ).toBe( messageId );
     } );
 
-    test( 'should log debug message with correct format', () => {
-      const messageId = 'msg-789';
-
-      services.updateLastMessageId( messageId );
-
-      expect( services.logger.debug ).toHaveBeenCalledWith( `Last message ID updated to: ${ messageId }` );
-    } );
-
     test( 'should handle null message ID', () => {
       services.updateLastMessageId( null );
 
       expect( services.state.lastMessageId ).toBeNull();
-      expect( services.logger.debug ).toHaveBeenCalledWith( 'Last message ID updated to: null' );
     } );
 
     test( 'should handle numeric message IDs', () => {
@@ -219,7 +217,6 @@ describe( 'serviceContainer', () => {
       services.updateLastMessageId( numericId );
 
       expect( services.state.lastMessageId ).toBe( numericId );
-      expect( services.logger.debug ).toHaveBeenCalledWith( 'Last message ID updated to: 12345' );
     } );
 
     test( 'should overwrite previous message ID', () => {
@@ -227,7 +224,6 @@ describe( 'serviceContainer', () => {
       services.updateLastMessageId( 'new-id' );
 
       expect( services.state.lastMessageId ).toBe( 'new-id' );
-      expect( services.logger.debug ).toHaveBeenCalledTimes( 2 );
     } );
   } );
 

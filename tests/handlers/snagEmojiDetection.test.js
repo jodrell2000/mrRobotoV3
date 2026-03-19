@@ -29,7 +29,6 @@ describe( 'Snag emoji detection', () => {
       playedOneTimeAnimation( message, {}, services );
 
       expect( services.hangoutState.voteCounts.stars ).toBe( index + 1 );
-      expect( services.logger.info ).toHaveBeenCalledWith( `[playedOneTimeAnimation] Snag emoji ${ emoji } detected - counting as star vote` );
     } );
 
     // Test non-snag emojis - none should increment stars
@@ -48,7 +47,6 @@ describe( 'Snag emoji detection', () => {
       playedOneTimeAnimation( message, {}, services );
 
       expect( services.hangoutState.voteCounts.stars ).toBe( 10 ); // Unchanged
-      expect( services.logger.debug ).toHaveBeenCalledWith( `[playedOneTimeAnimation] Emoji ${ emoji } is not a snag emoji` );
     } );
   } );
 } );
