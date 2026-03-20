@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
-| **[0.9.8_beta](changelog/0.9.8_beta.md)** | 2026-03-14 | 🎨 Session Theme Tokens, Per-User Welcome Messages, AFK Monitor & Moderator Commands | Owner-settable `{theme}` and smart `{readTheme}` tokens, `!edit clear` subcommand, per-user personalised welcome messages with `!editWelcome`, `!afkMonitor` management command with deferred song-end removal, `!mod` command with `listUsers`, `remove`, and `skip` |
+| **[0.9.8_beta](changelog/0.9.8_beta.md)** | 2026-03-14 | � AFK Monitor & Auto-Removal, Moderator Commands, Theme Tokens | `!afkMonitor` management command with position-aware deferred removal; `!mod` with `listUsers`, `remove`, `skip`; `!say`; owner-settable `{theme}` / `{readTheme}` tokens; per-user welcome messages with `!editWelcome` |
 | **[0.9.7_beta](changelog/0.9.7_beta.md)** | 2026-01-30 | 🎨 Unicode Text Normalization & Character Mapping | Remaps decorative Unicode to standard ASCII characters before sending questions to the ML models in order to prevent model confusion, character mapping management |
 | **[0.9.6_beta](changelog/0.9.6_beta.md)** | 2026-01-29 | 🤖 Gemma Model Migration & Enhanced ML | Dynamic Gemma model discovery, refined prompts, song history tracking, turn token cleaning, time formatting fixes |
 | **[0.9.5_beta](changelog/0.9.5_beta.md)** | 2025-11-20 | 🗄️ SQLite Database Integration | Historical data storage, song tracking, conversation logs, persistent data across restarts |
