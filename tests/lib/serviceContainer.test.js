@@ -47,6 +47,13 @@ jest.mock( '../../src/services/parseCommands', () => ( {
     parseCommands: jest.fn()
 } ) );
 
+jest.mock( '../../src/services/databaseService', () => {
+    return jest.fn().mockImplementation( () => ( {
+        initialize: jest.fn().mockResolvedValue( undefined ),
+        initialized: true
+    } ) );
+} );
+
 const serviceContainer = require( '../../src/services/serviceContainer' );
 
 describe( 'ServiceContainer', () => {

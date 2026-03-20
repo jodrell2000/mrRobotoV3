@@ -418,6 +418,26 @@ async function playedSong ( message, state, services ) {
       await services.triggerService.executeTrigger( 'newSong', triggerContext );
     }
 
+    // Execute any pending AFK removals — the song change confirms the pending DJ's
+    // track has ended so it is now safe to remove them from the decks.
+    if ( services.afkService && services.hangSocketServices ) {
+      const pendingRemovals = services.afkService.getPendingRemovals();
+      for ( const uuid of pendingRemovals ) {
+        services.afkService.clearPendingRemoval( uuid );
+        try {
+          const snapshot = services.afkService.getActivitySnapshot().find( e => e.uuid === uuid );
+          const djName = snapshot?.nickname || uuid;
+          await services.hangSocketServices.removeDj( services.socket, uuid );
+          await services.messageService.sendGroupMessage(
+            `🚫 ${ djName } has been removed from the decks for inactivity.`,
+            { services }
+          );
+        } catch ( err ) {
+          services.logger.error( `[playedSong] Failed to remove pending AFK DJ ${ uuid }: ${ err.message }` );
+        }
+      }
+    }
+
     const nowPlaying = services.hangoutState?.nowPlaying;
 
     // Cancel any existing timer

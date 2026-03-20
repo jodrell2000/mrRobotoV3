@@ -1,5 +1,6 @@
 const services = require( './services/serviceContainer.js' );
 const { Bot } = require( './lib/bot.js' );
+const { runAfkMonitorTick, TICK_INTERVAL_MS } = require( './tasks/afkMonitorTask.js' );
 
 process.on( 'unhandledRejection', ( reason, promise ) => {
   services.logger.error( `Unhandled Rejection at: ${ promise }, reason: ${ reason }` );
@@ -98,6 +99,17 @@ services.logger.info( '======================================= Application Start
     }, 1000 ); // Check one image per second
 
     services.logger.debug( '✅ Image validation background task started' );
+
+    // Start AFK monitor background task
+    setInterval( async () => {
+      try {
+        await runAfkMonitorTick( services );
+      } catch ( error ) {
+        services.logger.error( `Error in AFK monitor tick: ${ error?.message || error?.toString() || 'Unknown error' }` );
+      }
+    }, TICK_INTERVAL_MS );
+
+    services.logger.debug( '✅ AFK monitor background task started' );
 
     // Initialize validation cache on startup
     services.validationService.loadCache();

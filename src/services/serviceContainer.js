@@ -16,6 +16,7 @@ const MachineLearningService = require( './machineLearningService.js' );
 const TriggerService = require( './triggerService.js' );
 const TokenService = require( './tokenService.js' );
 const RetryService = require( './retryService.js' );
+const AfkService = require( './afkService.js' );
 const validationService = require( './validationService.js' );
 
 // Shared state that all services can access and modify
@@ -38,6 +39,9 @@ const featuresService = new FeaturesService( dataService );
 
 // Initialize retryService
 const retryService = new RetryService();
+
+// Initialize afkService
+const afkService = new AfkService();
 
 // Note: machineLearningService and triggerService will be initialized after services object is created
 // to avoid circular dependency issues
@@ -78,6 +82,7 @@ const services = {
   databaseService: null, // Will be initialized async
   featuresService,
   retryService,
+  afkService,
   validationService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
@@ -111,7 +116,7 @@ const services = {
     if ( !this.hangoutState ) this.hangoutState = {};
     this.hangoutState.lastMessageId = id;
     if ( this.state ) this.state.lastMessageId = id;
-    this.logger.debug( `Last message ID updated to: ${ id }` );
+    // this.logger.debug( `Last message ID updated to: ${ id }` );
   },
 
   initializeStateService () {

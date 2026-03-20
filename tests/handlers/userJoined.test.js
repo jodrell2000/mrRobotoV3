@@ -27,6 +27,10 @@ jest.mock( '../../src/services/serviceContainer.js', () => ( {
     featuresService: {
         isFeatureEnabled: jest.fn().mockReturnValue( true ) // Default to enabled for existing tests
     },
+    afkService: {
+        addUser: jest.fn(),
+        recordActivity: jest.fn()
+    },
     logger: {
         debug: jest.fn(),
         info: jest.fn(),
@@ -48,6 +52,8 @@ describe( 'userJoined handler', () => {
         services.data.welcomeMessage = "Hi {username}, welcome to '{hangoutName}'";
         services.featuresService.isFeatureEnabled.mockReturnValue( true );
         fs.existsSync.mockReturnValue( false );
+        services.afkService.addUser.mockReset();
+        services.afkService.recordActivity.mockReset();
     } );
 
     it( 'should send welcome message with correct replacements', async () => {
@@ -311,6 +317,45 @@ describe( 'userJoined handler', () => {
             await userJoined( baseMessage, {}, services );
             expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
+        } );
+    } );
+
+    describe( 'afkService integration', () => {
+        const uuid = 'af-k1-00-00-000000000001';
+        const message = {
+            statePatch: [ {
+                op: 'add',
+                path: `/allUserData/${ uuid }`,
+                value: { userProfile: { nickname: 'DJ AFK' } }
+            } ]
+        };
+
+        it( 'should call addUser with uuid and nickname when a user joins', async () => {
+            await userJoined( message, {}, services );
+            expect( services.afkService.addUser ).toHaveBeenCalledWith( uuid, 'DJ AFK' );
+        } );
+
+        it( 'should record joinedRoom activity for the user', async () => {
+            await userJoined( message, {}, services );
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( uuid, 'joinedRoom' );
+        } );
+
+        it( 'should still track ghost users in afkService', async () => {
+            const ghostMessage = {
+                statePatch: [ {
+                    op: 'add',
+                    path: `/allUserData/${ uuid }`,
+                    value: { userProfile: { nickname: 'ghost-99', avatarId: 'ghost' } }
+                } ]
+            };
+            await userJoined( ghostMessage, {}, services );
+            expect( services.afkService.addUser ).toHaveBeenCalledWith( uuid, 'ghost-99' );
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( uuid, 'joinedRoom' );
+        } );
+
+        it( 'should not throw if afkService is absent', async () => {
+            const servicesWithoutAfk = { ...services, afkService: undefined };
+            await expect( userJoined( message, {}, servicesWithoutAfk ) ).resolves.not.toThrow();
         } );
     } );
 } );

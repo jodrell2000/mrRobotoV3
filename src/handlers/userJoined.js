@@ -231,6 +231,12 @@ async function userJoined ( message, state, services ) {
     // Initialize private message tracking for the new user
     await initializePrivateMessageTracking( userData.userUUID, services );
 
+    // Track user in AFK monitor
+    if ( services.afkService ) {
+      services.afkService.addUser( userData.userUUID, userData.nickname );
+      services.afkService.recordActivity( userData.userUUID, 'joinedRoom' );
+    }
+
     // Check if user should be welcomed (skip ghost users)
     if ( !shouldWelcomeUser( userData, services ) ) {
       return;

@@ -17,7 +17,7 @@ function isSnagEmoji ( emoji ) {
 function updatePreviousSongVoteCountsFromState ( services ) {
   // Only update if we have a stored previous song
   if ( !global.previousPlayedSong ) {
-    services.logger.debug( '[playedOneTimeAnimation] No previous song stored to update vote counts' );
+    // services.logger.debug( '[playedOneTimeAnimation] No previous song stored to update vote counts' );
     return;
   }
 
@@ -30,9 +30,9 @@ function updatePreviousSongVoteCountsFromState ( services ) {
       stars: voteCounts.stars || 0
     };
 
-    services.logger.debug( '[playedOneTimeAnimation] Updated previous song vote counts from state' );
+    // services.logger.debug( '[playedOneTimeAnimation] Updated previous song vote counts from state' );
   } else {
-    services.logger.debug( '[playedOneTimeAnimation] No vote counts found in hangout state' );
+    // services.logger.debug( '[playedOneTimeAnimation] No vote counts found in hangout state' );
   }
 }
 
@@ -45,16 +45,16 @@ function handleSnagEmojiVote ( message, services ) {
   const emoji = message.params?.emoji;
 
   if ( !emoji ) {
-    services.logger.debug( '[playedOneTimeAnimation] No emoji in message' );
+    // services.logger.debug( '[playedOneTimeAnimation] No emoji in message' );
     return;
   }
 
   if ( !isSnagEmoji( emoji ) ) {
-    services.logger.debug( `[playedOneTimeAnimation] Emoji ${ emoji } is not a snag emoji` );
+    // services.logger.debug( `[playedOneTimeAnimation] Emoji ${ emoji } is not a snag emoji` );
     return;
   }
 
-  services.logger.info( `[playedOneTimeAnimation] Snag emoji ${ emoji } detected - counting as star vote` );
+  // services.logger.info( `[playedOneTimeAnimation] Snag emoji ${ emoji } detected - counting as star vote` );
 
   // Increment stars in hangout state for currently playing song
   if ( services.hangoutState?.voteCounts ) {
@@ -62,7 +62,7 @@ function handleSnagEmojiVote ( message, services ) {
     services.hangoutState.voteCounts.stars = currentStars + 1;
     services.logger.info( `[playedOneTimeAnimation] Incremented current song stars from ${ currentStars } to ${ services.hangoutState.voteCounts.stars }` );
   } else {
-    services.logger.debug( '[playedOneTimeAnimation] No vote counts in hangout state to update' );
+    // services.logger.debug( '[playedOneTimeAnimation] No vote counts in hangout state to update' );
   }
 
   // Also update stored previous song if it's the same song (in case this is still the "previous" song)
@@ -80,7 +80,7 @@ function handleSnagEmojiVote ( message, services ) {
 }
 
 function playedOneTimeAnimation ( message, state, services ) {
-  services.logger.debug( 'playedOneTimeAnimation handler called' );
+  // services.logger.debug( 'playedOneTimeAnimation handler called' );
 
   try {
     // Handle snag emoji as star vote
@@ -88,6 +88,11 @@ function playedOneTimeAnimation ( message, state, services ) {
 
     // Update previous song vote counts from state (as before)
     updatePreviousSongVoteCountsFromState( services );
+
+    // Record emoji/snag activity in AFK monitor
+    if ( message.params?.userUuid && services.afkService ) {
+      services.afkService.recordActivity( message.params.userUuid, 'emoji' );
+    }
   } catch ( error ) {
     services.logger.error( `Error in playedOneTimeAnimation handler: ${ error.message }` );
   }

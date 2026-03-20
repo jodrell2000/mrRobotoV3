@@ -44,6 +44,11 @@ module.exports = {
     '/tests/services/playlistService/' // Skip playlistService tests - code not finished
   ],
 
+  // Map native modules that can't run in Jest to mocks
+  moduleNameMapper: {
+    '^better-sqlite3$': '<rootDir>/tests/__mocks__/better-sqlite3.js'
+  },
+
   // Setup files
   setupFilesAfterEnv: [],
 

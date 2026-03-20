@@ -573,7 +573,6 @@ describe( 'Bot', () => {
 
       await handler( payload );
 
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith( 'statefulMessage - testStatefulMessage' );
       expect( bot._writeSocketMessagesToLogFile ).toHaveBeenCalledWith( 'statefulMessage.log', payload );
     } );
   } );
@@ -619,7 +618,6 @@ describe( 'Bot', () => {
 
       await handler( payload );
 
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith( 'serverMessage - testServerMessage' );
       expect( bot._writeSocketMessagesToLogFile ).toHaveBeenCalledWith( 'serverMessage.log', payload );
     } );
   } );

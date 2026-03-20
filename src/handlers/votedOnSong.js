@@ -42,6 +42,16 @@ function votedOnSong ( message, state, services ) {
 
   try {
     updatePreviousSongVoteCounts( message, services );
+
+    if ( services.afkService ) {
+      const voteOps = ( message.statePatch || [] ).filter(
+        p => /^\/allUserData\/[^/]+\/songVotes\//.test( p.path )
+      );
+      for ( const op of voteOps ) {
+        const uuid = op.path.split( '/' )[ 2 ];
+        if ( uuid ) services.afkService.recordActivity( uuid, 'vote' );
+      }
+    }
   } catch ( error ) {
     services.logger.error( `Error in votedOnSong handler: ${ error.message }` );
   }
