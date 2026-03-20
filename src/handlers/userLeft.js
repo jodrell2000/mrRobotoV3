@@ -21,14 +21,19 @@ async function userLeft ( message, state, services ) {
     );
 
     if ( userDataRemovePatch ) {
-      const userUUID = userDataRemovePatch.path.split('/')[2]; // Extract UUID from path like /allUserData/uuid
-      
+      const userUUID = userDataRemovePatch.path.split( '/' )[ 2 ]; // Extract UUID from path like /allUserData/uuid
+
       if ( !userUUID ) {
         services.logger.warn( 'No user UUID found in remove patch path' );
         return;
       }
 
       services.logger.debug( `User ${ userUUID } left the hangout` );
+
+      // Remove user from AFK monitor
+      if ( services.afkService ) {
+        services.afkService.removeUser( userUUID );
+      }
 
       // Remove private message tracking for the user who left
       if ( services.bot && typeof services.bot.removePrivateMessageTrackingForUser === 'function' ) {

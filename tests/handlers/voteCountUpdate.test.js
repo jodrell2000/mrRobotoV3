@@ -246,4 +246,107 @@ describe( 'Vote count updating across handlers', () => {
             { services }
         );
     } );
+
+    describe( 'afkService vote activity recording', () => {
+        test( 'records vote activity for the voting user', () => {
+            const afkService = { recordActivity: jest.fn() };
+            services.afkService = afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'replace', path: '/voteCounts/likes', value: 4 },
+                    { op: 'add', path: '/allUserData/8074ff02-a3b7-44d2-8c21-c6f2307530f4/songVotes/like', value: true }
+                ]
+            };
+
+            votedOnSong( message, {}, services );
+
+            expect( afkService.recordActivity ).toHaveBeenCalledWith(
+                '8074ff02-a3b7-44d2-8c21-c6f2307530f4',
+                'vote'
+            );
+        } );
+
+        test( 'records vote activity for a dislike', () => {
+            const afkService = { recordActivity: jest.fn() };
+            services.afkService = afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'replace', path: '/voteCounts/dislikes', value: 2 },
+                    { op: 'add', path: '/allUserData/9b225e64-4719-430f-8789-b031b5b70664/songVotes/dislike', value: true }
+                ]
+            };
+
+            votedOnSong( message, {}, services );
+
+            expect( afkService.recordActivity ).toHaveBeenCalledWith(
+                '9b225e64-4719-430f-8789-b031b5b70664',
+                'vote'
+            );
+        } );
+
+        test( 'records vote activity for a vote removal (remove op)', () => {
+            const afkService = { recordActivity: jest.fn() };
+            services.afkService = afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'replace', path: '/voteCounts/likes', value: 3 },
+                    { op: 'remove', path: '/allUserData/abc-123/songVotes/like' }
+                ]
+            };
+
+            votedOnSong( message, {}, services );
+
+            expect( afkService.recordActivity ).toHaveBeenCalledWith( 'abc-123', 'vote' );
+        } );
+
+        test( 'records vote activity for all voters in a batched event', () => {
+            const afkService = { recordActivity: jest.fn() };
+            services.afkService = afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'replace', path: '/voteCounts/likes', value: 9 },
+                    { op: 'replace', path: '/voteCounts/dislikes', value: 1 },
+                    { op: 'add', path: '/allUserData/uuid-a/songVotes/like', value: true },
+                    { op: 'add', path: '/allUserData/uuid-b/songVotes/dislike', value: true }
+                ]
+            };
+
+            votedOnSong( message, {}, services );
+
+            expect( afkService.recordActivity ).toHaveBeenCalledTimes( 2 );
+            expect( afkService.recordActivity ).toHaveBeenCalledWith( 'uuid-a', 'vote' );
+            expect( afkService.recordActivity ).toHaveBeenCalledWith( 'uuid-b', 'vote' );
+        } );
+
+        test( 'does not throw when afkService is absent', () => {
+            delete services.afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'add', path: '/allUserData/some-uuid/songVotes/like', value: true }
+                ]
+            };
+
+            expect( () => votedOnSong( message, {}, services ) ).not.toThrow();
+        } );
+
+        test( 'does not record activity when no vote op is present', () => {
+            const afkService = { recordActivity: jest.fn() };
+            services.afkService = afkService;
+
+            const message = {
+                statePatch: [
+                    { op: 'replace', path: '/voteCounts/likes', value: 4 }
+                ]
+            };
+
+            votedOnSong( message, {}, services );
+
+            expect( afkService.recordActivity ).not.toHaveBeenCalled();
+        } );
+    } );
 } );

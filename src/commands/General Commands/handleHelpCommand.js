@@ -90,7 +90,9 @@ function loadAvailableCommands () {
     { path: 'Debug Commands', name: 'Debug Commands' },
     { path: 'Edit Commands', name: 'Edit Commands' },
     { path: 'General Commands', name: 'General Commands' },
-    { path: 'ML Commands', name: 'ML Commands' }
+    { path: 'ML Commands', name: 'ML Commands' },
+    { path: 'Moderator Commands', name: 'Moderator Commands' },
+    { path: 'System Admin', name: 'System Admin' }
   ];
 
   // Load commands from each defined folder

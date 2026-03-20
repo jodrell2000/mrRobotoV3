@@ -805,4 +805,81 @@ describe( 'playedSong handler', () => {
       );
     } );
   } );
+
+  describe( 'pending AFK removal', () => {
+    beforeEach( () => {
+      services.hangSocketServices.removeDj = jest.fn().mockResolvedValue();
+      services.afkService = {
+        getPendingRemovals: jest.fn().mockReturnValue( [] ),
+        clearPendingRemoval: jest.fn(),
+        getActivitySnapshot: jest.fn().mockReturnValue( [] ),
+      };
+    } );
+
+    test( 'removes a pending DJ when a new song starts', async () => {
+      services.afkService.getPendingRemovals.mockReturnValue( [ 'afk-uuid' ] );
+      services.afkService.getActivitySnapshot.mockReturnValue( [ { uuid: 'afk-uuid', nickname: 'AFK DJ' } ] );
+
+      await playedSong( {}, {}, services );
+
+      expect( services.afkService.clearPendingRemoval ).toHaveBeenCalledWith( 'afk-uuid' );
+      expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'afk-uuid' );
+      expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
+        expect.stringContaining( 'AFK DJ' ),
+        { services }
+      );
+    } );
+
+    test( 'falls back to uuid as name when nickname is missing', async () => {
+      services.afkService.getPendingRemovals.mockReturnValue( [ 'afk-uuid' ] );
+      services.afkService.getActivitySnapshot.mockReturnValue( [] );
+
+      await playedSong( {}, {}, services );
+
+      expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
+        expect.stringContaining( 'afk-uuid' ),
+        { services }
+      );
+    } );
+
+    test( 'clears pending removal before attempting removeDj to prevent double-removal', async () => {
+      const callOrder = [];
+      services.afkService.getPendingRemovals.mockReturnValue( [ 'afk-uuid' ] );
+      services.afkService.clearPendingRemoval.mockImplementation( () => callOrder.push( 'clear' ) );
+      services.hangSocketServices.removeDj.mockImplementation( () => {
+        callOrder.push( 'remove' );
+        return Promise.resolve();
+      } );
+
+      await playedSong( {}, {}, services );
+
+      expect( callOrder ).toEqual( [ 'clear', 'remove' ] );
+    } );
+
+    test( 'handles removeDj failure gracefully and logs error', async () => {
+      services.afkService.getPendingRemovals.mockReturnValue( [ 'afk-uuid' ] );
+      services.afkService.getActivitySnapshot.mockReturnValue( [] );
+      services.hangSocketServices.removeDj.mockRejectedValueOnce( new Error( 'not allowed' ) );
+
+      await expect( playedSong( {}, {}, services ) ).resolves.not.toThrow();
+      expect( services.logger.error ).toHaveBeenCalledWith(
+        expect.stringContaining( 'afk-uuid' )
+      );
+    } );
+
+    test( 'does nothing when there are no pending removals', async () => {
+      services.afkService.getPendingRemovals.mockReturnValue( [] );
+
+      await playedSong( {}, {}, services );
+
+      expect( services.hangSocketServices.removeDj ).not.toHaveBeenCalled();
+    } );
+
+    test( 'skips pending removal logic when afkService is absent', async () => {
+      delete services.afkService;
+
+      await expect( playedSong( {}, {}, services ) ).resolves.not.toThrow();
+      expect( services.hangSocketServices.removeDj ).not.toHaveBeenCalled();
+    } );
+  } );
 } );

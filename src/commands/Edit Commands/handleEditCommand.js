@@ -14,6 +14,18 @@ const EDITABLE_MESSAGES = {
         example: 'Hi {username}, welcome to {hangoutName}!',
         dataKey: 'editableMessages.welcomeMessage'
     },
+    'theme': {
+        name: 'Session Theme',
+        availableTokens: [],
+        example: 'Tonight we\'re playing all 90s house music',
+        dataKey: 'editableMessages.theme'
+    },
+    'readTheme': {
+        name: 'Read Theme Message',
+        availableTokens: [ '{theme}' ],
+        example: 'The theme is currently {theme}',
+        dataKey: 'editableMessages.readTheme'
+    },
     'nowPlayingMessage': {
         name: 'Now Playing Message',
         availableTokens: [ '{username}', '{trackName}', '{artistName}', '{botName}' ],
@@ -207,6 +219,51 @@ async function handleShowCommand ( messageType, services, context, responseChann
 }
 
 /**
+ * Handles clearing (deleting) a specific message template
+ */
+async function handleClearCommand ( messageType, services, context, responseChannel ) {
+    const { messageService, dataService, logger } = services;
+
+    if ( !EDITABLE_MESSAGES[ messageType ] ) {
+        const availableMessages = Object.keys( EDITABLE_MESSAGES ).join( ', ' );
+        const response = `❌ Invalid message type: "${ messageType }"\n\n**Available message types:** ${ availableMessages }`;
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return { success: false, shouldRespond: true, response, error: `Invalid message type: ${ messageType }` };
+    }
+
+    const messageInfo = EDITABLE_MESSAGES[ messageType ];
+
+    try {
+        await dataService.loadData();
+        await dataService.setValue( messageInfo.dataKey, undefined );
+        logger.info( `[EditCommand] Cleared ${ messageInfo.dataKey }` );
+
+        const response = `✅ ${ messageInfo.name } has been cleared.`;
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return { success: true, shouldRespond: true, response };
+    } catch ( error ) {
+        const response = `❌ Failed to clear ${ messageInfo.name.toLowerCase() }: ${ error.message }`;
+        await messageService.sendResponse( response, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+        return { success: false, shouldRespond: true, response, error: error.message };
+    }
+}
+
+/**
  * Updates an editable message template
  * @param {Object} commandParams - Standard command parameters
  * @param {string} commandParams.command - The command name
@@ -223,7 +280,7 @@ async function handleEditCommand ( commandParams ) {
     // Parse arguments
     if ( !args || args.trim().length === 0 ) {
         const availableMessages = Object.keys( EDITABLE_MESSAGES ).join( ', ' );
-        const response = `❌ Please specify a command and parameters.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit list\` - Show all editable messages and questions\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template\n\n**Available message types:** ${ availableMessages }`;
+        const response = `❌ Please specify a command and parameters.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }edit list\` - Show all editable messages and questions\n• \`${ config.COMMAND_SWITCH }edit show <messageType>\` - Show current template\n• \`${ config.COMMAND_SWITCH }edit <messageType> <newContent>\` - Update template\n• \`${ config.COMMAND_SWITCH }edit clear <messageType>\` - Clear a template\n\n**Available message types:** ${ availableMessages }`;
 
         await messageService.sendResponse( response, {
             responseChannel,
@@ -245,6 +302,22 @@ async function handleEditCommand ( commandParams ) {
     // Handle list command
     if ( subCommand === 'list' ) {
         return await handleListCommand( services, context, responseChannel );
+    }
+
+    // Handle clear command
+    if ( subCommand === 'clear' ) {
+        if ( argParts.length < 2 ) {
+            const response = `❌ Please specify a message type to clear.\n\n**Usage:** \`${ config.COMMAND_SWITCH }edit clear <messageType>\``;
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return { success: false, shouldRespond: true, response };
+        }
+        const messageType = argParts[ 1 ];
+        return await handleClearCommand( messageType, services, context, responseChannel );
     }
 
     // Handle show command

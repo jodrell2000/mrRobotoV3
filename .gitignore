@@ -77,6 +77,7 @@ data/aliases.json
 data/themes.json
 data/image-validation-cache.json
 data/specialCharacters.json
+data/welcomeMessages.json
 
 # SQLite database files
 data/*.db

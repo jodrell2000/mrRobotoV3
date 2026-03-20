@@ -19,7 +19,7 @@ async function parseCommand ( commandText, services ) {
 
   try {
     const trimmedCommand = commandText.trim();
-    logger.debug( `[parseCommand] Processing message: ${ trimmedCommand }` );
+    // logger.debug( `[parseCommand] Processing message: ${ trimmedCommand }` );
 
     // Check if the command starts with the command switch
     if ( !trimmedCommand.startsWith( config.COMMAND_SWITCH ) ) {

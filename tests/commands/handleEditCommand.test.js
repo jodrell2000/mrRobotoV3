@@ -449,6 +449,59 @@ describe( 'handleEditCommand', () => {
     } );
   } );
 
+  describe( 'clear command', () => {
+    it( 'should clear a valid message type', async () => {
+      const result = await handleEditCommand( {
+        args: 'clear theme',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( true );
+      expect( result.response ).toContain( 'Session Theme has been cleared' );
+      expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'editableMessages.theme', undefined );
+    } );
+
+    it( 'should return error for invalid message type', async () => {
+      const result = await handleEditCommand( {
+        args: 'clear invalidType',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( false );
+      expect( result.response ).toContain( 'Invalid message type' );
+    } );
+
+    it( 'should return error when no message type is provided', async () => {
+      const result = await handleEditCommand( {
+        args: 'clear',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( false );
+      expect( result.response ).toContain( 'Please specify a message type to clear' );
+    } );
+
+    it( 'should handle dataService errors gracefully', async () => {
+      mockServices.dataService.setValue.mockRejectedValue( new Error( 'Write failure' ) );
+
+      const result = await handleEditCommand( {
+        args: 'clear theme',
+        services: mockServices,
+        context: mockContext,
+        responseChannel: 'public'
+      } );
+
+      expect( result.success ).toBe( false );
+      expect( result.response ).toContain( 'Failed to clear' );
+    } );
+  } );
+
   describe( 'private message handling', () => {
     it( 'should work with private messages', async () => {
       mockServices.dataService.getAllData.mockReturnValue( {

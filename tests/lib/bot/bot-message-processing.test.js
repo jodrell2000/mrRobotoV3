@@ -44,7 +44,10 @@ describe( 'Bot - Message Processing', () => {
       parseCommands: jest.fn(),
       commandService: jest.fn(),
       updateLastMessageId: jest.fn(),
-      getState: jest.fn().mockReturnValue( null )
+      getState: jest.fn().mockReturnValue( null ),
+      afkService: {
+        recordActivity: jest.fn()
+      }
     };
 
     bot = new Bot( 'test-slug', mockServices );
@@ -112,24 +115,29 @@ describe( 'Bot - Message Processing', () => {
   } );
 
   describe( '_fetchNewMessages', () => {
+    beforeEach( () => {
+      mockServices.messageService.filterMessagesForCommands = jest.fn( msgs => msgs.filter(
+        m => m.data?.text?.startsWith( '!' )
+      ) );
+    } );
+
     test( 'should fetch messages with correct parameters', async () => {
       bot.lastMessageIDs = {
         fromTimestamp: 1000,
         id: 'last-msg-id'
       };
 
-      const mockMessages = [ { id: 'new-msg' } ];
+      const mockMessages = [ { id: 'new-msg', data: {} } ];
       mockServices.messageService.fetchGroupMessages.mockResolvedValue( mockMessages );
 
-      const result = await bot._fetchNewMessages();
+      await bot._fetchNewMessages();
 
       expect( mockServices.messageService.fetchGroupMessages ).toHaveBeenCalledWith( 'test-hangout-123', {
         fromTimestamp: 1000,
         lastID: 'last-msg-id',
-        filterCommands: true,
+        filterCommands: false,
         services: mockServices
       } );
-      expect( result ).toBe( mockMessages );
     } );
 
     test( 'should handle empty lastMessageIDs', async () => {
@@ -140,8 +148,70 @@ describe( 'Bot - Message Processing', () => {
       expect( mockServices.messageService.fetchGroupMessages ).toHaveBeenCalledWith( 'test-hangout-123', {
         fromTimestamp: undefined,
         lastID: undefined,
-        filterCommands: true,
+        filterCommands: false,
         services: mockServices
+      } );
+    } );
+
+    describe( 'afkService integration', () => {
+      test( 'records chat activity for every message using metadata userUuid', async () => {
+        const mockMessages = [ {
+          id: 'msg1',
+          sender: 'cometchat-uid',
+          data: { metadata: { chatMessage: { message: 'hi', userUuid: 'hangout-uuid-abc' } } }
+        } ];
+        mockServices.messageService.fetchGroupMessages.mockResolvedValue( mockMessages );
+
+        await bot._fetchNewMessages();
+
+        expect( mockServices.afkService.recordActivity ).toHaveBeenCalledWith( 'hangout-uuid-abc', 'chat' );
+        expect( mockServices.afkService.recordActivity ).not.toHaveBeenCalledWith( 'cometchat-uid', 'chat' );
+      } );
+
+      test( 'falls back to sender when message has no metadata userUuid', async () => {
+        const mockMessages = [ {
+          id: 'msg1',
+          sender: 'fallback-sender-uuid',
+          data: { metadata: { chatMessage: { message: 'hi' } } }
+        } ];
+        mockServices.messageService.fetchGroupMessages.mockResolvedValue( mockMessages );
+
+        await bot._fetchNewMessages();
+
+        expect( mockServices.afkService.recordActivity ).toHaveBeenCalledWith( 'fallback-sender-uuid', 'chat' );
+      } );
+
+      test( 'records activity for all messages including non-commands', async () => {
+        const mockMessages = [
+          { id: 'msg1', sender: 'uuid-a', data: { text: '!ping', metadata: { chatMessage: { userUuid: 'uuid-a' } } } },
+          { id: 'msg2', sender: 'uuid-b', data: { text: 'just chatting', metadata: { chatMessage: { userUuid: 'uuid-b' } } } },
+        ];
+        mockServices.messageService.fetchGroupMessages.mockResolvedValue( mockMessages );
+
+        await bot._fetchNewMessages();
+
+        expect( mockServices.afkService.recordActivity ).toHaveBeenCalledWith( 'uuid-a', 'chat' );
+        expect( mockServices.afkService.recordActivity ).toHaveBeenCalledWith( 'uuid-b', 'chat' );
+      } );
+
+      test( 'returns only command messages after recording AFK activity', async () => {
+        const mockMessages = [
+          { id: 'msg1', sender: 'uuid-a', data: { text: '!ping', metadata: {} } },
+          { id: 'msg2', sender: 'uuid-b', data: { text: 'just chatting', metadata: {} } },
+        ];
+        mockServices.messageService.fetchGroupMessages.mockResolvedValue( mockMessages );
+
+        const result = await bot._fetchNewMessages();
+
+        expect( result ).toHaveLength( 1 );
+        expect( result[ 0 ].id ).toBe( 'msg1' );
+      } );
+
+      test( 'does not throw if afkService is absent', async () => {
+        mockServices.afkService = undefined;
+        mockServices.messageService.fetchGroupMessages.mockResolvedValue( [ { id: 'msg1', sender: 'u1', data: {} } ] );
+
+        await expect( bot._fetchNewMessages() ).resolves.not.toThrow();
       } );
     } );
   } );
@@ -424,6 +494,15 @@ describe( 'Bot - Message Processing', () => {
       await expect( bot._handleMessage( 'test', 'user123', { id: 'msg1' } ) ).rejects.toEqual( errorObj );
 
       expect( mockServices.logger.error ).toHaveBeenCalledWith( 'Error in _handleMessage: Custom error' );
+    } );
+
+    describe( 'afkService integration', () => {
+      test( 'should not throw if afkService is absent', async () => {
+        mockServices.afkService = undefined;
+        mockServices.parseCommands.mockResolvedValue( { isCommand: false } );
+
+        await expect( bot._handleMessage( 'hello', 'user123', { id: 'msg1' } ) ).resolves.not.toThrow();
+      } );
     } );
   } );
 

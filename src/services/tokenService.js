@@ -12,6 +12,8 @@ class TokenService {
         this.builtInTokens = {
             '{hangoutName}': () => this.services.stateService?.getHangoutName?.() || 'Hangout FM',
             '{botName}': () => this.services.getState?.( 'botNickname' ) || 'DJ Bot',
+            '{theme}': () => this.services.dataService?.getValue( 'editableMessages.theme' ) || '',
+            '{readTheme}': () => this.getReadTheme(),
             '{currentTime}': () => this.getCurrentTime(),
             '{currentDate}': () => this.getCurrentDate(),
             '{currentDayOfWeek}': () => this.getCurrentDayOfWeek(),
@@ -25,6 +27,22 @@ class TokenService {
             '{dateFormat}': () => this.getConfigValue( 'dateFormat', 'DD/MM/YYYY' ),
             '{timeFormat}': () => this.getConfigValue( 'timeFormat', '24' )
         };
+    }
+
+    /**
+     * Get the readTheme message with the theme value injected, or empty string if no theme is set
+     * @returns {string} Resolved readTheme message or empty string
+     */
+    getReadTheme () {
+        try {
+            const theme = this.services?.dataService?.getValue( 'editableMessages.theme' );
+            if ( !theme || !theme.trim() ) return '';
+            const template = this.services?.dataService?.getValue( 'editableMessages.readTheme' ) || 'The theme is currently {theme}';
+            return template.replace( /\{theme\}/g, theme );
+        } catch ( error ) {
+            this.logger.debug( `[TokenService] Error getting readTheme: ${ error.message }` );
+            return '';
+        }
     }
 
     /**
@@ -589,7 +607,9 @@ class TokenService {
             '{timezone}': 'Configured timezone (e.g., Europe/London)',
             '{locale}': 'Configured locale (e.g., en-GB)',
             '{dateFormat}': 'Configured date format (e.g., DD/MM/YYYY)',
-            '{timeFormat}': 'Configured time format (24 or 12 hour)'
+            '{timeFormat}': 'Configured time format (24 or 12 hour)',
+            '{theme}': 'Current session theme set by the owner',
+            '{readTheme}': 'Outputs the readTheme message (with {theme} filled in) only when a theme is set; empty otherwise'
         };
         return descriptions[ tokenName ] || 'Built-in token';
     }
