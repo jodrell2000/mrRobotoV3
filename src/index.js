@@ -1,6 +1,15 @@
+const http = require( 'node:http' );
 const services = require( './services/serviceContainer.js' );
 const { Bot } = require( './lib/bot.js' );
 const { runAfkMonitorTick, TICK_INTERVAL_MS } = require( './tasks/afkMonitorTask.js' );
+
+// Bind a minimal HTTP server so Cloud Run health checks pass.
+// The bot is a WebSocket client — there is no real HTTP API here.
+const healthServer = http.createServer( ( _req, res ) => {
+  res.writeHead( 200 );
+  res.end( 'ok' );
+} );
+healthServer.listen( process.env.PORT || 8080 );
 
 process.on( 'unhandledRejection', ( reason, promise ) => {
   services.logger.error( `Unhandled Rejection at: ${ promise }, reason: ${ reason }` );
