@@ -40,20 +40,35 @@ const logFormat = winston.format.combine(
   } )
 );
 
+// Create transports array
+const transports = [
+  // Daily rotating file
+  new winston.transports.DailyRotateFile( {
+    dirname: logsDir,
+    filename: '%DATE%.log',
+    datePattern: 'YYYY-MM-DD',
+    maxFiles: 30
+  } )
+];
+
+// Add console transport in production (for Cloud Run) or if explicitly enabled
+if ( process.env.NODE_ENV === 'production' || process.env.LOG_TO_CONSOLE === 'true' ) {
+  transports.push(
+    new winston.transports.Console( {
+      format: winston.format.combine(
+        winston.format.colorize(),
+        logFormat
+      )
+    } )
+  );
+}
+
 // Create a Winston logger with custom levels
 const logger = winston.createLogger( {
   levels: customLevels.levels,
   level: process.env.LOG_LEVEL || 'debug',
   format: logFormat,
-  transports: [
-    // Daily rotating file
-    new winston.transports.DailyRotateFile( {
-      dirname: logsDir,
-      filename: '%DATE%.log',
-      datePattern: 'YYYY-MM-DD',
-      maxFiles: 30
-    } )
-  ],
+  transports,
   exitOnError: false
 } );
 
