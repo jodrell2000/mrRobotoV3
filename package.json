@@ -1,6 +1,6 @@
 {
   "name": "mrrobotov3",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Version 3 of Mr. Roboto...trying to start again with the basics and dedicated to hang.fm rather than repurposed from another system",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "@cometchat/chat-sdk-javascript": "^4.0.13",
+    "@google-cloud/storage": "^7.14.0",
     "@google/genai": "^1.27.0",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.10.0",

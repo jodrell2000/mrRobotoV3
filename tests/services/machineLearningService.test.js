@@ -278,13 +278,20 @@ describe( 'MachineLearningService', () => {
 
       await service.askGoogleAI( 'Test question' );
 
-      // Verify chats.create was called with correct config (using gemma models)
+      // Verify chats.create was called with correct config (using gemma-4 models with thinking)
       // For Gemma models, systemInstruction is included in the question, not passed separately
       expect( mockChatsCreate ).toHaveBeenCalledWith( {
-        model: "gemma-3-27b-it",
+        model: "gemma-4-31b-it",
         config: {
           history: [],
-          temperature: 2.0
+          temperature: 0.8,
+          topP: 0.8,
+          topK: 20,
+          maxOutputTokens: 1024,
+          thinkingConfig: {
+            includeThoughts: true,
+            thinkingLevel: "HIGH"
+          }
         }
       } );
 

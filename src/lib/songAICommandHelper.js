@@ -3,6 +3,8 @@
  * Provides common functionality for song-based AI commands like popfacts, whatyear, etc.
  */
 
+const appConfig = require( '../config' );
+
 /**
  * Add a message pair (user question + model response) to the ML conversation history
  * @param {string} userContent - The user's question/task
@@ -160,7 +162,7 @@ async function executeSongAICommand ( commandParams, config ) {
         }
 
         const hangoutName = services.stateService.getHangoutName();
-        const botName = dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
+        const botName = appConfig.CHAT_NAME || dataService.getValue( 'botData.CHAT_NAME' ) || 'Bot';
 
         // Get sender's actual username (plain text for AI, not formatted mention)
         let senderUsername = 'User';

@@ -207,7 +207,7 @@ class Bot {
     this.services.logger.debug( `State structure: allUserData=${ !!this.services.hangoutState.allUserData }, allUsers=${ !!this.services.hangoutState.allUsers }` );
 
     // Now initialize the state service
-    this.services.initializeStateService();
+    await this.services.initializeStateService();
     this.services.logger.debug( 'StateService initialized successfully with validated state' );
   }
 
