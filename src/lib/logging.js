@@ -48,20 +48,15 @@ const transports = [
     filename: '%DATE%.log',
     datePattern: 'YYYY-MM-DD',
     maxFiles: 30
+  } ),
+  // Console output (always enabled for visibility)
+  new winston.transports.Console( {
+    format: winston.format.combine(
+      winston.format.colorize(),
+      logFormat
+    )
   } )
 ];
-
-// Add console transport in production (for Cloud Run) or if explicitly enabled
-if ( process.env.NODE_ENV === 'production' || process.env.LOG_TO_CONSOLE === 'true' ) {
-  transports.push(
-    new winston.transports.Console( {
-      format: winston.format.combine(
-        winston.format.colorize(),
-        logFormat
-      )
-    } )
-  );
-}
 
 // Create a Winston logger with custom levels
 const logger = winston.createLogger( {
