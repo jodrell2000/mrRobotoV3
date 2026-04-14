@@ -279,7 +279,8 @@ upload_data_to_gcs() {
   log_info "Uploading data directory to gs://${bucket_name}/ ..."
   
   # Use gcloud storage rsync for efficient upload
-  if gcloud storage rsync ./data "gs://${bucket_name}/" --recursive --delete-unmatched-destination-objects --quiet 2>&1; then
+  # Upload to data/ subdirectory to match CloudStorageService expectations
+  if gcloud storage rsync ./data "gs://${bucket_name}/data/" --recursive --delete-unmatched-destination-objects --quiet 2>&1; then
     log_ok "Data uploaded to GCS bucket: ${bucket_name}"
   else
     log_error "Failed to upload data to GCS — deployment will continue but data may not be in sync"
