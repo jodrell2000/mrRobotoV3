@@ -87,7 +87,18 @@ class CloudStorageService {
             await this.bucket.file( gcsPath ).download( {
                 destination: localPath,
             } );
-            logger.debug( `☁️ [CloudStorageService] Downloaded: ${ gcsPath } -> ${ localPath }` );
+
+            // Verify file was written successfully
+            const stats = await fs.stat( localPath );
+            if ( stats.size === 0 ) {
+                logger.error( `☁️ [CloudStorageService] Downloaded file is empty: ${ gcsPath }` );
+                return false;
+            }
+
+            // Verify file is readable
+            await fs.access( localPath, fs.constants.R_OK );
+
+            logger.debug( `☁️ [CloudStorageService] Downloaded: ${ gcsPath } -> ${ localPath } (${ stats.size } bytes)` );
             return true;
         } catch ( error ) {
             if ( error.code === 404 ) {
@@ -169,10 +180,12 @@ class CloudStorageService {
         logger.info( '☁️ [CloudStorageService] Starting sync from cloud...' );
         let downloaded = 0;
         let failed = 0;
+        let totalBytes = 0;
 
         try {
             // List all files in the data/ prefix
             const [ files ] = await this.bucket.getFiles( { prefix: 'data/' } );
+            logger.info( `☁️ [CloudStorageService] Found ${ files.length } files in cloud` );
 
             for ( const file of files ) {
                 // Skip directory markers
@@ -187,12 +200,22 @@ class CloudStorageService {
                 const success = await this.downloadFile( file.name, localPath );
                 if ( success ) {
                     downloaded++;
+                    // Get file size for logging
+                    try {
+                        const stats = await fs.stat( localPath );
+                        totalBytes += stats.size;
+                    } catch ( e ) {
+                        // Ignore stat errors
+                    }
                 } else {
                     failed++;
                 }
             }
 
-            logger.info( `☁️ [CloudStorageService] Sync from cloud complete: ${ downloaded } downloaded, ${ failed } failed` );
+            // Give file system a moment to flush all writes
+            await new Promise( resolve => setTimeout( resolve, 100 ) );
+
+            logger.info( `☁️ [CloudStorageService] Sync from cloud complete: ${ downloaded } downloaded (${ totalBytes } bytes), ${ failed } failed` );
             return { success: failed === 0, downloaded, failed };
         } catch ( error ) {
             logger.error( `☁️ [CloudStorageService] Sync from cloud failed: ${ error.message }` );
