@@ -2,7 +2,7 @@
 
 > **This is optional.** If you're happy running the bot on your local machine, you can skip this entirely.
 
-Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability without keeping your computer on. This guide covers Google Cloud Run as the primary option, with alternatives included for comparison.
+Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability without keeping your computer on. This guide covers Oracle Cloud's Always Free tier as the recommended option, with alternatives included for comparison.
 
 ---
 
@@ -10,12 +10,11 @@ Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability wi
 
 - [Why Cloud Hosting?](#why-cloud-hosting)
 - [Prerequisites](#prerequisites)
-- [Option 1: Google Cloud Run](#option-1-google-cloud-run-recommended)
-- [Option 2: Oracle Cloud Always Free](#option-2-oracle-cloud-always-free)
-- [Option 3: Other Platforms](#option-3-other-platforms)
+- [Option 1: Oracle Cloud Always Free (Recommended)](#option-1-oracle-cloud-always-free-recommended)
+- [Option 2: Other Platforms](#option-2-other-platforms)
 - [Platform Comparison](#platform-comparison)
+- [Frequently Asked Questions](#frequently-asked-questions)
 - [Troubleshooting](#troubleshooting)
-- [Cost Monitoring](#cost-monitoring)
 
 ---
 
@@ -24,9 +23,9 @@ Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability wi
 | Feature | Local Docker | Cloud Hosting |
 |---------|-------------|---------------|
 | 24/7 availability | Only when PC is on | Always |
-| Cost | $0 (electricity) | $0 (free tier) |
+| Cost | $0 (electricity) | $0 (Oracle Always Free) |
 | Setup complexity | Easy | Medium |
-| Maintenance | Manual | Manual |
+| Maintenance | Manual updates | Manual updates |
 
 ---
 
@@ -35,347 +34,13 @@ Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability wi
 Before starting, you need:
 
 - A fully configured `.env` file with your bot credentials (see [Setting Up Your Environment](SETTING_UP_YOUR_ENVIRONMENT.md))
-- A Google account (Gmail works)
 - Basic comfort with terminal commands
 
 You do **not** need Docker installed locally — the pre-built images are already published on GitHub Container Registry.
 
 ---
 
-## Option 1: Google Cloud Run (Recommended)
-
-Google Cloud Run is a managed container platform that runs your bot as a persistent process.
-
-### Cost Breakdown
-
-Google Cloud Run free tier (per month):
-
-| Resource | Free Tier | Bot Usage | Cost |
-|----------|-----------|-----------|------|
-| Compute (GB-seconds) | 360,000 | ~15,000–50,000 | $0 |
-| Requests | 2,000,000 | Minimal (bot is outbound) | $0 |
-| CPU (vCPU-seconds) | 180,000 | ~30,000–90,000 | $0 |
-| Storage (GCS) | 5 GB | < 1 GB | $0 |
-| Storage Operations | 5,000 writes/month | ~730 writes/month | $0 |
-
-**Expected monthly cost: $0**
-
-> **Note:** The bot uses plain environment variables (not Secret Manager) to avoid storage costs. Your credentials are still protected by Google Cloud's IAM access controls.
-
-> Set up a billing alert (see [Cost Monitoring](#cost-monitoring)) as a safety net against unexpected charges.
-
----
-
-### Step 1: Create a Google Cloud Project
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Sign in with your Google account
-3. Click **Select a project** → **New Project**
-4. Name it: `mrroboto-bot` (or any name you prefer)
-5. Note your **Project ID** — it appears below the project name and may differ from the name
-
----
-
-### Step 2: Install the gcloud CLI
-
-**macOS (Homebrew):**
-```bash
-brew install --cask google-cloud-sdk
-```
-
-**macOS / Linux (direct install):**
-```bash
-curl https://sdk.cloud.google.com | bash
-exec -l $SHELL
-```
-
-**Windows:**
-Download and run the installer from [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
-
-**Verify:**
-```bash
-gcloud --version
-```
-
----
-
-### Step 3: Authenticate and Set Your Project
-
-```bash
-# Log in to your Google account
-gcloud auth login
-
-# Set your project (replace YOUR_PROJECT_ID with your actual project ID)
-gcloud config set project YOUR_PROJECT_ID
-
-# Verify
-gcloud config get project
-```
-
----
-
-### Step 4: Link a Billing Account
-
-Google Cloud requires a billing account to enable APIs — even if you never pay anything. The free tier covers this bot's usage.
-
-1. Go to [console.cloud.google.com/billing](https://console.cloud.google.com/billing)
-2. Click **Add billing account** (or **Manage billing accounts** → **Create account**)
-3. Follow the prompts — you'll need to enter a credit card, but you will **not** be charged while within the free tier
-4. Once created, go to [console.cloud.google.com/billing/projects](https://console.cloud.google.com/billing/projects)
-5. Find your project (`mrroboto-bot` or whatever you named it), click the three-dot menu → **Change billing**
-6. Select your new billing account and confirm
-
-Alternatively, link it via the CLI:
-
-```bash
-# List your billing accounts
-gcloud billing accounts list
-
-# Link your project (replace BILLING_ACCOUNT_ID with the ID from the list above, e.g. 01ABCD-123456-789EFG)
-gcloud billing projects link $(gcloud config get project) \
-  --billing-account BILLING_ACCOUNT_ID
-```
-
-> **No surprise charges:** Set up a billing alert in [Cost Monitoring](#cost-monitoring) after deployment to get notified if usage ever approaches $1.
-
----
-
-### Step 5: Enable Required APIs
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com \
-  storage.googleapis.com
-```
-
-This takes about 1–2 minutes.
-
----
-
-### Step 5a: Set Up Cloud Storage for Data Persistence (Optional but Recommended)
-
-Cloud Run is **stateless** — any changes to files are lost when the container restarts. To persist your bot's data (database, configuration changes, etc.), you need to set up Google Cloud Storage.
-
-#### Why You Need This
-
-Without Cloud Storage:
-- ❌ Song history database (`mrroboto.db`) is lost on restart
-- ❌ Configuration changes made via commands are lost on restart
-- ❌ No backup of your bot's data
-
-With Cloud Storage:
-- ✅ Automatic daily backups at 3 AM
-- ✅ Data synced to cloud on bot startup
-- ✅ Manual sync script available for local development
-- ✅ All within Google Cloud's free tier (5GB storage, 5000 operations/month)
-
-#### Create a GCS Bucket
-
-```bash
-# Create a bucket in the same region as your Cloud Run service
-# Replace 'your-project-id' with your actual project ID
-gcloud storage buckets create gs://mrroboto-data-YOUR_PROJECT_ID \
-  --location=europe-west1 \
-  --uniform-bucket-level-access
-```
-
-> **Bucket naming:** Bucket names must be globally unique across all of Google Cloud. We recommend using `mrroboto-data-YOUR_PROJECT_ID` to ensure uniqueness.
-
-#### Add GCS Bucket to Your Environment
-
-Edit your `.env` file and add the bucket name:
-
-```bash
-# Add this line to your .env file
-GCS_BUCKET_NAME=mrroboto-data-YOUR_PROJECT_ID
-```
-
-Replace `YOUR_PROJECT_ID` with your actual bucket name from the previous step.
-
-#### Verify the Bucket Exists
-
-```bash
-# List your buckets
-gcloud storage buckets list
-
-# Test access to your bucket
-gcloud storage ls --buckets gs://mrroboto-data-YOUR_PROJECT_ID
-```
-
-You should see your bucket listed with no errors.
-
-#### How Data Sync Works
-
-1. **On bot startup:** Downloads latest data from GCS (if available)
-2. **Daily at 3 AM:** Automatically backs up all data files to GCS
-3. **Manual sync:** Run `./scripts/sync-cloud-data.sh` to trigger sync and download
-
-All sync operations are logged and visible in your Cloud Run logs.
-
-> **Cost:** Daily backups generate ~730 write operations per month, well within the 5,000 free tier limit.
-
----
-
-### Step 6: Deploy Using the Helper Script
-
-The quickest path is the included deployment script. Run from your `mrRobotoV3` directory:
-
-```bash
-bash scripts/deploy-to-cloudrun.sh
-```
-
-The script will:
-1. Validate prerequisites
-2. Prompt for your project ID, region, and service name
-3. Parse your `.env` file and prepare environment variables
-4. Deploy the bot to Cloud Run with all environment variables injected
-5. Display useful management commands when done
-
-**Optional: Upload local data before deployment**
-
-If you have local data (database, configuration changes) that you want to upload to GCS before deploying:
-
-```bash
-bash scripts/deploy-to-cloudrun.sh --upload-data
-```
-
-This will:
-- Upload your entire `./data` directory to GCS before deployment
-- Ensure the deployed bot starts with your latest local data
-- Useful when you've made local changes and want them immediately available in production
-
-> **Note:** The `--upload-data` flag requires `GCS_BUCKET_NAME` to be set in your `.env` file. If not configured, the upload will be skipped with a warning.
-
----
-
-### Step 6 (Manual): Deploy Without the Script
-
-If you prefer to deploy manually or the script fails, follow these steps.
-
-#### 6a. Set Your Environment Variables
-
-You'll need to format your `.env` values as a comma-separated string. Here's an example:
-
-```bash
-# Example format (replace with your actual values)
-# Include GCS_BUCKET_NAME if you set up Cloud Storage in Step 5a
-ENV_STRING="BOT_USER_TOKEN=your_token_here,COMETCHAT_AUTH_TOKEN=your_auth_token,BOT_UID=your_bot_uid,HANGOUT_ID=your_hangout_id,NODE_ENV=production,TTFM_GATEWAY_BASE_URL=https://gateway.prod.tt.fm,COMETCHAT_API_KEY=193427bb5702bab7,COMMAND_SWITCH=/,LOG_LEVEL=info,GCS_BUCKET_NAME=mrroboto-data-YOUR_PROJECT_ID"
-```
-
-#### 6b. Deploy to Cloud Run
-
-```bash
-gcloud run deploy mrroboto \
-  --image ghcr.io/jodrell2000/mrrobotov3:latest \
-  --platform managed \
-  --region europe-west1 \
-  --min-instances 1 \
-  --max-instances 1 \
-  --memory 512Mi \
-  --cpu 1 \
-  --no-cpu-throttling \
-  --no-allow-unauthenticated \
-  --set-env-vars "$ENV_STRING"
-```
-
-> **Important:** Replace `$ENV_STRING` with your actual comma-separated environment variables from step 6a.
-
-> **Why `--min-instances 1`?** Mr. Roboto V3 maintains a persistent WebSocket connection — it must always be running to receive events. Without `--min-instances 1`, Cloud Run scales to zero when idle and your bot will miss messages.
-
-> **Why `--no-cpu-throttling`?** This keeps CPU allocated to the container at all times, ensuring the WebSocket connection stays active.
-
----
-
-### Step 7: Verify the Deployment
-
-```bash
-# Check service status
-gcloud run services describe mrroboto --region europe-west1
-
-# Stream live logs
-gcloud beta logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto"
-
-# Or read recent logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto" --limit 50
-```
-
-In the logs you should see the bot startup messages and connection to your hangout.
-
-> **Note on health checks:** Cloud Run expects an HTTP service on the container port. Mr. Roboto V3 is a WebSocket client with no HTTP server, so Cloud Run may report the service as having no traffic endpoint. This is expected — the bot runs continuously via `--min-instances 1` regardless of HTTP health check status.
-
----
-
-### Step 8: Manage the Service
-
-**View logs:**
-```bash
-# Stream live logs
-gcloud beta logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto"
-
-# Or read recent logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto" --limit 50
-```
-
-**Stop the bot (scale to zero):**
-```bash
-gcloud run services update mrroboto --region europe-west1 --min-instances 0 --max-instances 1
-```
-
-**Restart / update to latest image:**
-```bash
-gcloud run services update mrroboto --region europe-west1 \
-  --image ghcr.io/jodrell2000/mrrobotov3:latest
-```
-
-**Update a credential (e.g. if your token changes):**
-```bash
-# Update your .env file with the new value
-nano .env
-
-# Redeploy with updated environment variables
-bash scripts/deploy-to-cloudrun.sh
-
-# Or update manually with the new env var string
-gcloud run services update mrroboto --region europe-west1 \
-  --set-env-vars "BOT_USER_TOKEN=new-token-value,...other-vars..."
-```
-
-**Delete the service:**
-```bash
-gcloud run services delete mrroboto --region europe-west1
-```
-
-**Sync and download cloud data (if you configured GCS in Step 5a):**
-```bash
-# Trigger sync and download all data from cloud to local
-./scripts/sync-cloud-data.sh
-```
-
-This script will:
-1. Optionally trigger a cloud sync from the running bot
-2. Create a timestamped backup of your local data directory
-3. Download all files from GCS to your local data directory
-
-Use this to:
-- Backup cloud data before making changes
-- Download latest data for local testing
-- Restore data after a fresh deployment
-
----
-
-### Limitations of Cloud Run for This Bot
-
-| Limitation | Impact | Workaround |
-|-----------|--------|------------|
-| No persistent volumes | SQLite history data lost on restart | Set up GCS bucket (Step 5a) for automatic backups |
-| Default bot config baked into image | Cannot change bot name / appearance without rebuilding | Fork the repo, modify `data/botConfig.json`, push a custom tag |
-| Health checks show "no traffic" | Service shows as unhealthy in console | Normal — bot runs correctly via `--min-instances 1` |
-
----
-
-## Option 2: Oracle Cloud Always Free
+## Option 1: Oracle Cloud Always Free (Recommended)
 
 Oracle Cloud offers **truly free-forever** virtual machines — unlike Google's credit-based free tier, these never expire.
 
@@ -440,7 +105,38 @@ The AMD micro instance (1GB RAM) is sufficient for the bot.
 
 ---
 
-#### Step 3: Create a Compute Instance (10 minutes)
+#### Step 3: Create Virtual Cloud Network (5 minutes)
+
+Before creating the instance, you must create a Virtual Cloud Network (VCN) with internet connectivity.
+
+1. From the dashboard, click the **≡** menu (top left)
+2. Navigate: **Networking** → **Virtual Cloud Networks**
+3. Click the down arrow on **Actions** → Select **Start VCN Wizard**
+4. Select **Create VCN with Internet Connectivity**
+5. Click **Start VCN Wizard**
+
+**VCN Configuration:**
+- **VCN Name**: `mrroboto-vcn`
+- **Compartment**: Leave as root
+- **VCN IPv4 CIDR Block**: Leave as default (`10.0.0.0/16`)
+- **Public Subnet CIDR Block**: Leave as default (`10.0.0.0/24`)
+- **Private Subnet CIDR Block**: Leave as default (`10.0.1.0/24`)
+
+6. Click **Next**
+7. Review the configuration
+8. Click **Create**
+
+Wait for the VCN creation to complete (~30 seconds). This creates:
+- Virtual Cloud Network
+- Public subnet (for your instance)
+- Private subnet
+- Internet Gateway
+- NAT Gateway
+- Security Lists
+
+---
+
+#### Step 4: Create a Compute Instance (10 minutes)
 
 1. From the dashboard, click the **≡** menu (top left)
 2. Navigate: **Compute** → **Instances**
@@ -468,13 +164,13 @@ mrroboto-bot
 
 5. Click **Change Image**
 6. Select **Ubuntu**
-7. Choose **Canonical Ubuntu 22.04**
+7. Choose **Canonical Ubuntu 24.04**
 8. Click **Select Image**
 
 **Networking:**
-- **Virtual cloud network**: Leave as "Create new virtual cloud network"
-- **Subnet**: Leave as "Create new public subnet"
-- **Public IP**: Select **Assign a public IPv4 address**
+- **Virtual cloud network**: Select **mrroboto-vcn** (the one you just created)
+- **Subnet**: Select the **public subnet** (named like `Public Subnet-mrroboto-vcn`)
+- **Assign a public IPv4 address**: Check this box ✓
 
 **Add SSH Keys:**
 
@@ -499,7 +195,7 @@ mrroboto-bot
 
 ---
 
-#### Step 4: Configure Firewall (Optional but Recommended)
+#### Step 5: Configure Firewall (Optional but Recommended)
 
 By default, Oracle blocks most incoming traffic. For SSH access:
 
@@ -517,7 +213,7 @@ By default, Oracle blocks most incoming traffic. For SSH access:
 
 ---
 
-#### Step 5: Connect via SSH (5 minutes)
+#### Step 6: Connect via SSH (5 minutes)
 
 **macOS / Linux:**
 
@@ -545,7 +241,7 @@ Or use [PuTTY](https://www.putty.org/) with the private key converted to .ppk fo
 
 ---
 
-#### Step 6: Install Docker (5 minutes)
+#### Step 7: Install Docker (5 minutes)
 
 Run these commands on the Oracle VM:
 
@@ -576,7 +272,7 @@ docker ps
 
 ---
 
-#### Step 7: Prepare Environment (5 minutes)
+#### Step 8: Prepare Environment (5 minutes)
 
 **Create directory for bot:**
 ```bash
@@ -623,7 +319,7 @@ cat .env
 
 ---
 
-#### Step 8: Deploy the Bot (5 minutes)
+#### Step 9: Deploy the Bot (5 minutes)
 
 **Pull the Docker image:**
 ```bash
@@ -665,7 +361,7 @@ Connected to hangout
 
 ---
 
-#### Step 9: Verify Bot in Hangout (2 minutes)
+#### Step 10: Verify Bot in Hangout (2 minutes)
 
 1. Go to your tt.fm hangout
 2. Bot should be present in the room
@@ -699,7 +395,7 @@ docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
 # Stop and remove old container
 docker stop mrroboto && docker rm mrroboto
 
-# Run new version (same command as Step 8)
+# Run new version (same command as Step 9)
 docker run -d \
   --name mrroboto \
   --restart unless-stopped \
@@ -740,25 +436,7 @@ sudo apt update && sudo apt upgrade -y
 
 ---
 
-### Oracle Cloud vs Google Cloud Run
-
-| Feature | Oracle Cloud | Google Cloud Run |
-|---------|-------------|------------------|
-| Monthly Cost | £0 forever | £0.50-0.70/month |
-| Setup Time | 30-60 minutes | 5-10 minutes |
-| Management | SSH + Docker commands | gcloud CLI |
-| Auto-restart | Yes (Docker) | Yes (managed) |
-| Logs | `docker logs` | Cloud Console + CLI |
-| Updates | Manual docker pull | Automatic on redeploy |
-| Data Persistence | VM disk (persistent) | GCS required |
-| Scaling | Fixed 1GB RAM | Can adjust on demand |
-| Expires | Never | Never (within free tier) |
-
-> **Note:** Oracle Cloud signup requires credit card verification but will not charge for Always Free resources.
-
----
-
-## Option 3: Other Platforms
+## Option 2: Other Platforms
 
 ### Fly.io
 
@@ -784,124 +462,377 @@ sudo apt update && sudo apt upgrade -y
 | Platform | Monthly Cost | Expires? | Setup Difficulty | Persistent? |
 |----------|-------------|----------|-----------------|------------|
 | Local Docker | $0 | Never | Easy | Only when PC is on |
-| Google Cloud Run | $0 (within free tier) | No | Medium | Yes (with min-instances=1) |
-| Oracle Cloud | $0 | Never | Hard | Yes |
+| Oracle Cloud | $0 | Never | Medium | Yes |
 | Fly.io | ~$3–5 | N/A | Medium | Yes |
 | Railway | $0–5 credit | Monthly | Easy | Yes |
 | Render | $7+ | N/A | Easy | Yes (paid only) |
 
-**Recommendation:** Start with **Google Cloud Run** for the easiest path to cloud hosting. Switch to **Oracle Cloud** if you want a guaranteed free-forever option and are comfortable managing a Linux VM.
+**Recommendation:** **Oracle Cloud Always Free** is the best option for free 24/7 cloud hosting. The setup takes 30-60 minutes but the VM is truly free forever with no hidden costs.
+
+---
+
+## Frequently Asked Questions
+
+### Instance Creation Questions
+
+**Q: Which availability domain should I pick when creating an instance?**
+
+A: Choose any available domain (usually there's only one option per region). All availability domains within the same region have identical capabilities and performance. If one domain says "Out of capacity", simply select another.
+
+---
+
+**Q: Do I need a shielded instance?**
+
+A: No. Shielded instances add security features (Secure Boot, vTPM) that are useful for enterprise workloads or sensitive data processing. For a Discord/chat bot, standard security is sufficient. Shielded instances can add configuration complexity without meaningful benefit for this use case.
+
+---
+
+**Q: What's the difference between Ubuntu 24.04, 22.04, and 20.04?**
+
+A: These are different Long-Term Support (LTS) release versions:
+- **Ubuntu 24.04 (Noble Numbat)** - Latest LTS, support until 2029
+- **Ubuntu 22.04 (Jammy Jellyfish)** - Previous LTS, support until 2027
+- **Ubuntu 20.04 (Focal Fossa)** - Older LTS, support until 2025
+
+**Recommendation:** Choose **24.04** for the longest support window and latest package versions.
+
+---
+
+**Q: Should I use "Full Ubuntu" or "Minimal"?**
+
+A: Choose **Full Ubuntu** (Canonical Ubuntu). The Minimal version strips out helpful utilities (nano, curl, man pages) to save ~200MB of disk space. Since the Always Free VM includes 50GB of storage, the space savings aren't significant, and you'll save time by not having to install basic tools manually.
+
+---
+
+**Q: x86_64 (AMD64) or aarch64 (ARM64)?**
+
+A: Choose **x86_64** (also called AMD64 or amd64). The VM.Standard.E2.1.Micro Always Free shape uses AMD EPYC processors (x86 architecture). The aarch64 option is for ARM-based instances which are not available in the Always Free tier.
+
+---
+
+**Q: Can I use the same Docker images as with local deployment?**
+
+A: Yes! The same Docker images from GitHub Container Registry (`ghcr.io/jodrell2000/mrrobotov3:latest` or `:1.0.0-test`) work identically on Oracle Cloud VMs, Google Cloud Run, or any other Docker-compatible platform. The bot code is platform-agnostic.
+
+---
+
+**Q: Do I need GCS_BUCKET_NAME in my .env file for Oracle Cloud?**
+
+A: No. Google Cloud Storage (GCS) integration is only used with Google Cloud Run due to its stateless architecture. On Oracle Cloud, your data persists directly on the VM's disk (in `~/mrroboto/data/`), so you should **remove or comment out** the `GCS_BUCKET_NAME` line from your `.env` file.
+
+---
+
+**Q: How do I update the bot to a newer version on Oracle Cloud?**
+
+A: Follow these steps:
+
+```bash
+# 1. Pull the latest image
+docker pull ghcr.io/jodrell2000/mrrobotov3:latest
+
+# 2. Stop and remove the old container
+docker stop mrroboto && docker rm mrroboto
+
+# 3. Start the new version (same command as initial deployment)
+docker run -d \
+  --name mrroboto \
+  --restart unless-stopped \
+  --env-file .env \
+  -v ~/mrroboto/data:/usr/src/app/data \
+  ghcr.io/jodrell2000/mrrobotov3:latest
+```
+
+Your data persists in the volume mount (`~/mrroboto/data`), so you won't lose any history or configuration.
+
+---
+
+**Q: Will I be charged for Oracle Cloud Always Free resources?**
+
+A: No. Oracle's Always Free resources (including the VM.Standard.E2.1.Micro instance) are **free forever** with no expiration. The credit card verification during signup is for identity verification only. As long as you only use Always Free eligible resources (look for the "Always Free Eligible" badge), you will never be charged.
+
+However, be careful not to accidentally create paid resources (larger instances, load balancers, etc.). Stick to the VM.Standard.E2.1.Micro shape and you'll stay at $0.
+
+---
+
+**Q: My Oracle Cloud account signup is stuck on "Provisioning" or "Pending Approval". What should I do?**
+
+A: Account approval usually takes 5-30 minutes but can occasionally take up to 24 hours. Common reasons for delays:
+- High demand in your selected region
+- Credit card verification taking longer than usual
+- Manual review triggered by automated fraud detection
+
+**Solutions:**
+1. Wait - most accounts get approved within an hour
+2. Check your email for requests for additional information
+3. If stuck for >24 hours, contact Oracle Cloud support via live chat at [cloud.oracle.com](https://cloud.oracle.com)
+
+---
+
+**Q: Can I SSH into the Oracle VM from Windows?**
+
+A: Yes! Modern Windows 10/11 includes an SSH client in PowerShell:
+
+```powershell
+# In PowerShell
+ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+```
+
+Alternatively, you can use [PuTTY](https://www.putty.org/):
+1. Download PuTTY and PuTTYgen
+2. Use PuTTYgen to convert the `.key` file to `.ppk` format
+3. Configure PuTTY with the public IP and `.ppk` key file
+
+---
+
+**Q: What happens if I accidentally stop the Docker container?**
+
+A: The container is configured with `--restart unless-stopped`, so it will automatically restart if:
+- The bot crashes due to an error
+- The VM reboots (power outage, maintenance, etc.)
+
+However, if you manually stop it with `docker stop mrroboto`, it won't auto-restart. To start it again:
+
+```bash
+docker start mrroboto
+```
+
+Or if you deleted the container, recreate it with the `docker run` command from Step 9 of the Oracle setup.
+
+---
+
+**Q: How much disk space will the bot use?**
+
+A: Typical usage:
+- Docker image: ~300MB
+- Bot data (database, logs, configs): 10-50MB
+- Total: < 500MB
+
+The Always Free VM includes 50GB of storage, so you'll use less than 1% of available space. Ubuntu system files use ~2-3GB.
 
 ---
 
 ## Troubleshooting
 
-### Cleaning Up Old Secret Manager Resources
+### Oracle Cloud Instance Creation Issues
 
-If you previously deployed with Secret Manager enabled and want to remove the storage costs:
+**"Out of host capacity" error**
 
-```bash
-# List all secrets
-gcloud secrets list
+Oracle's Always Free tier has limited availability in each region. If you see this:
+1. Try a different availability domain (AD-1, AD-2, or AD-3)
+2. Try again in a few hours - capacity fluctuates
+3. Consider a different region (though this requires a new account)
 
-# Delete individual secrets (replace with your secret names)
-gcloud secrets delete BOT_USER_TOKEN --quiet
-gcloud secrets delete COMETCHAT_AUTH_TOKEN --quiet
-gcloud secrets delete BOT_UID --quiet
-gcloud secrets delete HANGOUT_ID --quiet
-gcloud secrets delete googleAIKey --quiet
+---
 
-# Or delete all secrets at once (use with caution!)
-gcloud secrets list --format="value(name)" | xargs -I {} gcloud secrets delete {} --quiet
-```
+**Can't SSH into instance - "Connection refused" or "Connection timed out"**
 
-After deleting secrets, redeploy using the updated deployment script which uses plain environment variables:
-```bash
-bash scripts/deploy-to-cloudrun.sh
-```
+1. **Verify the instance is Running:**
+   - Go to Oracle Cloud Console → Compute → Instances
+   - Status should be "Running" (green)
+   - Note the Public IP address
 
-### "Image not found" error when deploying
+2. **Check firewall rules:**
+   - On instance page → Primary VNIC → Subnet
+   - Click Security Lists → Default Security List
+   - Verify Ingress Rule exists: Source 0.0.0.0/0, TCP port 22
+   - If missing, add it: **Add Ingress Rules** → Source CIDR: `0.0.0.0/0`, IP Protocol: TCP, Destination Port: `22`
+
+3. **Verify SSH key permissions:**
+   ```bash
+   # macOS/Linux - key must be read-only for owner
+   chmod 400 ~/Downloads/oracle-mrroboto.key
+   ls -l ~/Downloads/oracle-mrroboto.key
+   # Should show: -r-------- 1 youruser yourgroup
+   ```
+
+4. **Check you're using the correct username:**
+   - Ubuntu images: use `ubuntu@PUBLIC_IP`
+   - Oracle Linux images: use `opc@PUBLIC_IP`
+
+---
+
+### Docker and Bot Issues
+
+**"Image not found" error when pulling Docker image**
 
 The GHCR image is public. Verify access:
 ```bash
 docker pull ghcr.io/jodrell2000/mrrobotov3:latest
 ```
 
-If this fails, check [github.com/jodrell2000/mrRobotoV3/packages](https://github.com/jodrell2000/mrRobotoV3/packages) for available tags.
+If this fails:
+1. Check your internet connection on the Oracle VM: `ping -c 3 google.com`
+2. Verify image exists at [github.com/jodrell2000/mrRobotoV3/packages](https://github.com/jodrell2000/mrRobotoV3/packages)
+3. Try a specific version tag: `docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test`
 
-### Bot deploys but doesn't connect
+---
 
-Check the Cloud Run logs:
+**Bot container starts but doesn't connect to hangout**
+
+Check the container logs for startup errors:
 ```bash
-# Stream live logs
-gcloud beta logging tail "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto"
-
-# Or read recent logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=mrroboto" --limit 50
+docker logs -f mrroboto
 ```
 
 Common causes:
-- **Wrong `BOT_USER_TOKEN`** — regenerate from the tt.fm website
-- **Wrong `HANGOUT_ID`** — verify the hangout UUID
+- **Wrong `BOT_USER_TOKEN`** — regenerate from the tt.fm website user settings
+- **Wrong `HANGOUT_ID`** — verify the hangout UUID (found in hangout URL)
 - **Missing environment variable** — ensure all required variables are in your `.env` file
+- **Network connectivity** — verify VM can reach internet: `ping -c 3 gateway.prod.tt.fm`
 
-### Environment variables not loading
+---
 
-If your bot starts but can't connect, verify environment variables are set correctly:
+**Container keeps restarting**
+
 ```bash
-# Check deployed environment variables
-gcloud run services describe mrroboto --region europe-west1 --format="yaml(spec.template.spec.containers[0].env)"
+# Check exit status and restart count
+docker ps -a
+
+# View logs for crash reason
+docker logs mrroboto
 ```
 
-Make sure your `.env` file is complete before running the deployment script.
+Common causes:
+- Missing required environment variable - check `.env` file
+- Port conflict (unlikely, bot doesn't expose ports)
+- Out of memory (unlikely with 1GB RAM)
 
-### Service keeps restarting
+---
 
-Check logs for startup errors — a missing required environment variable will cause the bot to crash on startup:
+**"Permission denied" when running docker commands**
+
+You need to be in the `docker` group:
 ```bash
-gcloud run services logs read mrroboto --region europe-west1 --limit 50
-```
+# Add user to docker group
+sudo usermod -aG docker ubuntu
 
-### gcloud: command not found
+# Log out and back in
+exit
 
-Install the Google Cloud SDK (see [Step 2](#step-2-install-the-gcloud-cli)), then run:
-```bash
-gcloud init
+# Reconnect via SSH
+ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+
+# Verify docker works without sudo
+docker ps
 ```
 
 ---
 
-## Cost Monitoring
+**Bot was working but stopped responding**
 
-To ensure you stay within Google Cloud's free tier:
+1. **Check if container is running:**
+   ```bash
+   docker ps
+   ```
+   If not listed, it crashed. View logs: `docker logs mrroboto`
 
-### Set Up a Billing Alert (Recommended)
+2. **Check VM is running:**
+   - Oracle Cloud Console → Compute → Instances
+   - Verify status is "Running"
+   - If stopped, click **Start** to restart the VM
 
-1. Go to [console.cloud.google.com/billing](https://console.cloud.google.com/billing)
-2. Select your billing account
-3. Click **Budgets & alerts** → **Create budget**
-4. Set amount: `$1` (you'll be alerted before any meaningful spend)
-5. Configure alert thresholds: 50%, 90%, 100%
-6. Add your email for notifications
+3. **Restart the container:**
+   ```bash
+   docker restart mrroboto
+   ```
 
-### Expected Monthly Usage
+4. **Check disk space:**
+   ```bash
+   df -h
+   # /dev/sda1 or /dev/sda3 should not be at 100%
+   ```
 
-For a typical bot deployment running 24/7 with Cloud Storage enabled:
+---
 
-| Resource | Free Tier | Typical Bot Usage |
-|----------|-----------|------------------|
-| Compute (GB-seconds) | 360,000 | ~15,000–50,000 |
-| CPU (vCPU-seconds) | 180,000 | ~30,000–90,000 |
-| Network egress | 1GB/month | < 100MB |
-| GCS Storage | 5 GB | < 1 GB |
-| GCS Operations | 5,000 writes/month | ~730 writes/month (daily backups) |
+**Bot logs show "Error loading botConfig.json: File is empty"**
 
-**All typical bot usage fits comfortably within the free tier.**
+This usually means the data directory didn't mount correctly:
+```bash
+# Verify volume mount
+docker inspect mrroboto | grep -A 10 Mounts
 
-**Expected total: $0/month**
+# Should show: Source: /home/ubuntu/mrroboto/data
+#              Destination: /usr/src/app/data
 
-### View Current Usage
+# Check data directory exists and has files
+ls -la ~/mrroboto/data/
+```
 
-In the [Google Cloud Console](https://console.cloud.google.com):
-- **Cloud Run**: Navigation menu → Cloud Run → select your service → Metrics tab
-- **Billing**: Navigation menu → Billing → Reports
+If empty, the bot will create default files on first run.
+
+---
+
+### VM Management Issues
+
+**Forgot the SSH private key / lost the `.key` file**
+
+You'll need to add a new SSH key:
+1. Generate a new key pair on your local machine:
+   ```bash
+   ssh-keygen -t rsa -b 4096 -f ~/.ssh/oracle_new
+   ```
+2. In Oracle Cloud Console → Compute → Instances → your instance
+3. Click **Edit** at the top
+4. Scroll to **Add SSH Keys** → **Paste SSH Keys**
+5. Paste contents of `~/.ssh/oracle_new.pub`
+6. Click **Save Changes**
+7. Connect with new key:
+   ```bash
+   ssh -i ~/.ssh/oracle_new ubuntu@YOUR_PUBLIC_IP
+   ```
+
+---
+
+**Instance stopped and won't start - "Out of host capacity"**
+
+This is rare but can happen during Oracle infrastructure maintenance. Solutions:
+1. Wait a few hours and try starting again
+2. If persistent, you may need to create a new instance in a different availability domain
+3. Before deleting the old instance, stop it and create a **Boot Volume Backup** to preserve data
+
+---
+
+**How to check VM resource usage**
+
+```bash
+# Memory usage
+free -h
+
+# Disk space
+df -h
+
+# CPU and process list (top)
+top
+# Press 'q' to exit
+
+# Docker container resource usage
+docker stats mrroboto
+# Press Ctrl+C to exit
+```
+
+The bot typically uses:
+- **Memory:** 100-300MB
+- **CPU:** 1-5% (spikes during song changes/messages)
+- **Disk:** < 500MB total
+
+---
+
+**VM rebooted and bot didn't restart**
+
+The `--restart unless-stopped` flag should handle this automatically. If not:
+```bash
+# Check if Docker service is running
+sudo systemctl status docker
+
+# Start Docker if stopped
+sudo systemctl start docker
+
+# Enable Docker to start on boot
+sudo systemctl enable docker
+
+# Check if container is running
+docker ps
+
+# Start container if stopped
+docker start mrroboto
+```
