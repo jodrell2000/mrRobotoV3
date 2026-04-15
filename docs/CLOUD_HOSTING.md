@@ -370,6 +370,78 @@ Connected to hangout
 
 ---
 
+### Alternative: Automated Deployment Script
+
+Instead of manually performing Steps 8-10, you can use the deployment script (like the Google Cloud deployment):
+
+**From your local machine:**
+
+```bash
+# Navigate to project directory
+cd ~/Documents/Git/mrRobotoV3
+
+# Deploy with data upload
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data --logs
+
+# Or deploy without data upload (faster, keeps existing VM data)
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+```
+
+**The script will:**
+1. Upload your `.env` file (automatically removes `GCS_BUCKET_NAME`)
+2. Optionally upload your `data` directory
+3. Pull the latest Docker image
+4. Stop and remove the old container
+5. Start a new container
+6. Show logs (if `--logs` flag used)
+
+**Environment Variables:**
+- `ORACLE_IP` - Your VM's public IP address (required)
+- `ORACLE_SSH_KEY` - Path to SSH key (default: `~/Downloads/oracle-mrroboto.key`)
+
+**Examples:**
+
+```bash
+# First-time deployment with data upload
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
+
+# Update to new version (keeps VM data)
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
+
+# Deploy and watch logs
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --logs
+
+# Use custom SSH key location
+ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle_key ./scripts/deploy-to-oracle.sh
+```
+
+---
+
+### Data Sync Between Local and Oracle
+
+Use the sync script to download or upload data:
+
+**Download data from VM to local:**
+```bash
+# Download data
+ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh
+
+# Download with local backup first
+ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh --backup
+```
+
+**Upload local data to VM:**
+```bash
+ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh --upload
+```
+
+This is useful for:
+- Backing up VM data to your local machine
+- Testing changes locally then syncing to VM
+- Migrating data between deployments
+
+---
+
 ### Managing Your Oracle Cloud Bot
 
 **View logs:**
