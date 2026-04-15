@@ -55,7 +55,7 @@ readonly DEFAULT_SERVICE="mrroboto"
 readonly ENV_FILE=".env"
 readonly MIN_INSTANCES=1
 readonly MAX_INSTANCES=1
-readonly MEMORY="512Mi"
+readonly MEMORY="256Mi"
 readonly CPU="1"
 
 # ─── Prerequisites ───────────────────────────────────────────────────────────
@@ -304,7 +304,6 @@ deploy_service() {
     --max-instances "$MAX_INSTANCES"
     --memory "$MEMORY"
     --cpu "$CPU"
-    --no-cpu-throttling
     --no-allow-unauthenticated
     --quiet
   )
