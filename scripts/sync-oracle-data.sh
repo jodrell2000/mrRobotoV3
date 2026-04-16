@@ -37,7 +37,9 @@ Sync data between local machine and Oracle Cloud VM
 
 Required Environment:
   ORACLE_IP         Public IP address of your Oracle VM
-  ORACLE_SSH_KEY    Path to SSH private key (default: ~/Downloads/oracle-mrroboto.key)
+
+Optional Environment:
+  ORACLE_SSH_KEY    Path to SSH private key (omit if using SSH agent like 1Password)
 
 Options:
   --download        Download data from VM to local (default)
@@ -94,23 +96,26 @@ if [[ -z "${ORACLE_IP}" ]]; then
     exit 1
 fi
 
-# Set SSH key path (default or from environment)
-ORACLE_SSH_KEY="${ORACLE_SSH_KEY:-$HOME/Downloads/oracle-mrroboto.key}"
-
-if [[ ! -f "${ORACLE_SSH_KEY}" ]]; then
-    print_error "SSH key not found: ${ORACLE_SSH_KEY}"
-    echo "Set ORACLE_SSH_KEY environment variable or place key at default location"
-    exit 1
+# Set SSH key path (optional for SSH agent users)
+if [[ -n "${ORACLE_SSH_KEY}" ]]; then
+    if [[ ! -f "${ORACLE_SSH_KEY}" ]]; then
+        print_error "SSH key not found: ${ORACLE_SSH_KEY}"
+        exit 1
+    fi
+    SSH_KEY_ARG="-i ${ORACLE_SSH_KEY}"
+else
+    # Using SSH agent (e.g., 1Password)
+    SSH_KEY_ARG=""
 fi
 
 # SCP command wrapper
 scp_copy() {
-    scp -i "${ORACLE_SSH_KEY}" -o StrictHostKeyChecking=no "$@"
+    scp ${SSH_KEY_ARG} -o StrictHostKeyChecking=no "$@"
 }
 
 # SSH command wrapper
 ssh_exec() {
-    ssh -i "${ORACLE_SSH_KEY}" -o StrictHostKeyChecking=no "${ORACLE_USER}@${ORACLE_IP}" "$@"
+    ssh ${SSH_KEY_ARG} -o StrictHostKeyChecking=no "${ORACLE_USER}@${ORACLE_IP}" "$@"
 }
 
 echo "================================================================"
@@ -118,6 +123,11 @@ echo "  Mr. Roboto V3 - Oracle Data Sync"
 echo "================================================================"
 echo ""
 echo "Oracle VM IP: ${ORACLE_IP}"
+if [[ -n "${ORACLE_SSH_KEY}" ]]; then
+    echo "SSH Key: ${ORACLE_SSH_KEY}"
+else
+    echo "SSH: Using SSH agent"
+fi
 echo "Mode: ${MODE}"
 echo ""
 
@@ -163,17 +173,26 @@ elif [[ "$MODE" == "upload" ]]; then
         exit 0
     fi
     
-    print_info "Uploading data to Oracle VM..."
-    scp_copy -r ./data "${ORACLE_USER}@${ORACLE_IP}:${REMOTE_DIR}/"
+    # Create remote directory if it doesn't exist
+    print_info "Ensuring remote directory exists..."
+    ssh_exec "mkdir -p ${REMOTE_DIR}/data"
     
-    # Get file count and size
-    FILE_COUNT=$(find ./data -type f | wc -l | tr -d ' ')
+    print_info "Uploading data to Oracle VM (excluding *_example files)..."
+    # Use rsync to exclude _example files
+    rsync -avz --exclude='*_example' ${SSH_KEY_ARG} ./data/ "${ORACLE_USER}@${ORACLE_IP}:${REMOTE_DIR}/data/"
+    
+    # Get file count and size (excluding _example files)
+    FILE_COUNT=$(find ./data -type f ! -name '*_example' | wc -l | tr -d ' ')
     DATA_SIZE=$(du -sh ./data | cut -f1)
     
     print_info "Uploaded $FILE_COUNT files ($DATA_SIZE total)"
     
     print_warn "You may need to restart the bot for changes to take effect:"
-    echo "  ssh -i ${ORACLE_SSH_KEY} ${ORACLE_USER}@${ORACLE_IP} 'docker restart mrroboto'"
+    if [[ -n "${ORACLE_SSH_KEY}" ]]; then
+        echo "  ssh -i ${ORACLE_SSH_KEY} ${ORACLE_USER}@${ORACLE_IP} 'docker restart mrroboto'"
+    else
+        echo "  ssh ${ORACLE_USER}@${ORACLE_IP} 'docker restart mrroboto'"
+    fi
 fi
 
 echo ""
