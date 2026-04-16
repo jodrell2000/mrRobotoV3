@@ -1,332 +1,478 @@
-# Cloud Hosting Guide
+# Oracle Cloud Hosting Guide
 
 > **This is optional.** If you're happy running the bot on your local machine, you can skip this entirely.
 
-Running Mr. Roboto V3 on cloud infrastructure gives you 24/7 bot availability without keeping your computer on. This guide covers Oracle Cloud's Always Free tier as the recommended option, with alternatives included for comparison.
+This guide provides step-by-step instructions for deploying Mr. Roboto V3 to Oracle Cloud Infrastructure (OCI) using the **Always Free tier** — giving you **24/7 bot availability at zero cost, forever**.
 
 ---
 
 ## Table of Contents
 
-- [Why Cloud Hosting?](#why-cloud-hosting)
+- [Why Oracle Cloud?](#why-oracle-cloud)
 - [Prerequisites](#prerequisites)
-- [Option 1: Oracle Cloud Always Free (Recommended)](#option-1-oracle-cloud-always-free-recommended)
-- [Option 2: Other Platforms](#option-2-other-platforms)
-- [Platform Comparison](#platform-comparison)
+- [Setup Overview](#setup-overview)
+- [Step 1: Create Oracle Cloud Account](#step-1-create-oracle-cloud-account-15-30-minutes)
+- [Step 2: Access Oracle Cloud Console](#step-2-access-oracle-cloud-console-2-minutes)
+- [Step 3: Create Virtual Cloud Network](#step-3-create-virtual-cloud-network-5-minutes)
+- [Step 4: Create a Compute Instance](#step-4-create-a-compute-instance-10-minutes)
+- [Step 5: Connect via SSH](#step-5-connect-via-ssh-5-minutes)
+- [Step 6: Install Docker](#step-6-install-docker-5-minutes)
+- [Step 7: Deploy the Bot](#step-7-deploy-the-bot-automated-method)
+- [Managing Your Bot](#managing-your-bot)
+- [Data Synchronization](#data-synchronization)
 - [Frequently Asked Questions](#frequently-asked-questions)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
-## Why Cloud Hosting?
+## Why Oracle Cloud?
 
-| Feature | Local Docker | Cloud Hosting |
-|---------|-------------|---------------|
-| 24/7 availability | Only when PC is on | Always |
-| Cost | $0 (electricity) | $0 (Oracle Always Free) |
-| Setup complexity | Easy | Medium |
-| Maintenance | Manual updates | Manual updates |
+**Oracle Cloud's Always Free tier** provides truly free-forever infrastructure — no expiration, no credit crunch, no hidden costs.
+
+| Feature | Local Docker | Oracle Cloud Always Free |
+|---------|-------------|--------------------------|
+| **24/7 availability** | Only when PC is on | ✅ Always online |
+| **Monthly cost** | $0 (electricity) | ✅ $0 forever |
+| **Setup time** | 5 minutes | 45-60 minutes (one-time) |
+| **Maintenance** | Manual updates | Manual updates via SSH |
+| **Expiration** | Never | ✅ Never |
+
+**What you get for free (forever):**
+- 2 × AMD micro instances (1/8 OCPU, 1GB RAM each)
+- 4 × ARM cores + 24GB RAM (Ampere A1 instances)
+- 200GB total block storage
+- 10TB/month outbound data transfer
+
+The bot runs perfectly on one AMD micro instance (1GB RAM).
 
 ---
 
 ## Prerequisites
 
-Before starting, you need:
+Before starting, ensure you have:
 
-- A fully configured `.env` file with your bot credentials (see [Setting Up Your Environment](SETTING_UP_YOUR_ENVIRONMENT.md))
-- Basic comfort with terminal commands
+- ✅ **Your bot's `.env` file** fully configured and working locally (see [Setting Up Your Environment](SETTING_UP_YOUR_ENVIRONMENT.md))
+- ✅ **A credit/debit card** for Oracle account verification (you will NOT be charged)
+- ✅ **Basic terminal familiarity** - ability to copy/paste commands and use SSH
+- ✅ **SSH access** - either SSH key or SSH agent (1Password, Secretive, etc.)
 
-You do **not** need Docker installed locally — the pre-built images are already published on GitHub Container Registry.
+You do **not** need:
+- ❌ Docker installed locally (we use pre-built images from GitHub Container Registry)
+- ❌ Prior cloud infrastructure experience
 
 ---
 
-## Option 1: Oracle Cloud Always Free (Recommended)
+## Setup Overview
 
-Oracle Cloud offers **truly free-forever** virtual machines — unlike Google's credit-based free tier, these never expire.
+The deployment process has three phases:
 
-### Free Tier Details
+**Phase 1: Oracle Cloud Account Setup** (~30 minutes)
+1. Create Oracle Cloud account with credit card verification
+2. Access Oracle Cloud Console
+3. Create Virtual Cloud Network (VCN)
+4. Create compute instance (VM)
 
-- 2 × AMD micro instances (1/8 OCPU, 1GB RAM each)
-- 4 × ARM cores + 24GB RAM (flexible Always Free instances)
-- No expiry on Always Free resources
+**Phase 2: VM Preparation** (~15 minutes)
+5. Connect to VM via SSH
+6. Install Docker
 
-The AMD micro instance (1GB RAM) is sufficient for the bot.
+**Phase 3: Bot Deployment** (~5 minutes)
+7. Deploy bot using automated script (or manual method)
 
-### Step-by-Step Setup
+**Total time:** 45-60 minutes (one-time setup)
 
-#### Step 1: Create Oracle Cloud Account (15-30 minutes)
+---
 
-1. Go to [oracle.com/cloud/free](https://oracle.com/cloud/free)
-2. Click **Start for free**
-3. Fill in account details:
+## Step 1: Create Oracle Cloud Account (15-30 minutes)
+
+## Step 1: Create Oracle Cloud Account (15-30 minutes)
+
+Oracle Cloud offers **truly free-forever** resources that never expire. The credit card is for identity verification only — you will NOT be charged for Always Free services.
+
+### Account Creation Process
+
+1. **Start signup**
+   - Go to [oracle.com/cloud/free](https://oracle.com/cloud/free)
+   - Click **Start for free**
+
+2. **Enter account details**
    - **Country/Territory**: Your location
    - **Email**: Valid email address
-   - **First and Last Name**: Real name (verified against card)
+   - **First and Last Name**: Real name (must match credit card)
    - Click **Verify my email**
 
-4. Check your email and click the verification link
+3. **Verify email**
+   - Check your inbox for Oracle verification email
+   - Click the verification link
 
-5. Complete the signup form:
+4. **Complete registration**
    - **Account Name**: Choose a unique name (e.g., `mrroboto-bot`)
-   - **Home Region**: Choose closest region (e.g., UK South / London, US East / Ashburn)
-   - ⚠️ **Cannot change region after signup**
-   - **Address**: Must match credit card billing address
-   - **Phone**: Valid phone number for verification
+   - **Home Region**: Select closest region
+     - UK: **UK South (London)**
+     - US East Coast: **US East (Ashburn)**
+     - US West Coast: **US West (Phoenix or San Jose)**
+     - ⚠️ **IMPORTANT:** Cannot change region after signup
+   - **Address**: Must match credit card billing address exactly
+   - **Phone**: Valid phone number for SMS verification
 
-6. Add payment verification:
-   - Enter credit card details
-   - Oracle will authorize $1-2 then immediately refund it
-   - ⚠️ **You will NOT be charged** for Always Free resources
-   - This is identity verification only
+5. **Payment verification**
+   - Enter credit/debit card details
+   - Oracle will authorize $1-2 and immediately refund it
+   - This is **identity verification only**
+   - ✅ You will NOT be charged for Always Free resources
 
-7. Review and accept terms
-8. Click **Start my free trial**
-
-9. Wait for account approval:
-   - Usually instant, but can take up to 24 hours
+6. **Submit and wait**
+   - Review terms and click **Start my free trial**
+   - Wait for account approval (usually instant, up to 24 hours max)
    - Check email for "Your Oracle Cloud account is ready"
 
-> **Tip:** If signup fails with "Unable to process your request", try:
-> - Different browser (Chrome/Firefox)
-> - Incognito/private mode
-> - Different email address
-> - Contact Oracle support via chat
+### Troubleshooting Signup
+
+**"Unable to process your request" error:**
+- Try different browser (Chrome/Firefox)
+- Use incognito/private mode
+- Try different email address
+- Contact Oracle support chat at [cloud.oracle.com](https://cloud.oracle.com)
+
+**Account stuck on "Provisioning":**
+- Wait - most accounts approve within 1 hour
+- Check email for requests for additional info
+- If >24 hours, contact Oracle support
 
 ---
 
-#### Step 2: Access Oracle Cloud Console (2 minutes)
+## Step 2: Access Oracle Cloud Console (2 minutes)
 
-1. Go to [cloud.oracle.com](https://cloud.oracle.com)
-2. Click **Sign in to Cloud**
-3. Enter your **Cloud Account Name** from Step 1
-4. Click **Next**
-5. Sign in with your email and password
-6. You'll land on the Oracle Cloud Dashboard
+Once your account is approved:
+
+1. **Sign in**
+   - Go to [cloud.oracle.com](https://cloud.oracle.com)
+   - Click **Sign in to Cloud**
+
+2. **Enter credentials**
+   - **Cloud Account Name**: Enter the account name you chose
+   - Click **Next**
+   - **Email and Password**: Your login credentials
+
+3. **Navigate to dashboard**
+   - You'll see the Oracle Cloud Dashboard
+   - This is your main control panel
 
 ---
 
-#### Step 3: Create Virtual Cloud Network (5 minutes)
+## Step 3: Create Virtual Cloud Network (5 minutes)
 
-Before creating the instance, you must create a Virtual Cloud Network (VCN) with internet connectivity.
+Before creating the VM instance, you need a Virtual Cloud Network (VCN) for internet connectivity.
 
-1. From the dashboard, click the **≡** menu (top left)
-2. Navigate: **Networking** → **Virtual Cloud Networks**
-3. Click the down arrow on **Actions** → Select **Start VCN Wizard**
-4. Select **Create VCN with Internet Connectivity**
-5. Click **Start VCN Wizard**
+1. **Open VCN wizard**
+   - Click the **≡** menu (top left hamburger icon)
+   - Navigate: **Networking** → **Virtual Cloud Networks**
+   - Click the down arrow on **Actions** → **Start VCN Wizard**
 
-**VCN Configuration:**
-- **VCN Name**: `mrroboto-vcn`
-- **Compartment**: Leave as root
-- **VCN IPv4 CIDR Block**: Leave as default (`10.0.0.0/16`)
-- **Public Subnet CIDR Block**: Leave as default (`10.0.0.0/24`)
-- **Private Subnet CIDR Block**: Leave as default (`10.0.1.0/24`)
+2. **Select wizard type**
+   - Choose: **Create VCN with Internet Connectivity**
+   - Click **Start VCN Wizard**
 
-6. Click **Next**
-7. Review the configuration
-8. Click **Create**
+3. **Configure VCN**
+   - **VCN Name**: `mrroboto-vcn`
+   - **Compartment**: Leave as **root**
+   - **VCN IPv4 CIDR Block**: Leave default (`10.0.0.0/16`)
+   - **Public Subnet CIDR Block**: Leave default (`10.0.0.0/24`)
+   - **Private Subnet CIDR Block**: Leave default (`10.0.1.0/24`)
 
-Wait for the VCN creation to complete (~30 seconds). This creates:
+4. **Create**
+   - Click **Next**
+   - Review configuration
+   - Click **Create**
+   - Wait ~30 seconds for completion
+
+The wizard creates:
 - Virtual Cloud Network
-- Public subnet (for your instance)
+- Public subnet (for your VM instance)
 - Private subnet
 - Internet Gateway
 - NAT Gateway
-- Security Lists
+- Route tables
+- Security lists (includes SSH port 22 by default)
 
 ---
 
-#### Step 4: Create a Compute Instance (10 minutes)
+## Step 4: Create a Compute Instance (10 minutes)
 
-1. From the dashboard, click the **≡** menu (top left)
-2. Navigate: **Compute** → **Instances**
-3. Ensure you're in **root compartment** (dropdown at top)
-4. Click **Create Instance**
+## Step 4: Create a Compute Instance (10 minutes)
 
-**Instance Configuration:**
+Now create the virtual machine that will run your bot 24/7.
 
-**Name:**
-```
-mrroboto-bot
-```
+1. **Navigate to instances**
+   - Click the **≡** menu (top left)
+   - Navigate: **Compute** → **Instances**
+   - Ensure you're in **root compartment** (dropdown at top)
+   - Click **Create Instance**
 
-**Placement:**
-- **Compartment**: Leave as root
-- **Availability Domain**: Select any (usually only 1 available)
+2. **Configure instance name**
+   ```
+   Name: mrroboto-bot
+   ```
 
-**Image and Shape:**
-1. Click **Change Shape**
-2. Select **Specialty and previous generation**
-3. Choose **VM.Standard.E2.1.Micro** (Always Free eligible)
-   - 1/8 OCPU, 1 GB Memory
-   - Look for the "Always Free Eligible" tag
-4. Click **Select Shape**
+3. **Select placement**
+   - **Compartment**: Leave as **root**
+   - **Availability Domain**: Select any available (usually only 1 option)
 
-5. Click **Change Image**
-6. Select **Ubuntu**
-7. Choose **Canonical Ubuntu 24.04**
-8. Click **Select Image**
+4. **Choose shape**
+   - Click **Change Shape**
+   - Select **Specialty and previous generation**
+   - Choose: **VM.Standard.E2.1.Micro**
+     - 1/8 OCPU (1 virtual CPU)
+     - 1 GB Memory
+     - ✅ **Always Free Eligible** badge visible
+   - Click **Select Shape**
 
-**Networking:**
-- **Virtual cloud network**: Select **mrroboto-vcn** (the one you just created)
-- **Subnet**: Select the **public subnet** (named like `Public Subnet-mrroboto-vcn`)
-- **Assign a public IPv4 address**: Check this box ✓
+5. **Choose operating system**
+   - Click **Change Image**
+   - Select **Ubuntu**
+   - Choose **Canonical Ubuntu 24.04** (latest LTS)
+     - Architecture: **x86_64** (AMD64)
+     - Version: **Full** (not Minimal)
+   - Click **Select Image**
 
-**Add SSH Keys:**
+6. **Configure networking**
+   - **Virtual cloud network**: Select **mrroboto-vcn** (created in Step 3)
+   - **Subnet**: Select the **public subnet** (named like `Public Subnet-mrroboto-vcn`)
+   - **Assign a public IPv4 address**: ✅ Check this box
 
-**Option A: Generate new key pair (Recommended)**
-1. Select **Generate a key pair for me**
-2. Click **Save Private Key**
-3. Save file as `oracle-mrroboto.key` in a secure location
-4. Click **Save Public Key** (optional, for reference)
+7. **Configure SSH keys**
 
-**Option B: Use existing SSH key**
-1. Select **Upload public key files (.pub)**
-2. Browse and select your existing `~/.ssh/id_rsa.pub`
+   **Option A: Generate new key pair (Recommended for beginners)**
+   - Select **Generate a key pair for me**
+   - Click **Save Private Key**
+   - Save file as `oracle-mrroboto.key` in `~/Downloads/`
+   - Click **Save Public Key** (optional, for your records)
 
-**Boot Volume:**
-- Leave default (50 GB) - plenty for bot
+   **Option B: Use existing SSH key**
+   - Select **Upload public key files (.pub)**
+   - Browse and select your `~/.ssh/id_rsa.pub` or similar
 
-5. Click **Create** (bottom of page)
+   **Option C: Use SSH agent (1Password, Secretive, etc.)**
+   - If you use an SSH agent, select Option B above
+   - Upload the public key from your SSH agent
+   - No need to save/manage key files
 
-**Wait for provisioning:**
-- Status: Provisioning → Running (takes 2-3 minutes)
-- Once **Running**, note the **Public IP Address** (e.g., 144.24.xxx.xxx)
+8. **Configure boot volume**
+   - Leave default (50 GB) - plenty for the bot
 
----
+9. **Create the instance**
+   - Click **Create** at the bottom
+   - Wait for provisioning: **Provisioning** → **Running** (2-3 minutes)
+   - ✅ Once **Running**, note the **Public IP Address** (e.g., `144.24.xxx.xxx`)
 
-#### Step 5: Configure Firewall (Optional but Recommended)
-
-By default, Oracle blocks most incoming traffic. For SSH access:
-
-1. On your instance page, under **Instance Details**
-2. Click the **Virtual Cloud Network** link (e.g., vcn-xxx)
-3. Click the **Security Lists** link
-4. Click **Default Security List**
-5. Verify **Ingress Rule** for SSH exists:
-   - Source: 0.0.0.0/0
-   - Protocol: TCP
-   - Port: 22
-6. This should already exist; if not, click **Add Ingress Rules** and add it
-
-> **Note:** The bot doesn't need any incoming connections, so no additional firewall rules needed.
+**Important:** Save the public IP address - you'll need it for all deployment commands.
 
 ---
 
-#### Step 6: Connect via SSH (5 minutes)
+## Step 5: Connect via SSH (5 minutes)
 
-**macOS / Linux:**
+Test SSH connectivity to your new VM.
+
+### macOS / Linux
+
+If you generated a new key pair in Step 4:
 
 ```bash
 # Set correct permissions on private key
 chmod 400 ~/Downloads/oracle-mrroboto.key
 
-# Connect to instance (replace with your public IP)
+# Connect to instance (replace with YOUR public IP)
 ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 ```
 
-**Windows:**
+If using an existing SSH key or SSH agent:
+
+```bash
+# Connect directly (SSH will use your default key or agent)
+ssh ubuntu@YOUR_PUBLIC_IP
+```
+
+### Windows
 
 Using PowerShell:
 ```powershell
-# Connect (right-click to paste public IP)
+# With key file
 ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+
+# Or if using PuTTY, convert .key to .ppk first with PuTTYgen
 ```
 
-Or use [PuTTY](https://www.putty.org/) with the private key converted to .ppk format.
+### First Connection
 
-**First connection:**
-- Answer `yes` to "Are you sure you want to continue connecting?"
-- You should see Ubuntu welcome message
+- Answer `yes` when prompted: "Are you sure you want to continue connecting?"
+- You should see the Ubuntu welcome message
+- You're now connected to your Oracle Cloud VM! 🎉
+
+**Keep this SSH session open** for the next steps.
 
 ---
 
-#### Step 7: Install Docker (5 minutes)
+## Step 6: Install Docker (5 minutes)
 
-Run these commands on the Oracle VM:
+Run these commands on the Oracle VM (while connected via SSH):
 
 ```bash
-# Install Docker
+# 1. Install Docker using official script
 curl -fsSL https://get.docker.com | sh
 
-# Add ubuntu user to docker group
+# 2. Add ubuntu user to docker group (allows Docker without sudo)
 sudo usermod -aG docker ubuntu
 
-# Verify installation
+# 3. Verify Docker installation
 docker --version
 
-# Log out and back in for group changes to take effect
+# 4. Log out for group changes to take effect
 exit
 ```
 
 **Reconnect via SSH:**
 ```bash
 ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+# Or: ssh ubuntu@YOUR_PUBLIC_IP  (if using agent/default key)
 ```
 
 **Test Docker:**
 ```bash
 docker ps
-# Should show empty table, not permission error
+# Should show empty table (not "permission denied")
 ```
+
+✅ Docker is now installed and ready!
 
 ---
 
-#### Step 8: Prepare Environment (5 minutes)
+## Step 7: Deploy the Bot (Automated Method)
 
-**Create directory for bot:**
+You can deploy the bot using the automated deployment script (recommended) or manually. Both methods are documented below.
+
+### Method 1: Automated Deployment Script (Recommended)
+
+The easiest way to deploy is using the automation script from your **local machine** (not the VM).
+
+**On your local machine:**
+
+```bash
+# Navigate to your project directory
+cd ~/Documents/Git/mrRobotoV3
+
+# First-time deployment with data upload
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data --logs
+```
+
+Replace `YOUR_PUBLIC_IP` with your instance's public IP from Step 4.
+
+**What the script does:**
+1. ✅ Tests SSH connection
+2. ✅ Creates `~/mrroboto` directory on VM
+3. ✅ Uploads `.env` file (automatically strips quotes and removes `GCS_BUCKET_NAME`)
+4. ✅ Uploads `data/` directory (excludes `*_example` files)
+5. ✅ Pulls Docker image from GitHub Container Registry
+6. ✅ Stops old container (if exists)
+7. ✅ Starts new container with correct configuration
+8. ✅ Shows logs (if `--logs` flag used)
+
+**Script Options:**
+
+```bash
+# Deploy with data upload and show logs
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data --logs
+
+# Update bot (keeps existing data on VM)
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
+
+# Deploy without uploading .env (use existing VM .env)
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env
+
+# Just watch logs without redeploying
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env --logs
+```
+
+**SSH Authentication:**
+
+The script supports multiple authentication methods:
+
+- **SSH Agent (1Password, Secretive, etc.):** Just set `ORACLE_IP`
+```bash
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+- **SSH Key File:** Set `ORACLE_SSH_KEY` environment variable
+```bash
+ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/Downloads/oracle-mrroboto.key ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+- **Custom SSH Key Location:** Point to any key file
+```bash
+ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle_custom ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+**After deployment:**
+
+Check the logs for successful startup:
+```
+✅ Bot instance created
+✅ Connected to hangout
+```
+
+**Verify in hangout:**
+1. Go to your tt.fm hangout
+2. Bot should appear in the user list
+3. Test: `!ping` → bot should respond with "Pong!"
+
+### Method 2: Manual Deployment
+
+If you prefer manual control or the script doesn't work, follow these steps on the VM via SSH.
+
+**1. Create bot directory:**
 ```bash
 mkdir -p ~/mrroboto
 cd ~/mrroboto
 ```
 
-**Create .env file:**
+**2. Create .env file:**
 ```bash
 nano .env
 ```
 
-**Paste your .env contents** (from local development):
+**3. Paste your local .env contents:**
 - Press `Ctrl+Shift+V` to paste
-- **Remove or comment out** `GCS_BUCKET_NAME` line (not needed on Oracle)
-- Example:
+- **Remove quotes** from all values (Docker doesn't strip them)
+- **Remove** the `GCS_BUCKET_NAME` line (not needed on Oracle)
 
+Example:
 ```bash
-TTFM_GATEWAY_BASE_URL="https://gateway.prod.tt.fm"
+TTFM_GATEWAY_BASE_URL=https://gateway.prod.tt.fm
 COMETCHAT_API_KEY=193427bb5702bab7
 COMETCHAT_AUTH_TOKEN=your-token-here
 BOT_UID=your-bot-uid
-BOT_USER_TOKEN=your-bot-token
+BOT_USER_TOKEN=your-long-jwt-token
 HANGOUT_ID=your-hangout-id
-COMMAND_SWITCH="!"
+COMMAND_SWITCH=!
 COMETCHAT_RECEIVER_UID=your-receiver-uid
 googleAIKey=your-google-ai-key
 groqAPIKey=your-groq-key
 
-# Remove this line on Oracle:
-# GCS_BUCKET_NAME=mrroboto-data-gen-lang-client-0526975492
+# Do NOT include GCS_BUCKET_NAME
 ```
 
-**Save and exit:**
+**Important:** Remove all quotes from values. Docker's `--env-file` doesn't strip them like docker-compose does.
+
+**4. Save and exit nano:**
 - Press `Ctrl+X`
 - Press `Y` to confirm
 - Press `Enter` to save
 
-**Verify file:**
-```bash
-cat .env
-# Check all values are correct
-```
-
----
-
-#### Step 9: Deploy the Bot (5 minutes)
-
-**Pull the Docker image:**
+**5. Pull Docker image:**
 ```bash
 docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
 ```
 
-**Run the bot:**
+**6. Run the bot:**
 ```bash
 docker run -d \
   --name mrroboto \
@@ -337,514 +483,332 @@ docker run -d \
 ```
 
 **Explanation:**
-- `-d`: Run in background
-- `--name mrroboto`: Container name
-- `--restart unless-stopped`: Auto-restart on VM reboot
-- `--env-file .env`: Load environment variables
-- `-v ~/mrroboto/data:/usr/src/app/data`: Persist data on VM
+- `-d`: Run in background (detached)
+- `--name mrroboto`: Container name for easy management
+- `--restart unless-stopped`: Auto-restart after VM reboots
+- `--env-file .env`: Load environment variables from file
+- `-v ~/mrroboto/data:/usr/src/app/data`: Mount data directory (persists across updates)
+- `ghcr.io/jodrell2000/mrrobotov3:1.0.0-test`: Docker image to run
 
-**Check bot is running:**
+**7. Check bot is running:**
 ```bash
 docker ps
-# Should show mrroboto container running
+# Should show mrroboto container
 
 docker logs -f mrroboto
 # Watch live logs (Ctrl+C to exit)
 ```
 
-**Look for successful startup:**
-```
-✅ Bot instance created
-✅ SocketClient created
-Connected to hangout
-```
+**8. Verify in hangout:**
+- Go to your tt.fm hangout
+- Bot should appear in user list
+- Test: `!ping`
 
 ---
 
-#### Step 10: Verify Bot in Hangout (2 minutes)
+## Managing Your Bot
 
-1. Go to your tt.fm hangout
-2. Bot should be present in the room
-3. Test with a command: `!ping`
-4. Bot should respond
+## Managing Your Bot
 
----
+Common management tasks for your Oracle Cloud bot.
 
-### Alternative: Automated Deployment Script
+### View Logs
 
-Instead of manually performing Steps 8-10, you can use the deployment script (like the Google Cloud deployment):
-
-**From your local machine:**
-
+**Live logs (follow mode):**
 ```bash
-# Navigate to project directory
-cd ~/Documents/Git/mrRobotoV3
-
-# Deploy with data upload
-ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data --logs
-
-# Or deploy without data upload (faster, keeps existing VM data)
-ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+ssh ubuntu@YOUR_PUBLIC_IP 'docker logs -f mrroboto'
+# Press Ctrl+C to exit
 ```
 
-**The script will:**
-1. Upload your `.env` file (automatically removes `GCS_BUCKET_NAME`)
-2. Optionally upload your `data` directory
-3. Pull the latest Docker image
-4. Stop and remove the old container
-5. Start a new container
-6. Show logs (if `--logs` flag used)
-
-**Environment Variables:**
-- `ORACLE_IP` - Your VM's public IP address (required)
-- `ORACLE_SSH_KEY` - Path to SSH key (default: `~/Downloads/oracle-mrroboto.key`)
-
-**Examples:**
-
+**Last 100 lines:**
 ```bash
-# First-time deployment with data upload
-ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
-
-# Update to new version (keeps VM data)
-ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
-
-# Deploy and watch logs
-ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --logs
-
-# Use custom SSH key location
-ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle_key ./scripts/deploy-to-oracle.sh
+ssh ubuntu@YOUR_PUBLIC_IP 'docker logs --tail 100 mrroboto'
 ```
 
----
+### Restart Bot
 
-### Data Sync Between Local and Oracle
-
-Use the sync script to download or upload data:
-
-**Download data from VM to local:**
+**Graceful restart (recommended):**
 ```bash
-# Download data
-ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh
-
-# Download with local backup first
-ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh --backup
+ssh ubuntu@YOUR_PUBLIC_IP 'docker restart -t 30 mrroboto'
 ```
 
-**Upload local data to VM:**
+The `-t 30` gives the bot 30 seconds to shut down gracefully before forcing termination.
+
+**Quick restart:**
 ```bash
-ORACLE_IP=144.24.xxx.xxx ./scripts/sync-oracle-data.sh --upload
+ssh ubuntu@YOUR_PUBLIC_IP 'docker restart mrroboto'
 ```
 
-This is useful for:
-- Backing up VM data to your local machine
-- Testing changes locally then syncing to VM
-- Migrating data between deployments
-
----
-
-### Managing Your Oracle Cloud Bot
-
-**View logs:**
-```bash
-docker logs -f mrroboto
-```
-
-**Restart bot:**
-```bash
-docker restart mrroboto
-```
+### Stop/Start Bot
 
 **Stop bot:**
 ```bash
-docker stop mrroboto
+ssh ubuntu@YOUR_PUBLIC_IP 'docker stop -t 30 mrroboto'
 ```
 
-**Update to new version:**
+**Start stopped bot:**
 ```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker start mrroboto'
+```
+
+### Check Bot Status
+
+**Is bot running?**
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker ps | grep mrroboto'
+# Shows container info if running
+```
+
+**Container health:**
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker stats --no-stream mrroboto'
+# Shows CPU, memory, network usage
+```
+
+### Update to New Version
+
+When a new bot version is released:
+
+**Option 1: Using deployment script (recommended)**
+```bash
+# From local machine
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+```
+
+**Option 2: Manual update**
+```bash
+# SSH into VM
+ssh ubuntu@YOUR_PUBLIC_IP
+
 # Pull latest image
-docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
+docker pull ghcr.io/jodrell2000/mrrobotov3:latest
 
 # Stop and remove old container
 docker stop mrroboto && docker rm mrroboto
 
-# Run new version (same command as Step 9)
+# Start new version
 docker run -d \
   --name mrroboto \
   --restart unless-stopped \
-  --env-file .env \
-  -v ~/mrroboto/data:/usr/src/app/data \
-  ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
+  --env-file /home/ubuntu/mrroboto/.env \
+  -v /home/ubuntu/mrroboto/data:/usr/src/app/data \
+  ghcr.io/jodrell2000/mrrobotov3:latest
 ```
 
-**Backup data from VM to local:**
+Your data persists in the volume mount, so you won't lose any history.
+
+### Check VM Resources
+
+**Disk space:**
 ```bash
-# On your local machine
-scp -i ~/Downloads/oracle-mrroboto.key -r ubuntu@YOUR_PUBLIC_IP:~/mrroboto/data ./backup-data
+ssh ubuntu@YOUR_PUBLIC_IP 'df -h'
 ```
 
-**Upload data from local to VM:**
+**Memory usage:**
 ```bash
-# On your local machine
-scp -i ~/Downloads/oracle-mrroboto.key -r ./data ubuntu@YOUR_PUBLIC_IP:~/mrroboto/
+ssh ubuntu@YOUR_PUBLIC_IP 'free -h'
 ```
 
-**Check VM resources:**
+**All docker containers:**
 ```bash
-# Disk space
-df -h
-
-# Memory usage
-free -h
-
-# Running processes
-top
-# Press 'q' to exit
+ssh ubuntu@YOUR_PUBLIC_IP 'docker ps -a'
 ```
 
-**Update Ubuntu (monthly maintenance):**
+### Update Ubuntu (Monthly Maintenance)
+
 ```bash
-sudo apt update && sudo apt upgrade -y
+ssh ubuntu@YOUR_PUBLIC_IP 'sudo apt update && sudo apt upgrade -y'
 ```
+
+Run this monthly to keep the OS secure and up-to-date.
 
 ---
 
-## Option 2: Other Platforms
+## Data Synchronization
 
-### Fly.io
+The sync script helps you transfer data between your local machine and Oracle VM.
 
-- **Free machines:** 3 × 256MB VMs — too small for this bot (needs 512MB)
-- **Paid:** ~$3–5/month for a 512MB machine
-- Simple CLI deployment: `flyctl deploy`
+### Download Data from VM
 
-### Railway
+**Basic download:**
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh
+```
 
-- **Free tier:** $5 credit/month — may cover light bot usage
-- **Paid:** Starting at $5/month
-- Pros: Easy GitHub integration, built-in metrics
+**Download with local backup:**
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --backup
+```
 
-### Render
+This creates a timestamped backup (e.g., `data-backup-20260416-143022`) before downloading.
 
-- **Free tier:** Web services spin down after 15 minutes of inactivity — not suitable for a persistent bot
-- **Paid:** Starting at $7/month for persistent services
+### Upload Data to VM
 
----
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --upload
+```
 
-## Platform Comparison
+**Warning:** This overwrites data on the VM. Use with caution.
 
-| Platform | Monthly Cost | Expires? | Setup Difficulty | Persistent? |
-|----------|-------------|----------|-----------------|------------|
-| Local Docker | $0 | Never | Easy | Only when PC is on |
-| Oracle Cloud | $0 | Never | Medium | Yes |
-| Fly.io | ~$3–5 | N/A | Medium | Yes |
-| Railway | $0–5 credit | Monthly | Easy | Yes |
-| Render | $7+ | N/A | Easy | Yes (paid only) |
+### Use Cases
 
-**Recommendation:** **Oracle Cloud Always Free** is the best option for free 24/7 cloud hosting. The setup takes 30-60 minutes but the VM is truly free forever with no hidden costs.
+**Backup VM data:**
+```bash
+# Download with backup
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --backup
+```
+
+**Test changes locally, then deploy:**
+```bash
+# 1. Download current VM data
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh
+
+# 2. Test changes locally with docker-compose
+./docker-start-safe.sh
+
+# 3. Once satisfied, upload to VM
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --upload
+
+# 4. Restart bot
+ssh ubuntu@YOUR_PUBLIC_IP 'docker restart mrroboto'
+```
+
+**Migrate between deployments:**
+```bash
+# Download from old VM
+ORACLE_IP=OLD_IP ./scripts/sync-oracle-data.sh --backup
+
+# Upload to new VM
+ORACLE_IP=NEW_IP ./scripts/sync-oracle-data.sh --upload
+```
+
+### What Gets Synced
+
+The data directory includes:
+- `botConfig.json` - Bot configuration and personality
+- `chat.json` - Chat message history
+- `welcomeMessages.json` - Custom welcome messages
+- `aliases.json` - User aliases
+- `themes.json` - Hangout themes
+- `mrroboto.db` - SQLite database (song history, conversations)
+- `image-validation-cache.json` - Image URL validation cache
+
+Files ending in `_example` are automatically excluded from uploads.
 
 ---
 
 ## Frequently Asked Questions
 
-### Instance Creation Questions
+### Account & Billing
 
-**Q: Which availability domain should I pick when creating an instance?**
+**Q: Will I really never be charged for the Always Free VM?**
 
-A: Choose any available domain (usually there's only one option per region). All availability domains within the same region have identical capabilities and performance. If one domain says "Out of capacity", simply select another.
+A: Correct! As long as you use **Always Free Eligible** resources (look for the badge when creating resources), you will never be charged. The VM.Standard.E2.1.Micro shape is permanently free with no expiration.
+
+Be careful not to accidentally create paid resources (larger instances, load balancers, etc.). Always verify the "Always Free Eligible" badge.
+
+---
+
+**Q: Why does Oracle need my credit card if it's free?**
+
+A: Identity verification only. Oracle authorizes $1-2 and immediately refunds it. This prevents abuse and bot signups. You will NOT be charged for Always Free resources.
+
+---
+
+**Q: My account signup is stuck on "Provisioning" or "Pending Approval". What do I do?**
+
+A: Most accounts approve within 5-30 minutes, but can take up to 24 hours. Common reasons:
+- High demand in selected region
+- Credit card verification delay
+- Automated fraud detection triggered manual review
+
+**Solutions:**
+1. Wait - most approve within 1 hour
+2. Check email for additional info requests
+3. If >24 hours, contact Oracle support at [cloud.oracle.com](https://cloud.oracle.com)
+
+---
+
+### Instance Creation
+
+**Q: Which availability domain should I pick?**
+
+A: Choose any available (usually only 1 option per region). All availability domains have identical capabilities. If one shows "Out of capacity", try another.
 
 ---
 
 **Q: Do I need a shielded instance?**
 
-A: No. Shielded instances add security features (Secure Boot, vTPM) that are useful for enterprise workloads or sensitive data processing. For a Discord/chat bot, standard security is sufficient. Shielded instances can add configuration complexity without meaningful benefit for this use case.
+A: No. Shielded instances add enterprise security features (Secure Boot, vTPM) that aren't necessary for a chat bot. Standard security is sufficient.
 
 ---
 
-**Q: What's the difference between Ubuntu 24.04, 22.04, and 20.04?**
+**Q: Ubuntu 24.04, 22.04, or 20.04?**
 
-A: These are different Long-Term Support (LTS) release versions:
-- **Ubuntu 24.04 (Noble Numbat)** - Latest LTS, support until 2029
-- **Ubuntu 22.04 (Jammy Jellyfish)** - Previous LTS, support until 2027
-- **Ubuntu 20.04 (Focal Fossa)** - Older LTS, support until 2025
-
-**Recommendation:** Choose **24.04** for the longest support window and latest package versions.
+A: Choose **24.04** (Noble Numbat) - latest LTS with support until 2029. Includes newer packages and longest support window.
 
 ---
 
-**Q: Should I use "Full Ubuntu" or "Minimal"?**
+**Q: "Full Ubuntu" or "Minimal"?**
 
-A: Choose **Full Ubuntu** (Canonical Ubuntu). The Minimal version strips out helpful utilities (nano, curl, man pages) to save ~200MB of disk space. Since the Always Free VM includes 50GB of storage, the space savings aren't significant, and you'll save time by not having to install basic tools manually.
-
----
-
-**Q: x86_64 (AMD64) or aarch64 (ARM64)?**
-
-A: Choose **x86_64** (also called AMD64 or amd64). The VM.Standard.E2.1.Micro Always Free shape uses AMD EPYC processors (x86 architecture). The aarch64 option is for ARM-based instances which are not available in the Always Free tier.
+A: Choose **Full Ubuntu** (Canonical Ubuntu). Minimal strips helpful utilities (nano, curl, man pages) to save ~200MB. Since you get 50GB storage, use Full for convenience.
 
 ---
 
-**Q: Can I use the same Docker images as with local deployment?**
+**Q: x86_64 or aarch64 architecture?**
 
-A: Yes! The same Docker images from GitHub Container Registry (`ghcr.io/jodrell2000/mrrobotov3:latest` or `:1.0.0-test`) work identically on Oracle Cloud VMs, Google Cloud Run, or any other Docker-compatible platform. The bot code is platform-agnostic.
-
----
-
-**Q: Do I need GCS_BUCKET_NAME in my .env file for Oracle Cloud?**
-
-A: No. Google Cloud Storage (GCS) integration is only used with Google Cloud Run due to its stateless architecture. On Oracle Cloud, your data persists directly on the VM's disk (in `~/mrroboto/data/`), so you should **remove or comment out** the `GCS_BUCKET_NAME` line from your `.env` file.
+A: Choose **x86_64** (AMD64). The VM.Standard.E2.1.Micro shape uses AMD EPYC processors (x86 architecture). ARM (aarch64) instances aren't available in Always Free tier.
 
 ---
 
-**Q: How do I update the bot to a newer version on Oracle Cloud?**
+**Q: "Out of host capacity" error when creating instance**
 
-A: Follow these steps:
+A: Oracle's Always Free tier has limited availability. Solutions:
+1. Try different availability domain (AD-1, AD-2, AD-3)
+2. Try again in a few hours - capacity fluctuates
+3. Different time of day (early morning often better)
+4. Last resort: Different region (requires new account signup)
+
+---
+
+### SSH & Access
+
+**Q: Can I use 1Password or other SSH agents instead of key files?**
+
+A: Yes! The deployment scripts support SSH agents (1Password, Secretive, ssh-agent). Just don't set `ORACLE_SSH_KEY` variable:
 
 ```bash
-# 1. Pull the latest image
-docker pull ghcr.io/jodrell2000/mrrobotov3:latest
-
-# 2. Stop and remove the old container
-docker stop mrroboto && docker rm mrroboto
-
-# 3. Start the new version (same command as initial deployment)
-docker run -d \
-  --name mrroboto \
-  --restart unless-stopped \
-  --env-file .env \
-  -v ~/mrroboto/data:/usr/src/app/data \
-  ghcr.io/jodrell2000/mrrobotov3:latest
+# Works with SSH agent
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
 ```
 
-Your data persists in the volume mount (`~/mrroboto/data`), so you won't lose any history or configuration.
+Upload your public key from the SSH agent when creating the instance.
 
 ---
 
-**Q: Will I be charged for Oracle Cloud Always Free resources?**
+**Q: Can I SSH from Windows?**
 
-A: No. Oracle's Always Free resources (including the VM.Standard.E2.1.Micro instance) are **free forever** with no expiration. The credit card verification during signup is for identity verification only. As long as you only use Always Free eligible resources (look for the "Always Free Eligible" badge), you will never be charged.
-
-However, be careful not to accidentally create paid resources (larger instances, load balancers, etc.). Stick to the VM.Standard.E2.1.Micro shape and you'll stay at $0.
-
----
-
-**Q: My Oracle Cloud account signup is stuck on "Provisioning" or "Pending Approval". What should I do?**
-
-A: Account approval usually takes 5-30 minutes but can occasionally take up to 24 hours. Common reasons for delays:
-- High demand in your selected region
-- Credit card verification taking longer than usual
-- Manual review triggered by automated fraud detection
-
-**Solutions:**
-1. Wait - most accounts get approved within an hour
-2. Check your email for requests for additional information
-3. If stuck for >24 hours, contact Oracle Cloud support via live chat at [cloud.oracle.com](https://cloud.oracle.com)
-
----
-
-**Q: Can I SSH into the Oracle VM from Windows?**
-
-A: Yes! Modern Windows 10/11 includes an SSH client in PowerShell:
+A: Yes! Windows 10/11 includes SSH in PowerShell:
 
 ```powershell
-# In PowerShell
 ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 ```
 
-Alternatively, you can use [PuTTY](https://www.putty.org/):
-1. Download PuTTY and PuTTYgen
-2. Use PuTTYgen to convert the `.key` file to `.ppk` format
-3. Configure PuTTY with the public IP and `.ppk` key file
+Or use [PuTTY](https://www.putty.org/) with the key converted to `.ppk` format using PuTTYgen.
 
 ---
 
-**Q: What happens if I accidentally stop the Docker container?**
+**Q: I lost my SSH private key. How do I access my VM?**
 
-A: The container is configured with `--restart unless-stopped`, so it will automatically restart if:
-- The bot crashes due to an error
-- The VM reboots (power outage, maintenance, etc.)
+A: Add a new SSH key:
 
-However, if you manually stop it with `docker stop mrroboto`, it won't auto-restart. To start it again:
-
-```bash
-docker start mrroboto
-```
-
-Or if you deleted the container, recreate it with the `docker run` command from Step 9 of the Oracle setup.
-
----
-
-**Q: How much disk space will the bot use?**
-
-A: Typical usage:
-- Docker image: ~300MB
-- Bot data (database, logs, configs): 10-50MB
-- Total: < 500MB
-
-The Always Free VM includes 50GB of storage, so you'll use less than 1% of available space. Ubuntu system files use ~2-3GB.
-
----
-
-## Troubleshooting
-
-### Oracle Cloud Instance Creation Issues
-
-**"Out of host capacity" error**
-
-Oracle's Always Free tier has limited availability in each region. If you see this:
-1. Try a different availability domain (AD-1, AD-2, or AD-3)
-2. Try again in a few hours - capacity fluctuates
-3. Consider a different region (though this requires a new account)
-
----
-
-**Can't SSH into instance - "Connection refused" or "Connection timed out"**
-
-1. **Verify the instance is Running:**
-   - Go to Oracle Cloud Console → Compute → Instances
-   - Status should be "Running" (green)
-   - Note the Public IP address
-
-2. **Check firewall rules:**
-   - On instance page → Primary VNIC → Subnet
-   - Click Security Lists → Default Security List
-   - Verify Ingress Rule exists: Source 0.0.0.0/0, TCP port 22
-   - If missing, add it: **Add Ingress Rules** → Source CIDR: `0.0.0.0/0`, IP Protocol: TCP, Destination Port: `22`
-
-3. **Verify SSH key permissions:**
-   ```bash
-   # macOS/Linux - key must be read-only for owner
-   chmod 400 ~/Downloads/oracle-mrroboto.key
-   ls -l ~/Downloads/oracle-mrroboto.key
-   # Should show: -r-------- 1 youruser yourgroup
-   ```
-
-4. **Check you're using the correct username:**
-   - Ubuntu images: use `ubuntu@PUBLIC_IP`
-   - Oracle Linux images: use `opc@PUBLIC_IP`
-
----
-
-### Docker and Bot Issues
-
-**"Image not found" error when pulling Docker image**
-
-The GHCR image is public. Verify access:
-```bash
-docker pull ghcr.io/jodrell2000/mrrobotov3:latest
-```
-
-If this fails:
-1. Check your internet connection on the Oracle VM: `ping -c 3 google.com`
-2. Verify image exists at [github.com/jodrell2000/mrRobotoV3/packages](https://github.com/jodrell2000/mrRobotoV3/packages)
-3. Try a specific version tag: `docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test`
-
----
-
-**Bot container starts but doesn't connect to hangout**
-
-Check the container logs for startup errors:
-```bash
-docker logs -f mrroboto
-```
-
-Common causes:
-- **Wrong `BOT_USER_TOKEN`** — regenerate from the tt.fm website user settings
-- **Wrong `HANGOUT_ID`** — verify the hangout UUID (found in hangout URL)
-- **Missing environment variable** — ensure all required variables are in your `.env` file
-- **Network connectivity** — verify VM can reach internet: `ping -c 3 gateway.prod.tt.fm`
-
----
-
-**Container keeps restarting**
-
-```bash
-# Check exit status and restart count
-docker ps -a
-
-# View logs for crash reason
-docker logs mrroboto
-```
-
-Common causes:
-- Missing required environment variable - check `.env` file
-- Port conflict (unlikely, bot doesn't expose ports)
-- Out of memory (unlikely with 1GB RAM)
-
----
-
-**"Permission denied" when running docker commands**
-
-You need to be in the `docker` group:
-```bash
-# Add user to docker group
-sudo usermod -aG docker ubuntu
-
-# Log out and back in
-exit
-
-# Reconnect via SSH
-ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
-
-# Verify docker works without sudo
-docker ps
-```
-
----
-
-**Bot was working but stopped responding**
-
-1. **Check if container is running:**
-   ```bash
-   docker ps
-   ```
-   If not listed, it crashed. View logs: `docker logs mrroboto`
-
-2. **Check VM is running:**
-   - Oracle Cloud Console → Compute → Instances
-   - Verify status is "Running"
-   - If stopped, click **Start** to restart the VM
-
-3. **Restart the container:**
-   ```bash
-   docker restart mrroboto
-   ```
-
-4. **Check disk space:**
-   ```bash
-   df -h
-   # /dev/sda1 or /dev/sda3 should not be at 100%
-   ```
-
----
-
-**Bot logs show "Error loading botConfig.json: File is empty"**
-
-This usually means the data directory didn't mount correctly:
-```bash
-# Verify volume mount
-docker inspect mrroboto | grep -A 10 Mounts
-
-# Should show: Source: /home/ubuntu/mrroboto/data
-#              Destination: /usr/src/app/data
-
-# Check data directory exists and has files
-ls -la ~/mrroboto/data/
-```
-
-If empty, the bot will create default files on first run.
-
----
-
-### VM Management Issues
-
-**Forgot the SSH private key / lost the `.key` file**
-
-You'll need to add a new SSH key:
-1. Generate a new key pair on your local machine:
+1. Generate new key pair locally:
    ```bash
    ssh-keygen -t rsa -b 4096 -f ~/.ssh/oracle_new
    ```
+
 2. In Oracle Cloud Console → Compute → Instances → your instance
-3. Click **Edit** at the top
+3. Click **Edit** at top
 4. Scroll to **Add SSH Keys** → **Paste SSH Keys**
 5. Paste contents of `~/.ssh/oracle_new.pub`
 6. Click **Save Changes**
@@ -855,56 +819,618 @@ You'll need to add a new SSH key:
 
 ---
 
-**Instance stopped and won't start - "Out of host capacity"**
+**Q: "Connection refused" or "Connection timed out" when trying to SSH**
 
-This is rare but can happen during Oracle infrastructure maintenance. Solutions:
-1. Wait a few hours and try starting again
-2. If persistent, you may need to create a new instance in a different availability domain
-3. Before deleting the old instance, stop it and create a **Boot Volume Backup** to preserve data
+A: Check these items:
+
+1. **Instance is running:**
+   - Oracle Console → Compute → Instances
+   - Status should be "Running" (green)
+
+2. **Firewall allows SSH:**
+   - Instance page → Primary VNIC → Subnet → Security Lists
+   - Verify Ingress Rule: Source `0.0.0.0/0`, TCP port `22`
+
+3. **Key permissions (macOS/Linux):**
+   ```bash
+   chmod 400 ~/Downloads/oracle-mrroboto.key
+   ```
+
+4. **Correct username:**
+   - Ubuntu images: `ubuntu@PUBLIC_IP`
+   - Oracle Linux: `opc@PUBLIC_IP`
 
 ---
 
-**How to check VM resource usage**
+### Deployment
 
+**Q: Can I use the same Docker images as local development?**
+
+A: Yes! The images from GitHub Container Registry work identically everywhere:
+- `ghcr.io/jodrell2000/mrrobotov3:latest` - Latest release
+- `ghcr.io/jodrell2000/mrrobotov3:1.0.0-test` - Specific version
+
+The bot is platform-agnostic.
+
+---
+
+**Q: Do I need `GCS_BUCKET_NAME` in my `.env` file?**
+
+A: No. Remove or comment it out. Google Cloud Storage is only needed for Google Cloud Run's stateless architecture. On Oracle, data persists on the VM's disk in `~/mrroboto/data/`.
+
+---
+
+**Q: Why does my bot name show quotes like `"Mrs. Roboto"`?**
+
+A: Your `.env` file has quoted values, and Docker's `--env-file` doesn't strip quotes (unlike docker-compose). 
+
+**Solution:** Use the deployment script - it automatically strips quotes. Or manually remove quotes from all `.env` values on the VM.
+
+**Wrong:**
 ```bash
-# Memory usage
-free -h
-
-# Disk space
-df -h
-
-# CPU and process list (top)
-top
-# Press 'q' to exit
-
-# Docker container resource usage
-docker stats mrroboto
-# Press Ctrl+C to exit
+CHAT_NAME="Mrs. Roboto"
+COMMAND_SWITCH="!"
 ```
 
-The bot typically uses:
-- **Memory:** 100-300MB
-- **CPU:** 1-5% (spikes during song changes/messages)
-- **Disk:** < 500MB total
+**Correct for Oracle:**
+```bash
+CHAT_NAME=Mrs. Roboto
+COMMAND_SWITCH=!
+```
 
 ---
+
+**Q: Bot shows "Invalid URL" error on startup**
+
+A: Same issue as above - quotes in `TTFM_GATEWAY_BASE_URL`. Remove quotes:
+
+**Wrong:**
+```bash
+TTFM_GATEWAY_BASE_URL="https://gateway.prod.tt.fm"
+```
+
+**Correct:**
+```bash
+TTFM_GATEWAY_BASE_URL=https://gateway.prod.tt.fm
+```
+
+Or use the deployment script which handles this automatically.
+
+---
+
+### Bot Management
+
+**Q: How do I update the bot to a newer version?**
+
+A: Use the deployment script:
+
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+```
+
+Or manually:
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP
+
+docker pull ghcr.io/jodrell2000/mrrobotov3:latest
+docker stop mrroboto && docker rm mrroboto
+docker run -d \
+  --name mrroboto \
+  --restart unless-stopped \
+  --env-file /home/ubuntu/mrroboto/.env \
+  -v /home/ubuntu/mrroboto/data:/usr/src/app/data \
+  ghcr.io/jodrell2000/mrrobotov3:latest
+```
+
+Data persists in the volume, so you won't lose history.
+
+---
+
+**Q: What happens if I stop the Docker container?**
+
+A: The container is configured with `--restart unless-stopped`, so it auto-restarts if:
+- Bot crashes
+- VM reboots
+
+But if you manually stop it (`docker stop mrroboto`), it won't auto-restart. Start it with:
+```bash
+docker start mrroboto
+```
+
+---
+
+**Q: How much disk space does the bot use?**
+
+A: Typical usage:
+- Docker image: ~300MB
+- Bot data (database, logs, configs): 10-50MB
+- **Total:** < 500MB
+
+The 50GB VM storage is more than sufficient (<1% used by bot).
+
+---
+
+**Q: Can I run multiple bots on one VM?**
+
+A: Yes, but the 1GB RAM micro instance is sized for one bot. Running multiple bots may cause out-of-memory errors.
+
+If you need multiple bots, create separate VM instances (you get 2 free micro instances).
+
+---
+
+### Troubleshooting
+
+**Q: Bot was working but stopped responding**
+
+A: Check container status:
+
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker ps | grep mrroboto'
+```
+
+If not running:
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker logs mrroboto'  # Check crash reason
+ssh ubuntu@YOUR_PUBLIC_IP 'docker start mrroboto'  # Restart
+```
+
+If VM stopped, start it in Oracle Console.
+
+---
+
+**Q: "Permission denied" when running Docker commands**
+
+A: User not in docker group. Fix:
+
+```bash
+sudo usermod -aG docker ubuntu
+exit  # Log out
+```
+
+Reconnect via SSH and try again.
+
+---
+
+**Q: Container keeps restarting**
+
+A: Check logs for crash reason:
+
+```bash
+docker logs mrroboto
+```
+
+Common causes:
+- Missing environment variable in `.env`
+- Malformed `.env` (check for quotes)
+- Network connectivity issue
+
+---
+
+**Q: Bot logs show "Error loading botConfig.json: File is empty"**
+
+A: Volume mount issue. Verify:
+
+```bash
+docker inspect mrroboto | grep -A 10 Mounts
+# Should show: /home/ubuntu/mrroboto/data → /usr/src/app/data
+
+ls -la ~/mrroboto/data/
+# Should list config files
+```
+
+If empty, bot creates defaults on first run. Or upload data with:
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --upload
+```
+
+---
+
+**Q: VM rebooted and bot didn't restart**
+
+A: Docker service should auto-start. Check:
+
+```bash
+sudo systemctl status docker
+sudo systemctl enable docker  # Enable auto-start
+docker start mrroboto
+```
+
+---
+
+**Q: How do I check VM resource usage?**
+
+A: ```bash
+# Memory
+ssh ubuntu@YOUR_PUBLIC_IP 'free -h'
+
+# Disk
+ssh ubuntu@YOUR_PUBLIC_IP 'df -h'
+
+# Docker stats
+ssh ubuntu@YOUR_PUBLIC_IP 'docker stats --no-stream mrroboto'
+```
+
+Typical usage:
+- **Memory:** 100-300MB
+- **CPU:** 1-5% (spikes during activity)
+- **Disk:** <500MB
+
+---
+
+**Q: Instance stopped and won't start - "Out of host capacity"**
+
+A: Rare but can happen during Oracle maintenance. Solutions:
+1. Wait a few hours and retry
+2. Create new instance in different availability domain
+---
+
+## Troubleshooting
+
+This section covers common issues you may encounter during setup and operation.
+
+### Oracle Cloud Instance Creation Issues
+
+**"Out of host capacity" error**
+
+Oracle's Always Free tier has limited availability in each region.
+
+**Solutions:**
+1. Try different availability domain (AD-1, AD-2, AD-3)
+2. Wait a few hours - capacity fluctuates
+3. Try early morning hours (lower demand)
+4. Last resort: Different region (requires new account)
+
+---
+
+**Can't create VCN - "Quota exceeded"**
+
+You may already have VCNs in your tenancy. Check:
+
+1. Oracle Console → Networking → Virtual Cloud Networks
+2. Delete unused VCNs
+3. Always Free tier includes 2 VCNs - should be plenty
+
+---
+
+**Can't assign public IP during instance creation**
+
+This happens if you try to create a new subnet inline during instance creation instead of using the VCN wizard.
+
+**Solution:** Follow Step 3 (Create VCN first), then use that existing VCN in Step 4.
+
+---
+
+### SSH Connection Issues
+
+**"Connection refused" or "Connection timed out"**
+
+**Check these items:**
+
+1. **Instance is Running:**
+   - Oracle Console → Compute → Instances
+   - Status should be "Running" (green)
+   - If stopped, click **Start**
+
+2. **Firewall allows SSH:**
+   - Instance page → Primary VNIC → Subnet → Security Lists
+   - Click **Default Security List**
+   - Verify Ingress Rule exists:
+     - Source: `0.0.0.0/0`
+     - IP Protocol: TCP
+     - Destination Port Range: `22`
+   - If missing, click **Add Ingress Rules** and add it
+
+3. **SSH key permissions (macOS/Linux):**
+   ```bash
+   chmod 400 ~/Downloads/oracle-mrroboto.key
+   ls -l ~/Downloads/oracle-mrroboto.key
+   # Should show: -r-------- 1 youruser yourgroup
+   ```
+
+4. **Correct username:**
+   - Ubuntu images: `ubuntu@PUBLIC_IP`
+   - Oracle Linux images: `opc@PUBLIC_IP`
+
+5. **Correct IP address:**
+   - Use the **Public IP** from instance details, not private IP
+
+---
+
+**"Permission denied (publickey)"**
+
+**Causes:**
+- Wrong private key file
+- Key not registered with instance
+- Using password instead of key
+
+**Solutions:**
+```bash
+# Verify you're using the correct key file
+ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+
+# If key is lost, add new key via Oracle Console (see FAQ)
+```
+
+---
+
+### Docker and Bot Issues
+
+**"Image not found" error when pulling Docker image**
+
+The GitHub Container Registry (GHCR) image is public.
+
+**Verify:**
+```bash
+docker pull ghcr.io/jodrell2000/mrrobotov3:latest
+```
+
+**If this fails:**
+1. Check VM internet connectivity: `ping -c 3 google.com`
+2. Verify image exists at [github.com/jodrell2000/mrRobotoV3/packages](https://github.com/jodrell2000/mrRobotoV3/packages)
+3. Try specific version: `docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test`
+
+---
+
+**Bot container starts but doesn't connect to hangout**
+
+**Check logs:**
+```bash
+docker logs -f mrroboto
+```
+
+**Common causes:**
+
+| Error Message | Cause | Solution |
+|--------------|-------|----------|
+| "Invalid URL" | Quotes in TTFM_GATEWAY_BASE_URL | Remove quotes from `.env` file |
+| "401 Unauthorized" | Wrong BOT_USER_TOKEN | Regenerate token from tt.fm user settings |
+| "Unable to resolve nickname" | Quoted values in `.env` | Remove all quotes from `.env` values |
+| "Connection refused" | Network connectivity | Check: `ping gateway.prod.tt.fm` |
+| "Missing required environment variable" | Incomplete `.env` | Verify all required vars are set |
+
+**Fix:**
+Use deployment script (auto-strips quotes) or manually remove quotes from `.env`.
+
+---
+
+**Container keeps restarting**
+
+**Check exit status:**
+```bash
+docker ps -a | grep mrroboto
+# Look at STATUS column
+```
+
+**View crash reason:**
+```bash
+docker logs mrroboto
+```
+
+**Common causes:**
+- Missing environment variable - check `.env` file is complete
+- Malformed `.env` - remove quotes from values
+- Out of memory (unlikely with 1GB RAM for one bot)
+- Port conflict (unlikely - bot doesn't expose ports)
+
+---
+
+**"Permission denied" when running Docker commands**
+
+User not in docker group.
+
+**Fix:**
+```bash
+sudo usermod -aG docker ubuntu
+exit  # MUST log out
+```
+
+Reconnect via SSH and try again:
+```bash
+docker ps  # Should work without sudo
+```
+
+---
+
+**Bot was working but stopped responding**
+
+**1. Check if container is running:**
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker ps | grep mrroboto'
+```
+
+**If not listed:**
+```bash
+# View last logs before crash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker logs --tail 100 mrroboto'
+
+# Restart container
+ssh ubuntu@YOUR_PUBLIC_IP 'docker start mrroboto'
+```
+
+**2. Check if VM is running:**
+- Oracle Console → Compute → Instances
+- Verify status is "Running"
+- If stopped, click **Start**
+
+**3. Try restarting:**
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'docker restart -t 30 mrroboto'
+```
+
+**4. Check disk space:**
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'df -h'
+# /dev/sda should not be at 100%
+```
+
+---
+
+**Bot logs show "Error loading botConfig.json: File is empty"**
+
+Data directory isn't properly mounted or is empty.
+
+**Verify volume mount:**
+```bash
+docker inspect mrroboto | grep -A 10 Mounts
+# Should show:
+# Source: /home/ubuntu/mrroboto/data
+# Destination: /usr/src/app/data
+```
+
+**Check data directory:**
+```bash
+ls -la ~/mrroboto/data/
+# Should list: botConfig.json, chat.json, mrroboto.db, etc.
+```
+
+**If empty:**
+The bot creates default files on first run. Or upload data:
+```bash
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/sync-oracle-data.sh --upload
+```
+
+---
+
+**Bot name or command switch shows quotes**
+
+Your `.env` file has quoted values and Docker's `--env-file` doesn't strip them.
+
+**Wrong:**
+```bash
+CHAT_NAME="Mrs. Roboto"
+COMMAND_SWITCH="!"
+```
+
+**Correct:**
+```bash
+CHAT_NAME=Mrs. Roboto
+COMMAND_SWITCH=!
+```
+
+**Solution:** Use deployment script (auto-fixes) or manually edit `.env` on VM.
+
+---
+
+### VM Management Issues
 
 **VM rebooted and bot didn't restart**
 
-The `--restart unless-stopped` flag should handle this automatically. If not:
+Docker should auto-start, but verify:
+
 ```bash
-# Check if Docker service is running
+ssh ubuntu@YOUR_PUBLIC_IP
+
+# Check Docker service
 sudo systemctl status docker
 
-# Start Docker if stopped
+# Enable auto-start if disabled
+sudo systemctl enable docker
 sudo systemctl start docker
 
-# Enable Docker to start on boot
-sudo systemctl enable docker
-
-# Check if container is running
-docker ps
-
-# Start container if stopped
+# Start bot container
 docker start mrroboto
 ```
+
+---
+
+**Instance stopped and won't start - "Out of host capacity"**
+
+Rare, but can happen during Oracle infrastructure maintenance.
+
+**Solutions:**
+1. Wait a few hours and click **Start** again
+2. If persistent (>24 hours):
+   - Create Boot Volume Backup: Instance → Boot Volume → Create Backup
+   - Create new instance in different availability domain
+   - Attach backed-up boot volume to new instance
+
+---
+
+**Deployment script fails with "Connection refused"**
+
+**Verify:**
+1. Can you SSH manually? `ssh ubuntu@YOUR_PUBLIC_IP`
+2. Is ORACLE_IP set correctly? `echo $ORACLE_IP`
+3. Is SSH key specified (if not using agent)? `echo $ORACLE_SSH_KEY`
+
+**Debug:**
+```bash
+# Test SSH connection
+ssh -v ubuntu@YOUR_PUBLIC_IP 'echo "Connection OK"'
+
+# Run deployment with SSH agent
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+
+# Or with SSH key explicitly
+ORACLE_IP=YOUR_PUBLIC_IP ORACLE_SSH_KEY=~/Downloads/oracle-mrroboto.key ./scripts/deploy-to-oracle.sh
+```
+
+---
+
+**Disk space warning**
+
+Check usage:
+```bash
+ssh ubuntu@YOUR_PUBLIC_IP 'df -h'
+```
+
+If approaching 100%:
+```bash
+# Clean old Docker images
+ssh ubuntu@YOUR_PUBLIC_IP 'docker system prune -a -f'
+
+# Check largest files
+ssh ubuntu@YOUR_PUBLIC_IP 'du -sh ~/mrroboto/*'
+
+# Clean logs if too large
+ssh ubuntu@YOUR_PUBLIC_IP 'docker logs mrroboto 2>&1 | tail -1000 > /tmp/recent.log'
+```
+
+---
+
+### Getting Help
+
+If you're still stuck after checking this guide:
+
+1. **Check bot logs** for specific error messages:
+   ```bash
+   ssh ubuntu@YOUR_PUBLIC_IP 'docker logs --tail 100 mrroboto'
+   ```
+
+2. **Verify environment** is correctly configured:
+   ```bash
+   ssh ubuntu@YOUR_PUBLIC_IP 'cat ~/mrroboto/.env'
+   ```
+
+3. **Test connectivity** from VM:
+   ```bash
+   ssh ubuntu@YOUR_PUBLIC_IP 'ping -c 3 gateway.prod.tt.fm'
+   ```
+
+4. **GitHub Issues**: Report bugs or ask questions at the [mrRobotoV3 repository](https://github.com/jodrell2000/mrRobotoV3/issues)
+
+---
+
+## Summary
+
+You now have:
+- ✅ Oracle Cloud Always Free account
+- ✅ Ubuntu 24.04 VM running 24/7
+- ✅ Docker installed and configured
+- ✅ Mr. Roboto V3 bot deployed and running
+- ✅ Automated deployment and sync scripts
+- ✅ **£0/month hosting cost forever**
+
+**Next steps:**
+- Test bot commands in your hangout (`!ping`, `!help`)
+- Customize bot personality in `data/botConfig.json`
+- Set up regular data backups with sync script
+- Update Ubuntu monthly: `ssh ubuntu@YOUR_PUBLIC_IP 'sudo apt update && sudo apt upgrade -y'`
+
+**Useful resources:**
+- [Chat Commands Documentation](CHAT_COMMANDS.md)
+- [Setting Up Your Environment](SETTING_UP_YOUR_ENVIRONMENT.md)
+- [GitHub Container Registry](https://github.com/jodrell2000/mrRobotoV3/pkgs/container/mrrobotov3)
+- [Oracle Cloud Documentation](https://docs.oracle.com/en-us/iaas/Content/home.htm)
+
+Enjoy your free, 24/7 cloud-hosted bot! 🎉
