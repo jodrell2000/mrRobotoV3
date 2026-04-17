@@ -827,6 +827,11 @@ class Bot {
           continue;
         }
 
+        // Silently skip users with invalid/empty UUIDs
+        if ( !userUUID || userUUID === '' || typeof userUUID !== 'string' ) {
+          continue;
+        }
+
         try {
           // Get the last processed message tracking for this user
           const userTracking = this.lastPrivateMessageTracking[ userUUID ];
@@ -936,11 +941,17 @@ class Bot {
     // Check for duplicate processing (additional safety check)
     if ( message.isPrivateMessage ) {
       const sender = message.sender?.uid || message.sender || '';
+
+      // Silently ignore messages from unknown/invalid users
+      if ( !sender || sender === '' ) {
+        return;
+      }
+
       const userTracking = this.lastPrivateMessageTracking[ sender ];
 
       if ( userTracking && userTracking.lastMessageId === message.id ) {
-        this.services.logger.warn( `⚠️ [_processSingleMessage] DUPLICATE DETECTED: Message ID ${ message.id } from user ${ sender } already processed. Skipping.` );
-        return; // Skip processing this duplicate message
+        // Silently skip duplicate messages
+        return;
       }
     }
 
@@ -993,9 +1004,8 @@ class Bot {
         } catch ( error ) {
           this.services.logger.error( `❌ [_updateMessageTracking] Failed to persist private message tracking state for user ${ sender }: ${ error.message }` );
         }
-      } else {
-        this.services.logger.warn( `⚠️ [_updateMessageTracking] Private message received but no sender identified. Message: ${ JSON.stringify( message ) }` );
       }
+      // Note: If sender is empty, message is silently ignored in _processSingleMessage
     } else {
       // Handle public message tracking (existing logic)
       this.services.updateLastMessageId( message.id );

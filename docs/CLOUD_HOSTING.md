@@ -85,8 +85,6 @@ The deployment process has three phases:
 
 ## Step 1: Create Oracle Cloud Account (15-30 minutes)
 
-## Step 1: Create Oracle Cloud Account (15-30 minutes)
-
 Oracle Cloud offers **truly free-forever** resources that never expire. The credit card is for identity verification only — you will NOT be charged for Always Free services.
 
 ### Account Creation Process
@@ -196,8 +194,6 @@ The wizard creates:
 - Security lists (includes SSH port 22 by default)
 
 ---
-
-## Step 4: Create a Compute Instance (10 minutes)
 
 ## Step 4: Create a Compute Instance (10 minutes)
 
@@ -346,18 +342,14 @@ docker ps
 
 ---
 
-## Step 7: Deploy the Bot (Automated Method)
+## Step 7: Deploy the Bot
 
-You can deploy the bot using the automated deployment script (recommended) or manually. Both methods are documented below.
-
-### Method 1: Automated Deployment Script (Recommended)
-
-The easiest way to deploy is using the automation script from your **local machine** (not the VM).
+Deploy the bot using the automated deployment script from your **local machine** (not the VM).
 
 **On your local machine:**
 
 ```bash
-# Navigate to your project directory
+# Navigate to your project directory, eg.
 cd ~/Documents/Git/mrRobotoV3
 
 # First-time deployment with data upload
@@ -424,89 +416,7 @@ Check the logs for successful startup:
 2. Bot should appear in the user list
 3. Test: `!ping` → bot should respond with "Pong!"
 
-### Method 2: Manual Deployment
-
-If you prefer manual control or the script doesn't work, follow these steps on the VM via SSH.
-
-**1. Create bot directory:**
-```bash
-mkdir -p ~/mrroboto
-cd ~/mrroboto
-```
-
-**2. Create .env file:**
-```bash
-nano .env
-```
-
-**3. Paste your local .env contents:**
-- Press `Ctrl+Shift+V` to paste
-- **Remove quotes** from all values (Docker doesn't strip them)
-- **Remove** the `GCS_BUCKET_NAME` line (not needed on Oracle)
-
-Example:
-```bash
-TTFM_GATEWAY_BASE_URL=https://gateway.prod.tt.fm
-COMETCHAT_API_KEY=193427bb5702bab7
-COMETCHAT_AUTH_TOKEN=your-token-here
-BOT_UID=your-bot-uid
-BOT_USER_TOKEN=your-long-jwt-token
-HANGOUT_ID=your-hangout-id
-COMMAND_SWITCH=!
-COMETCHAT_RECEIVER_UID=your-receiver-uid
-googleAIKey=your-google-ai-key
-groqAPIKey=your-groq-key
-
-# Do NOT include GCS_BUCKET_NAME
-```
-
-**Important:** Remove all quotes from values. Docker's `--env-file` doesn't strip them like docker-compose does.
-
-**4. Save and exit nano:**
-- Press `Ctrl+X`
-- Press `Y` to confirm
-- Press `Enter` to save
-
-**5. Pull Docker image:**
-```bash
-docker pull ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
-```
-
-**6. Run the bot:**
-```bash
-docker run -d \
-  --name mrroboto \
-  --restart unless-stopped \
-  --env-file .env \
-  -v ~/mrroboto/data:/usr/src/app/data \
-  ghcr.io/jodrell2000/mrrobotov3:1.0.0-test
-```
-
-**Explanation:**
-- `-d`: Run in background (detached)
-- `--name mrroboto`: Container name for easy management
-- `--restart unless-stopped`: Auto-restart after VM reboots
-- `--env-file .env`: Load environment variables from file
-- `-v ~/mrroboto/data:/usr/src/app/data`: Mount data directory (persists across updates)
-- `ghcr.io/jodrell2000/mrrobotov3:1.0.0-test`: Docker image to run
-
-**7. Check bot is running:**
-```bash
-docker ps
-# Should show mrroboto container
-
-docker logs -f mrroboto
-# Watch live logs (Ctrl+C to exit)
-```
-
-**8. Verify in hangout:**
-- Go to your tt.fm hangout
-- Bot should appear in user list
-- Test: `!ping`
-
 ---
-
-## Managing Your Bot
 
 ## Managing Your Bot
 
