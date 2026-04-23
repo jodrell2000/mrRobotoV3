@@ -9,14 +9,8 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-# Configuration
-readonly ORACLE_USER="ubuntu"
-readonly REMOTE_DIR="~/mrroboto"
-readonly IMAGE_TAG="${IMAGE_TAG:-latest}"
-readonly IMAGE_NAME="ghcr.io/jodrell2000/mrrobotov3:${IMAGE_TAG}"
-readonly CONTAINER_NAME="mrroboto"
 
 # Function to print colored output
 print_info() {
@@ -31,6 +25,110 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
+# Function to fetch available Docker image tags
+fetch_available_tags() {
+    echo -e "${BLUE}Fetching available image tags...${NC}" >&2
+    
+    # Get anonymous token for GHCR
+    local TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:jodrell2000/mrrobotov3:pull" 2>/dev/null \
+        | grep -o '"token":"[^"]*"' \
+        | cut -d'"' -f4)
+    
+    if [[ -z "$TOKEN" ]]; then
+        echo "latest"
+        return
+    fi
+    
+    # Fetch tags using token
+    local TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" "https://ghcr.io/v2/jodrell2000/mrrobotov3/tags/list" 2>/dev/null \
+        | grep -o '"tags":\[[^]]*\]' \
+        | sed 's/"tags":\[//; s/\]//; s/"//g' \
+        | tr ',' '\n' \
+        | sort -Vr)
+    
+    # If no tags found, provide fallback
+    if [[ -z "$TAGS" ]]; then
+        echo "latest"
+        return
+    fi
+    
+    echo "$TAGS"
+}
+
+# Function to select image tag interactively
+select_image_tag() {
+    local AVAILABLE_TAGS=$(fetch_available_tags)
+    
+    if [[ -z "$AVAILABLE_TAGS" ]]; then
+        print_warn "Could not fetch available tags, using 'latest'" >&2
+        echo "latest"
+        return
+    fi
+    
+    # Check if running interactively
+    if [[ ! -t 0 ]]; then
+        echo "latest"
+        return
+    fi
+    
+    echo "" >&2
+    echo -e "${BLUE}Available Docker image tags:${NC}" >&2
+    echo "================================" >&2
+    
+    # Convert to array and prioritize 'latest'
+    local TAG_ARRAY=()
+    local has_latest=false
+    
+    # Check if 'latest' exists in tags
+    while IFS= read -r tag; do
+        if [[ "$tag" == "latest" ]]; then
+            has_latest=true
+        fi
+    done <<< "$AVAILABLE_TAGS"
+    
+    # Build array with 'latest' first if it exists
+    if [[ "$has_latest" == "true" ]]; then
+        TAG_ARRAY+=("latest")
+    fi
+    
+    # Add other tags
+    while IFS= read -r tag; do
+        if [[ "$tag" != "latest" ]]; then
+            TAG_ARRAY+=("$tag")
+        fi
+    done <<< "$AVAILABLE_TAGS"
+    
+    # Display with numbers
+    local i=1
+    for tag in "${TAG_ARRAY[@]}"; do
+        if [[ "$tag" == "latest" ]]; then
+            echo -e "  ${GREEN}$i)${NC} $tag ${YELLOW}(default)${NC}" >&2
+        else
+            echo "  $i) $tag" >&2
+        fi
+        ((i++))
+    done
+    
+    echo "" >&2
+    echo -e "Enter selection number [${GREEN}1${NC}]: " >&2
+    read -r selection
+    
+    # Use default if empty (always 1 for 'latest' now)
+    if [[ -z "$selection" ]]; then
+        selection=1
+    fi
+    
+    # Validate selection
+    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt "${#TAG_ARRAY[@]}" ]]; then
+        print_warn "Invalid selection, using 'latest'" >&2
+        echo "latest"
+        return
+    fi
+    
+    # Return selected tag (arrays are 0-indexed)
+    echo "${TAG_ARRAY[$((selection-1))]}"
+}
+
 # Function to show usage
 usage() {
     cat << EOF
@@ -43,7 +141,7 @@ Required Environment:
 
 Optional Environment:
   ORACLE_SSH_KEY    Path to SSH private key (omit if using SSH agent like 1Password)
-  IMAGE_TAG         Docker image tag to deploy (default: latest)
+  IMAGE_TAG         Docker image tag to deploy (prompts with menu if not set, defaults to latest)
 
 Options:
   --upload-data     Upload local data directory before deployment
@@ -52,10 +150,10 @@ Options:
   -h, --help        Show this help message
 
 Examples:
-  # Deploy latest version with data upload
+  # Deploy with interactive tag selection (defaults to latest)
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
 
-  # Deploy specific version
+  # Deploy specific version directly
   IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
 
   # Deploy without data upload (faster, keeps VM data)
@@ -99,6 +197,18 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Configuration
+readonly ORACLE_USER="ubuntu"
+readonly REMOTE_DIR="~/mrroboto"
+readonly CONTAINER_NAME="mrroboto"
+
+# Select or use provided IMAGE_TAG
+if [[ -z "${IMAGE_TAG}" ]]; then
+    IMAGE_TAG=$(select_image_tag)
+fi
+readonly IMAGE_TAG
+readonly IMAGE_NAME="ghcr.io/jodrell2000/mrrobotov3:${IMAGE_TAG}"
 
 # Validate required environment variables
 if [[ -z "${ORACLE_IP}" ]]; then
