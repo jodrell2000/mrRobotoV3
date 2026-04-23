@@ -14,7 +14,8 @@ NC='\033[0m' # No Color
 # Configuration
 readonly ORACLE_USER="ubuntu"
 readonly REMOTE_DIR="~/mrroboto"
-readonly IMAGE_NAME="ghcr.io/jodrell2000/mrrobotov3:1.0.0-test"
+readonly IMAGE_TAG="${IMAGE_TAG:-latest}"
+readonly IMAGE_NAME="ghcr.io/jodrell2000/mrrobotov3:${IMAGE_TAG}"
 readonly CONTAINER_NAME="mrroboto"
 
 # Function to print colored output
@@ -42,6 +43,7 @@ Required Environment:
 
 Optional Environment:
   ORACLE_SSH_KEY    Path to SSH private key (omit if using SSH agent like 1Password)
+  IMAGE_TAG         Docker image tag to deploy (default: latest)
 
 Options:
   --upload-data     Upload local data directory before deployment
@@ -50,14 +52,20 @@ Options:
   -h, --help        Show this help message
 
 Examples:
-  # Deploy with data upload
+  # Deploy latest version with data upload
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
+
+  # Deploy specific version
+  IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
 
   # Deploy without data upload (faster, keeps VM data)
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
 
   # Deploy and watch logs
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --logs
+
+  # Deploy specific version with SSH key
+  IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle.key ./scripts/deploy-to-oracle.sh
 
 EOF
     exit 1

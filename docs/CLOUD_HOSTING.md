@@ -306,6 +306,8 @@ ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 
 **Keep this SSH session open** for the next steps.
 
+**Note for IAM users:** If you're accessing a VM created by someone else, make sure your SSH public key has been added to the instance first. See the [FAQ section on IAM user SSH keys](#q-how-do-iam-users-add-their-ssh-keys-to-access-the-vm) for instructions.
+
 ---
 
 ## Step 6: Install Docker (5 minutes)
@@ -401,6 +403,25 @@ ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/Downloads/oracle-mrroboto.key ./script
 - **Custom SSH Key Location:** Point to any key file
 ```bash
 ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle_custom ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+**Docker Image Version:**
+
+By default, the script deploys the `latest` tag. You can specify a different version:
+
+- **Deploy latest (default):**
+```bash
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+- **Deploy specific version:**
+```bash
+IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+- **Deploy with version and SSH key:**
+```bash
+IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ORACLE_SSH_KEY=~/.ssh/oracle.key ./scripts/deploy-to-oracle.sh
 ```
 
 **After deployment:**
@@ -639,6 +660,126 @@ A: Most accounts approve within 5-30 minutes, but can take up to 24 hours. Commo
 
 ---
 
+**Q: Can someone else set up the account and give me access without my credit card?**
+
+A: Yes! Oracle Cloud supports multi-user access through Identity and Access Management (IAM). This is perfect for:
+- Parents setting up for children
+- Friends helping each other
+- Team members sharing a project account
+- Someone without a credit card getting access
+
+**How it works:**
+
+**Person A (Account Owner):**
+1. Creates OCI account with their payment card
+2. Remains responsible for billing (£0 for Always Free resources)
+3. Creates IAM user for Person B
+4. Assigns appropriate permissions
+
+**Person B (IAM User):**
+1. Receives email invitation
+2. Creates Oracle account (no payment card required)
+3. Gets access to Person A's tenancy
+4. Can deploy and manage the bot
+5. Cannot see billing information
+
+**Setup Steps for Account Owner:**
+
+1. Sign in to Oracle Cloud Console
+2. Go to **Identity & Security** → **Domains** → **Default Domain** → **Users**
+3. Click **Create User**
+4. Enter Person B's email, name, and optional details
+5. Assign to groups:
+   - **Administrators** - Full access to all resources
+   - **Custom Group** - Limited to specific compartments/resources
+6. Click **Create** - invitation email sent automatically
+
+Person B clicks the invitation link, creates their Oracle account (just email/password), and can immediately access the tenancy.
+
+**Important Notes:**
+- ✅ IAM users can deploy, manage, and SSH to VMs
+- ✅ Only account owner sees billing/payment information
+- ✅ Always Free resources have no charges regardless of who uses them
+- ⚠️ Account owner is responsible for any charges if paid resources are created
+
+---
+
+**Q: How do IAM users add their SSH keys to access the VM?**
+
+A: IAM users need to add their public SSH key to the instance to get SSH access. There are two methods:
+
+**Method 1: Add SSH Key to Existing Instance (Easiest)**
+
+The account owner can add the IAM user's public key directly to the VM:
+
+1. IAM user generates SSH key pair (if they don't have one):
+   ```bash
+   # On macOS/Linux
+   ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+   # Creates ~/.ssh/id_rsa (private) and ~/.ssh/id_rsa.pub (public)
+   ```
+
+2. IAM user sends their **public key** (`~/.ssh/id_rsa.pub` content) to account owner
+
+3. Account owner SSH into the VM and adds the public key:
+   ```bash
+   ssh ubuntu@YOUR_PUBLIC_IP
+   
+   # Add the public key to authorized_keys
+   echo "ssh-rsa AAAAB3NzaC1yc2EA... user@email.com" >> ~/.ssh/authorized_keys
+   
+   # Set correct permissions
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+
+4. IAM user can now SSH:
+   ```bash
+   ssh ubuntu@YOUR_PUBLIC_IP
+   ```
+
+**Method 2: Add SSH Key via Oracle Console**
+
+The account owner can add SSH keys through the console:
+
+1. Sign in to Oracle Cloud Console
+2. Go to **Compute** → **Instances**
+3. Click the instance name
+4. Click **Edit** (top right)
+5. Scroll to **Add SSH keys**
+6. Paste the IAM user's public key
+7. Click **Save changes**
+
+**Method 3: Add Multiple Keys at Instance Creation**
+
+When creating the instance, the account owner can add multiple SSH public keys (one per line) in the SSH key section. Include:
+- Account owner's key (for management)
+- IAM user's key (for bot deployment)
+
+**For SSH Agent Users (1Password, Secretive):**
+
+If the IAM user uses an SSH agent:
+
+1. Export public key from SSH agent:
+   - **1Password**: Right-click key → Export Public Key
+   - **Secretive**: Click key → Copy public key
+
+2. Send public key to account owner
+
+3. Account owner adds it using Method 1 or 2 above
+
+4. IAM user can deploy without key files:
+   ```bash
+   ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data
+   ```
+
+**Security Best Practices:**
+- ⚠️ Never share private keys - only share public keys
+- ✅ Each person should have their own SSH key pair
+- ✅ Account owner should keep their own key for emergency access
+- ✅ Use SSH agent (1Password, Secretive) for better key management
+
+---
+
 ### Instance Creation
 
 **Q: Which availability domain should I pick?**
@@ -727,6 +868,8 @@ A: Add a new SSH key:
    ssh -i ~/.ssh/oracle_new ubuntu@YOUR_PUBLIC_IP
    ```
 
+**Note:** If you're an IAM user on a shared account, see [How do IAM users add their SSH keys to access the VM?](#q-how-do-iam-users-add-their-ssh-keys-to-access-the-vm) above in the Account & Billing section.
+
 ---
 
 **Q: "Connection refused" or "Connection timed out" when trying to SSH**
@@ -757,10 +900,15 @@ A: Check these items:
 **Q: Can I use the same Docker images as local development?**
 
 A: Yes! The images from GitHub Container Registry work identically everywhere:
-- `ghcr.io/jodrell2000/mrrobotov3:latest` - Latest release
-- `ghcr.io/jodrell2000/mrrobotov3:1.0.0-test` - Specific version
+- `ghcr.io/jodrell2000/mrrobotov3:latest` - Latest stable release (default)
+- `ghcr.io/jodrell2000/mrrobotov3:1.0.0` - Specific version tag
 
-The bot is platform-agnostic.
+The deployment script deploys `latest` by default. To deploy a specific version, use:
+```bash
+IMAGE_TAG=1.0.0 ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+```
+
+The bot is platform-agnostic and works identically across local Docker, Oracle Cloud, and other platforms.
 
 ---
 
@@ -812,10 +960,16 @@ Or use the deployment script which handles this automatically.
 
 **Q: How do I update the bot to a newer version?**
 
-A: Use the deployment script:
+A: Use the deployment script (deploys `latest` by default):
 
 ```bash
 ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+```
+
+Or deploy a specific version:
+
+```bash
+IMAGE_TAG=1.0.0 ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
 ```
 
 Or manually:
