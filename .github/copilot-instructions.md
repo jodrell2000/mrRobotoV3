@@ -22,7 +22,7 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 
 ## Testing
 - Use jest for testing
-- do not rely on debug comments in tests
+- NEVER rely on debug comments in tests
 - Write tests for all new features and bug fixes
 - Ensure tests cover edge cases and error handling
 

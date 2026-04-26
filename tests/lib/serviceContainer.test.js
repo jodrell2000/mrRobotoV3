@@ -80,11 +80,11 @@ describe( 'ServiceContainer', () => {
         expect( container.hangoutState ).toEqual( {} );
     } );
 
-    test( 'initializeStateService should throw error if hangoutState is empty', () => {
-        expect( () => container.initializeStateService() ).toThrow( 'Cannot initialize StateService: hangoutState is empty' );
+    test( 'initializeStateService should throw error if hangoutState is empty', async () => {
+        await expect( container.initializeStateService() ).rejects.toThrow( 'Cannot initialize StateService: hangoutState is empty' );
     } );
 
-    test( 'initializeStateService should create stateService when hangoutState is set', () => {
+    test( 'initializeStateService should create stateService when hangoutState is set', async () => {
         const mockState = {
             allUsers: [],
             allUserData: {},
@@ -92,7 +92,7 @@ describe( 'ServiceContainer', () => {
             settings: {}
         };
         container.hangoutState = mockState;
-        container.initializeStateService();
+        await container.initializeStateService();
 
         expect( container.stateService ).toBeDefined();
         expect( container.stateService.hangoutState ).toBe( mockState );

@@ -79,6 +79,9 @@ data/image-validation-cache.json
 data/specialCharacters.json
 data/welcomeMessages.json
 
+# backups
+data-backup*
+
 # SQLite database files
 data/*.db
 data/*.sqlite

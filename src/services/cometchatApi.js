@@ -49,9 +49,9 @@ async function buildCustomData ( theMessage, services, senderUid = null, senderN
 
   const customData = {
     message: theMessage,
-    avatarId: senderAvatarId || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || 'bot-01',
-    userName: senderName || dataService?.getValue( 'botData.CHAT_NAME' ) || 'Bot',
-    color: senderColor || `#${ dataService?.getValue( 'botData.CHAT_COLOUR' ) || 'ff9900' }`,
+    avatarId: senderAvatarId || config.CHAT_AVATAR_ID || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || 'bot-01',
+    userName: senderName || config.CHAT_NAME || dataService?.getValue( 'botData.CHAT_NAME' ) || 'Bot',
+    color: senderColor || `#${ config.CHAT_COLOUR || dataService?.getValue( 'botData.CHAT_COLOUR' ) || 'ff9900' }`,
     mentions: [],
     userUuid: config.BOT_UID,
     badges: [ 'VERIFIED', 'STAFF' ],

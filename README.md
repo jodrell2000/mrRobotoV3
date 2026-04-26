@@ -29,15 +29,33 @@ This code is provided free of charge with the licensing above attached, however 
 
 ## 🚀 Setup
 
-### Option 1: Docker Setup (Recommended) 🐳
+### Option 1: Oracle Cloud Deployment (Recommended) ☁️
 
-For the most consistent experience across different systems:
+Deploy your bot to Oracle Cloud for **free** 24/7 hosting on the Always Free tier:
+
+- **£0/month forever** - No expiration, no credit card charges
+- **24/7 availability** - Always online, no downtime
+- **Automated deployment** - Simple one-command deployment script
+- **Full VM control** - Complete Linux environment
+
+📖 **Complete Cloud Hosting Guide**: [Cloud Hosting Documentation](docs/CLOUD_HOSTING.md)
+
+Quick start:
+```bash
+# After setting up your Oracle Cloud VM (see guide above)
+# Windows users: Use Git Bash, not PowerShell/CMD
+ORACLE_IP=YOUR_VM_IP ./scripts/deploy-to-oracle.sh --upload-data
+```
+
+### Option 2: Docker Setup (Local Development) 🐳
+
+For local development and testing:
 
 1. **Install Docker**: Download from [docker.com](https://www.docker.com/get-started)
 
 2. **Clone and configure**:
    ```bash
-   git clone --branch v0.4.0_alpha https://github.com/jodrell2000/mrRobotoV3.git
+   git clone --branch v1.0.0 https://github.com/jodrell2000/mrRobotoV3.git
    cd mrRobotoV3
    cp .env_example .env
    # Edit .env with your bot configuration (see setup guide below)
@@ -71,12 +89,12 @@ For the most consistent experience across different systems:
 
 📖 **Full Docker Guide**: [Docker Setup Documentation](docs/DOCKER_SETUP.md)
 
-### Option 2: Traditional Node.js Setup
+### Option 3: Traditional Node.js Setup
 
 1. Clone the repository with the latest stable release:
    ```bash
-   # Latest release (0.4.6_alpha)
-   git clone --branch 0.4.6_alpha https://github.com/jodrell2000/mrRobotoV3.git
+   # Latest release (1.0.0)
+   git clone --branch v1.0.0 https://github.com/jodrell2000/mrRobotoV3.git
    cd mrRobotoV3
    ```
 2. Install dependencies:
@@ -93,54 +111,58 @@ For the most consistent experience across different systems:
 
 ## ✅ Running the App
 
-To start the bot:
+**Cloud Deployment (Recommended):** See [Cloud Hosting Guide](docs/CLOUD_HOSTING.md) for Oracle Cloud setup.
 
-```bash
-npm start
-```
-
-This executes:
-
-```bash
-node src/index.js
-```
+**Local Development:** After completing setup above, start commands are covered in each setup option:
+- Docker: `./docker.sh start` (see [Docker Setup](docs/DOCKER_SETUP.md))
+- Node.js: `npm start` (executes `node src/index.js`)
 
 ## 🎯 Commands Overview
 
-### Chat Commands
-The bot supports chat commands that can be managed at runtime without code changes. Moderators can create, remove, and configure chat commands using:
+### Getting Help
+
+The bot has a built-in help system accessible via `!help`:
 
 ```
-!chatCommand add <command>                              # Create a new chat command
-!chatCommand remove <command>                           # Delete a chat command
-!chatCommand addMessage <command> <message>             # Add a message to a command
-!chatCommand removeMessage <command> <message>          # Remove a message (exact match)
-!chatCommand addImage <command> <url>                   # Add an image URL to a command
-!chatCommand removeImage <command> <url>                # Remove an image (exact match)
-!chatCommand addAlias <command> <alias>                 # Create an alias for a command
-!chatCommand removeAlias <alias>                        # Remove an alias
+!help                    # List all available commands
+!help <command>          # Get detailed help for a specific command
 ```
 
-Chat commands support message tokens:
-- `{djUsername}` - Current DJ name
-- `{senderUsername}` - User who triggered the command
-
-For more information, see [WRITING_NEW_COMMANDS.md](docs/WRITING_NEW_COMMANDS.md)
-
-## 🧪 Running Tests
-
-Your test suite covers:
-
-- ✅ Successful sending/fetching of private & group messages
-- ✅ Error handling and fallback message conditions
-
-To run tests:
-
-```bash
-npm test
+Each command also has its own `--help` flag:
+```
+!chatCommand --help      # Show chatCommand usage and options
+!edit --help             # Show edit command syntax
 ```
 
-Test results summary and coverage (if you run with `--coverage`) will be shown.
+### Core Commands
+
+#### `!chatCommand` - Runtime Command Management
+Create and manage custom chat commands without code changes (moderator/owner only):
+
+```
+!chatCommand add <command>                  # Create new command
+!chatCommand addMessage <command> <message> # Add response message
+!chatCommand addImage <command> <url>       # Add image response
+!chatCommand addAlias <command> <alias>     # Create alias
+!chatCommand list                           # List all chat commands
+```
+
+Supports tokens: `{djUsername}`, `{senderUsername}`
+
+#### `!edit` - Template Editing
+Modify bot message templates (moderator/owner only):
+
+```
+!edit list                                  # Show editable templates
+!edit <template> <new message>              # Update a template
+```
+
+Common templates: `welcomeMessage`, `djChangeMessage`, `songStartMessage`
+
+📖 **Full Documentation**: 
+- [Complete Commands List](docs/CHAT_COMMANDS.md)
+- [Writing New Commands](docs/WRITING_NEW_COMMANDS.md)
+- [Controlling Your Bot](docs/CONTROLLING_YOUR_BOT.md)
 
 ---
 

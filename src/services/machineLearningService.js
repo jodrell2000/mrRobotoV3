@@ -42,12 +42,14 @@ class MachineLearningService {
         modelList = models.pageInternal;
       }
 
-      // Filter for text generation models that support generateContent
+      // Filter for Gemma 4 text generation models that support generateContent
       this.availableModels = modelList
         .filter( m => m.supportedActions && m.supportedActions.includes( 'generateContent' ) )
         .map( m => m.name.replace( 'models/', '' ) )
+        .filter( m => m.includes( 'gemma-4' ) )
         .sort();
 
+      logger.debug( `🤖 [MachineLearningService] Available Gemma 4 models loaded: ${ this.availableModels.join( ', ' ) }` );
       logger.info( `🤖 [MachineLearningService] Loaded ${ this.availableModels.length } available text generation models` );
     } catch ( error ) {
       logger.warn( `🤖 [MachineLearningService] Could not load available models: ${ error.message }` );
@@ -243,9 +245,17 @@ class MachineLearningService {
     // Format the conversation history for the chat API
     const formattedHistory = this.formatChatHistory( conversationHistory );
 
-    // Create chat configuration
+    // Create chat configuration with parameters optimized for Gemma 4 reasoning
+    // See: https://ai.google.dev/gemini-api/docs/text-generation
     const config = {
-      temperature: 2.0,
+      temperature: 0.8,  // Balances creativity with consistency
+      topP: 0.8,         // Nucleus sampling threshold
+      topK: 20,          // Limit token selection to top 20 most probable options
+      maxOutputTokens: 1024,
+      thinkingConfig: {
+        includeThoughts: true, // Optional: includes the reasoning in the API response
+        thinkingLevel: "HIGH"  // Required for Gemma 4 reasoning
+      },
       history: formattedHistory
     };
 
@@ -368,17 +378,17 @@ class MachineLearningService {
       await this.services.dataService.loadData();
     }
 
-    // TEMPORARY: Use only Gemma models
-    const primaryModel = "gemma-3-27b-it";
-    const secondaryModel = "gemma-3-12b-it";
+    // Use only Gemma 4 models
+    const primaryModel = "gemma-4-31b-it";
+    const secondaryModel = "gemma-4-26b-a4b-it";
 
     // Create fallback chain with guaranteed models first, then dynamically-loaded ones
     const modelsToTry = [ primaryModel, secondaryModel ];
 
-    // Add any other available gemma models that aren't already in the chain
+    // Add any other available gemma-4 models that aren't already in the chain
     if ( this.availableModels && this.availableModels.length > 0 ) {
       for ( const model of this.availableModels ) {
-        if ( model.includes( 'gemma' ) && !modelsToTry.includes( model ) ) {
+        if ( model.includes( 'gemma-4' ) && !modelsToTry.includes( model ) ) {
           modelsToTry.push( model );
         }
       }
