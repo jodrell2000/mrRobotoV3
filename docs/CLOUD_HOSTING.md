@@ -13,6 +13,7 @@ This guide provides step-by-step instructions for deploying Mr. Roboto V3 to Ora
 - [Setup Overview](#setup-overview)
 - [Step 1: Create Oracle Cloud Account](#step-1-create-oracle-cloud-account-15-30-minutes)
 - [Step 2: Access Oracle Cloud Console](#step-2-access-oracle-cloud-console-2-minutes)
+- [Step 2a (Optional): Share Account Access with Others](#step-2a-optional-share-account-access-with-others-5-minutes)
 - [Step 3: Create Virtual Cloud Network](#step-3-create-virtual-cloud-network-5-minutes)
 - [Step 4: Create a Compute Instance](#step-4-create-a-compute-instance-10-minutes)
 - [Step 5: Connect via SSH](#step-5-connect-via-ssh-5-minutes)
@@ -158,6 +159,167 @@ Once your account is approved:
 
 ---
 
+## Step 2a (Optional): Share Account Access with Others (10 minutes)
+
+> **Skip this step if:** You're managing the bot yourself and don't need to give others access.
+
+> **Use this step if:** You want to create the account but hand over technical setup to someone else, or you're setting up access for team members, friends, or family.
+
+Oracle Cloud supports multi-user access through Identity and Access Management (IAM). This is perfect for:
+- Parents setting up accounts for children
+- Friends helping each other with setup
+- Team members sharing a project account
+- Someone without a credit card getting access
+
+### How It Works
+
+**Account Owner (Person A):**
+- Creates the OCI account with their payment card
+- Remains responsible for billing (£0 for Always Free resources)
+- Creates IAM users and assigns permissions
+- Can revoke access at any time
+
+**IAM User (Person B):**
+- Receives email invitation from account owner
+- Creates Oracle account (no payment card required)
+- Gets access to the owner's tenancy
+- Can deploy and manage resources based on assigned permissions
+- Cannot see billing information
+
+### Setup Steps
+
+Create a custom group that has full technical access but cannot view billing:
+
+1. **Navigate to Groups**
+   - Sign in to Oracle Cloud Console
+   - Go to **Identity & Security** → **Domains** → **Default Domain** → **User management** → **Groups**
+
+2. **Create new group**
+   - Click **Create Group**
+   - **Name**: `TechnicalAdmins` (or any name you prefer)
+   - **Description**: `Full technical access without billing visibility`
+   - Click **Create**
+
+3. **Add policies to the group**
+   - Go to **Identity & Security** → **Policies**
+   - Click **Create Policy**
+   - **Name**: `TechnicalAdminPolicy`
+   - **Description**: `Allows full resource management except billing`
+   - **Policy Builder** or **Show manual editor**: Toggle to manual editor
+   - Add these policy statements (Allow statements only):
+   ```
+   Allow group TechnicalAdmins to manage all-resources in tenancy
+   Allow group TechnicalAdmins to read usage-budgets in tenancy
+   ```
+   - Click **Create**
+   
+   > **Important:** This policy should ONLY contain Allow statements. Do NOT add any Deny statements here.
+
+4. **Enable Deny Policy Feature** (required before creating deny policies):
+   - Stay in **Identity & Security** → **Policies**
+   - Click the **Actions** drop down menu
+   - Select **Policy settings**
+   - Click **Enable IAM Deny Policy**
+   - Read the warning: "Enabling IAM deny policies is permanent and must be done deliberately"
+   - Click **Enable** to confirm
+   - When prompted about creating a default deny policy: Select **Yes**
+   
+   > **Important:** This is a one-time setup. Once enabled, you cannot turn off deny policies (but you can delete individual deny policy statements). The system will automatically create a default policy that prevents regular users from creating deny statements - only administrators can manage deny policies.
+
+5. **Block payment and subscription management** (optional, for extra security):
+   - Stay in **Identity & Security** → **Policies**
+   - Click **Create Policy** again to create a **NEW, SEPARATE policy**
+   - **Name**: `BlockPaymentAccess` (different name from above)
+   - **Description**: `Prevents upgrading account or managing payment methods`
+   - **Policy Builder** or **Show manual editor**: Toggle to manual editor
+   - **Important**: Clear any default/placeholder text in the editor first
+   - Add these statements (Deny statements only):
+   ```
+   Deny group TechnicalAdmins to use subscription in tenancy
+   Deny group TechnicalAdmins to manage all-resources in tenancy where request.permission='TENANCY_UPDATE'
+   ```
+   - Click **Create**
+   
+   > **Critical:** This MUST be a separate policy from `TechnicalAdminPolicy`. OCI does not allow Allow and Deny statements in the same policy. You should now have TWO policies: one named `TechnicalAdminPolicy` with Allow statements, and one named `BlockPaymentAccess` with Deny statements.
+   
+   > **Troubleshooting:** If you get "Deny statement passed into Allow compilation" error, ensure you have enabled the Deny Policy Feature in step 4. Also verify the policy editor is completely empty before pasting the Deny statements.
+   
+   This prevents IAM users from:
+   - ✅ Upgrading from Always Free to paid services
+   - ✅ Modifying tenancy settings (including payment)
+   - ✅ Managing subscriptions
+   - ❌ Viewing usage and resource consumption (they can still see this)
+
+**Summary:** After completing the setup, you should have:
+- ✅ One group: `TechnicalAdmins`
+- ✅ Two policies: `TechnicalAdminPolicy` (with Allow statements) and `BlockPaymentAccess` (with Deny statements)
+- ✅ Deny Policy Feature enabled (if you created step 5)
+
+Now when you create IAM users, assign them to the `TechnicalAdmins` group.
+
+#### For Account Owner: Create IAM User
+
+1. **Navigate to IAM**
+   - Sign in to Oracle Cloud Console
+   - Go to **Identity & Security** → **Domains** → **Default Domain** → **User Management** → **Users**
+
+2. **Create user**
+   - Click **Create User**
+   - Enter the person's email address
+   - Enter first (optional) name and last name
+
+3. **Assign permissions**
+   You should se the Group TechAdmins you created earlier in the list under Groups
+   - Assign to groups: **TechnicalAdmins** by ticking the box next to that Group name
+   - Click **Create**
+
+4. **Invitation sent**
+   - Oracle automatically sends invitation email to the user
+   - Invitation includes link to activate account
+
+#### For IAM User: Accept Invitation
+
+1. **Check email**
+   - Look for invitation from Oracle Cloud
+   - Click the activation link
+
+2. **Create account**
+   - Set up password (no payment card required)
+   - Complete account creation
+
+3. **Access tenancy**
+   - Sign in to Oracle Cloud Console
+   - You'll have access to the account owner's tenancy
+   - Can now proceed with technical setup steps
+
+### Handover to Technical Admin
+
+At this point, the basic account structure and user permissions have been created:
+- ✅ Oracle Cloud account created with payment verification
+- ✅ `TechnicalAdmins` group created with full technical access
+- ✅ IAM user created and assigned to `TechnicalAdmins` group
+- ✅ IAM user has accepted invitation and can sign in
+
+**If the account owner will not be responsible for creating resources**, they can now hand over to one of the Technical Admins to proceed with **Step 3** and beyond. The Technical Admin will:
+- Create the Virtual Cloud Network (VCN)
+- Create the compute instance (VM)
+- Install Docker
+- Deploy the bot
+
+The Technical Admin will need:
+- Their Oracle Cloud IAM user credentials (email and password)
+- The bot's `.env` file with all configuration
+
+### Important Notes
+
+- ✅ IAM users can deploy, manage, and SSH to VMs
+- ✅ Only account owner sees billing/payment information
+- ✅ Always Free resources have no charges regardless of who uses them
+- ⚠️ Account owner is responsible for any charges if paid resources are created
+- ℹ️ Account owner can revoke IAM user access at any time
+
+---
+
 ## Step 3: Create Virtual Cloud Network (5 minutes)
 
 Before creating the VM instance, you need a Virtual Cloud Network (VCN) for internet connectivity.
@@ -247,6 +409,8 @@ Now create the virtual machine that will run your bot 24/7.
    **Option B: Use existing SSH key**
    - Select **Upload public key files (.pub)**
    - Browse and select your `~/.ssh/id_rsa.pub` or similar
+   - Keys for multiple users can be added here if required
+   - Once the Instance is created, new ssh keys for rother users to access the system can ONLY be added using ssh
 
    **Option C: Use SSH agent (1Password, Secretive, etc.)**
    - If you use an SSH agent, select Option B above
@@ -306,7 +470,7 @@ ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 
 **Keep this SSH session open** for the next steps.
 
-**Note for IAM users:** If you're accessing a VM created by someone else, make sure your SSH public key has been added to the instance first. See the [FAQ section on IAM user SSH keys](#q-how-do-iam-users-add-their-ssh-keys-to-access-the-vm) for instructions.
+**Note for IAM users:** If you're accessing a VM created by someone else, make sure your SSH public key has been added to the instance first. See [Step 2a: Share Account Access](#step-2a-optional-share-account-access-with-others-5-minutes) for SSH key setup instructions.
 
 ---
 
@@ -662,121 +826,7 @@ A: Most accounts approve within 5-30 minutes, but can take up to 24 hours. Commo
 
 **Q: Can someone else set up the account and give me access without my credit card?**
 
-A: Yes! Oracle Cloud supports multi-user access through Identity and Access Management (IAM). This is perfect for:
-- Parents setting up for children
-- Friends helping each other
-- Team members sharing a project account
-- Someone without a credit card getting access
-
-**How it works:**
-
-**Person A (Account Owner):**
-1. Creates OCI account with their payment card
-2. Remains responsible for billing (£0 for Always Free resources)
-3. Creates IAM user for Person B
-4. Assigns appropriate permissions
-
-**Person B (IAM User):**
-1. Receives email invitation
-2. Creates Oracle account (no payment card required)
-3. Gets access to Person A's tenancy
-4. Can deploy and manage the bot
-5. Cannot see billing information
-
-**Setup Steps for Account Owner:**
-
-1. Sign in to Oracle Cloud Console
-2. Go to **Identity & Security** → **Domains** → **Default Domain** → **Users**
-3. Click **Create User**
-4. Enter Person B's email, name, and optional details
-5. Assign to groups:
-   - **Administrators** - Full access to all resources
-   - **Custom Group** - Limited to specific compartments/resources
-6. Click **Create** - invitation email sent automatically
-
-Person B clicks the invitation link, creates their Oracle account (just email/password), and can immediately access the tenancy.
-
-**Important Notes:**
-- ✅ IAM users can deploy, manage, and SSH to VMs
-- ✅ Only account owner sees billing/payment information
-- ✅ Always Free resources have no charges regardless of who uses them
-- ⚠️ Account owner is responsible for any charges if paid resources are created
-
----
-
-**Q: How do IAM users add their SSH keys to access the VM?**
-
-A: IAM users need to add their public SSH key to the instance to get SSH access. There are two methods:
-
-**Method 1: Add SSH Key to Existing Instance (Easiest)**
-
-The account owner can add the IAM user's public key directly to the VM:
-
-1. IAM user generates SSH key pair (if they don't have one):
-   ```bash
-   # On macOS/Linux
-   ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-   # Creates ~/.ssh/id_rsa (private) and ~/.ssh/id_rsa.pub (public)
-   ```
-
-2. IAM user sends their **public key** (`~/.ssh/id_rsa.pub` content) to account owner
-
-3. Account owner SSH into the VM and adds the public key:
-   ```bash
-   ssh ubuntu@YOUR_PUBLIC_IP
-   
-   # Add the public key to authorized_keys
-   echo "ssh-rsa AAAAB3NzaC1yc2EA... user@email.com" >> ~/.ssh/authorized_keys
-   
-   # Set correct permissions
-   chmod 600 ~/.ssh/authorized_keys
-   ```
-
-4. IAM user can now SSH:
-   ```bash
-   ssh ubuntu@YOUR_PUBLIC_IP
-   ```
-
-**Method 2: Add SSH Key via Oracle Console**
-
-The account owner can add SSH keys through the console:
-
-1. Sign in to Oracle Cloud Console
-2. Go to **Compute** → **Instances**
-3. Click the instance name
-4. Click **Edit** (top right)
-5. Scroll to **Add SSH keys**
-6. Paste the IAM user's public key
-7. Click **Save changes**
-
-**Method 3: Add Multiple Keys at Instance Creation**
-
-When creating the instance, the account owner can add multiple SSH public keys (one per line) in the SSH key section. Include:
-- Account owner's key (for management)
-- IAM user's key (for bot deployment)
-
-**For SSH Agent Users (1Password, Secretive):**
-
-If the IAM user uses an SSH agent:
-
-1. Export public key from SSH agent:
-   - **1Password**: Right-click key → Export Public Key
-   - **Secretive**: Click key → Copy public key
-
-2. Send public key to account owner
-
-3. Account owner adds it using Method 1 or 2 above
-
-4. IAM user can deploy without key files:
-   ```bash
-   ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data
-   ```
-
-**Security Best Practices:**
-- ⚠️ Never share private keys - only share public keys
-- ✅ Each person should have their own SSH key pair
-- ✅ Account owner should keep their own key for emergency access
-- ✅ Use SSH agent (1Password, Secretive) for better key management
+A: Yes! See [Step 2a (Optional): Share Account Access with Others](#step-2a-optional-share-account-access-with-others-5-minutes) for complete instructions on setting up multi-user access with IAM and SSH key management.
 
 ---
 
@@ -868,7 +918,7 @@ A: Add a new SSH key:
    ssh -i ~/.ssh/oracle_new ubuntu@YOUR_PUBLIC_IP
    ```
 
-**Note:** If you're an IAM user on a shared account, see [How do IAM users add their SSH keys to access the VM?](#q-how-do-iam-users-add-their-ssh-keys-to-access-the-vm) above in the Account & Billing section.
+**Note:** If you're an IAM user on a shared account, see [Step 2a: Share Account Access](#step-2a-optional-share-account-access-with-others-5-minutes) for complete SSH key setup instructions.
 
 ---
 
