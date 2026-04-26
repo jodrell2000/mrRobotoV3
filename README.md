@@ -43,6 +43,7 @@ Deploy your bot to Oracle Cloud for **free** 24/7 hosting on the Always Free tie
 Quick start:
 ```bash
 # After setting up your Oracle Cloud VM (see guide above)
+# Windows users: Use Git Bash, not PowerShell/CMD
 ORACLE_IP=YOUR_VM_IP ./scripts/deploy-to-oracle.sh --upload-data
 ```
 

@@ -56,6 +56,7 @@ Before starting, ensure you have:
 - ✅ **A credit/debit card** for Oracle account verification (you will NOT be charged)
 - ✅ **Basic terminal familiarity** - ability to copy/paste commands and use SSH
 - ✅ **SSH access** - either SSH key or SSH agent (1Password, Secretive, etc.)
+- ✅ **Bash shell** - macOS/Linux use native terminal, **Windows users must use Git Bash** (bundled with [Git for Windows](https://git-scm.com/download/win))
 
 You do **not** need:
 - ❌ Docker installed locally (we use pre-built images from GitHub Container Registry)
@@ -454,9 +455,15 @@ ssh ubuntu@YOUR_PUBLIC_IP
 
 ### Windows
 
-Using PowerShell:
+**For deployment script**: Use **Git Bash** (bundled with [Git for Windows](https://git-scm.com/download/win)):
+```bash
+# In Git Bash
+ssh -i ~/Downloads/oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+```
+
+**For SSH only**: Use PowerShell or PuTTY:
 ```powershell
-# With key file
+# PowerShell
 ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 
 # Or if using PuTTY, convert .key to .ppk first with PuTTYgen
@@ -511,6 +518,12 @@ docker ps
 ## Step 7: Deploy the Bot
 
 Deploy the bot using the automated deployment script from your **local machine** (not the VM).
+
+> **⚠️ Windows Users:** The deployment script requires bash and **will NOT work in PowerShell or CMD**. You must use:
+> - **Git Bash** (recommended - bundled with [Git for Windows](https://git-scm.com/download/win)), or
+> - **WSL** (Windows Subsystem for Linux)
+> 
+> Once you have Git Bash installed, right-click your project folder → "Git Bash Here" to open a bash terminal.
 
 **On your local machine:**
 
@@ -884,6 +897,28 @@ ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
 ```
 
 Upload your public key from the SSH agent when creating the instance.
+
+---
+
+**Q: Can I deploy from Windows?**
+
+A: **Yes, but you MUST use Git Bash** - PowerShell and CMD will not work with the deployment script.
+
+1. **Install Git for Windows**: Download from [git-scm.com/download/win](https://git-scm.com/download/win) (includes Git Bash)
+2. **Open Git Bash**: Right-click your project folder → "Git Bash Here"
+3. **Run deployment commands** as shown in Step 7:
+   ```bash
+   # In Git Bash (not PowerShell!)
+   ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data
+   ```
+
+Alternatively, you can use **WSL** (Windows Subsystem for Linux) if you already have it installed.
+
+**For SSH only** (without deployment script), you can use PowerShell:
+```powershell
+# PowerShell - SSH only
+ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
+```
 
 ---
 

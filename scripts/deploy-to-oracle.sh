@@ -2,6 +2,16 @@
 
 # Oracle Cloud Deployment Script for Mr. Roboto V3
 # Deploys the bot to an Oracle Cloud VM with data sync
+#
+# Platform Support:
+#   - macOS: Native bash (tested with bash 3.2+)
+#   - Linux: Native bash
+#   - Windows: Use Git Bash (comes with Git for Windows) or WSL
+#
+# Requirements:
+#   - bash 3.2 or higher
+#   - curl
+#   - ssh (or SSH agent like 1Password, Secretive)
 
 set -e
 
@@ -25,7 +35,7 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# Function to fetch available Docker image tags
+# Function to fetch available Docker image tags with digests
 fetch_available_tags() {
     echo -e "${BLUE}Fetching available image tags...${NC}" >&2
     
@@ -52,14 +62,28 @@ fetch_available_tags() {
         return
     fi
     
-    echo "$TAGS"
+    # Fetch digest for each tag and output as tag:digest
+    while IFS= read -r tag; do
+        local DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/jodrell2000/mrrobotov3/manifests/$tag" 2>/dev/null \
+            | grep -o '"digest":"sha256:[^"]*"' \
+            | head -1 \
+            | cut -d'"' -f4)
+        
+        if [[ -n "$DIGEST" ]]; then
+            echo "$tag:$DIGEST"
+        else
+            echo "$tag:unknown"
+        fi
+    done <<< "$TAGS"
 }
 
 # Function to select image tag interactively
 select_image_tag() {
-    local AVAILABLE_TAGS=$(fetch_available_tags)
+    local TAGS_WITH_DIGESTS=$(fetch_available_tags)
     
-    if [[ -z "$AVAILABLE_TAGS" ]]; then
+    if [[ -z "$TAGS_WITH_DIGESTS" ]]; then
         print_warn "Could not fetch available tags, using 'latest'" >&2
         echo "latest"
         return
@@ -75,38 +99,86 @@ select_image_tag() {
     echo -e "${BLUE}Available Docker image tags:${NC}" >&2
     echo "================================" >&2
     
-    # Convert to array and prioritize 'latest'
-    local TAG_ARRAY=()
-    local has_latest=false
+    # Parse tags and digests into parallel arrays (bash 3.2 compatible)
+    local TAGS=()
+    local DIGESTS=()
     
-    # Check if 'latest' exists in tags
-    while IFS= read -r tag; do
-        if [[ "$tag" == "latest" ]]; then
-            has_latest=true
+    while IFS=: read -r tag digest; do
+        TAGS+=("$tag")
+        DIGESTS+=("$digest")
+    done <<< "$TAGS_WITH_DIGESTS"
+    
+    # Build grouped display (bash 3.2 compatible - no associative arrays)
+    local TAG_GROUPS=()
+    local TAG_FIRST=()
+    local PROCESSED=()
+    
+    # Process tags, grouping by digest
+    for i in "${!TAGS[@]}"; do
+        local tag="${TAGS[$i]}"
+        local digest="${DIGESTS[$i]}"
+        
+        # Skip if already processed
+        local skip=false
+        for processed in "${PROCESSED[@]}"; do
+            if [[ "$processed" == "$i" ]]; then
+                skip=true
+                break
+            fi
+        done
+        
+        if [[ "$skip" == "true" ]]; then
+            continue
         fi
-    done <<< "$AVAILABLE_TAGS"
+        
+        # Find all tags with same digest
+        local group="$tag"
+        PROCESSED+=("$i")
+        
+        for j in "${!TAGS[@]}"; do
+            if [[ "$i" != "$j" && "${DIGESTS[$j]}" == "$digest" ]]; then
+                group="$group, ${TAGS[$j]}"
+                PROCESSED+=("$j")
+            fi
+        done
+        
+        TAG_GROUPS+=("$group")
+        TAG_FIRST+=("$tag")
+    done
     
-    # Build array with 'latest' first if it exists
-    if [[ "$has_latest" == "true" ]]; then
-        TAG_ARRAY+=("latest")
+    # Reorder to put 'latest' first if it exists
+    local FINAL_GROUPS=()
+    local FINAL_FIRST=()
+    local latest_idx=-1
+    
+    for i in "${!TAG_GROUPS[@]}"; do
+        if [[ "${TAG_GROUPS[$i]}" == *"latest"* ]]; then
+            latest_idx=$i
+            break
+        fi
+    done
+    
+    if [[ $latest_idx -ge 0 ]]; then
+        FINAL_GROUPS+=("${TAG_GROUPS[$latest_idx]}")
+        FINAL_FIRST+=("${TAG_FIRST[$latest_idx]}")
     fi
     
-    # Add other tags
-    while IFS= read -r tag; do
-        if [[ "$tag" != "latest" ]]; then
-            TAG_ARRAY+=("$tag")
+    for i in "${!TAG_GROUPS[@]}"; do
+        if [[ $i -ne $latest_idx ]]; then
+            FINAL_GROUPS+=("${TAG_GROUPS[$i]}")
+            FINAL_FIRST+=("${TAG_FIRST[$i]}")
         fi
-    done <<< "$AVAILABLE_TAGS"
+    done
     
     # Display with numbers
     local i=1
-    for tag in "${TAG_ARRAY[@]}"; do
-        if [[ "$tag" == "latest" ]]; then
-            echo -e "  ${GREEN}$i)${NC} $tag ${YELLOW}(default)${NC}" >&2
+    for tag_group in "${FINAL_GROUPS[@]}"; do
+        if [[ "$tag_group" == *"latest"* ]]; then
+            echo -e "  ${GREEN}$i)${NC} $tag_group ${YELLOW}(default)${NC}" >&2
         else
-            echo "  $i) $tag" >&2
+            echo "  $i) $tag_group" >&2
         fi
-        ((i++))
+        i=$((i + 1))
     done
     
     echo "" >&2
@@ -119,14 +191,18 @@ select_image_tag() {
     fi
     
     # Validate selection
-    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt "${#TAG_ARRAY[@]}" ]]; then
+    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt "${#FINAL_FIRST[@]}" ]]; then
         print_warn "Invalid selection, using 'latest'" >&2
         echo "latest"
         return
     fi
     
-    # Return selected tag (arrays are 0-indexed)
-    echo "${TAG_ARRAY[$((selection-1))]}"
+    # Return first tag from selected group (arrays are 0-indexed)
+    local selected_tag="${FINAL_FIRST[$((selection-1))]}"
+    # Trim any whitespace
+    selected_tag="${selected_tag## }"
+    selected_tag="${selected_tag%% }"
+    echo "$selected_tag"
 }
 
 # Function to show usage
