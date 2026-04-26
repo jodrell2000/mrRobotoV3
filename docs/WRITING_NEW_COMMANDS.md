@@ -647,3 +647,161 @@ The `togglecommand` command allows owners to enable/disable other commands at ru
 2. **Testing**: Use `togglecommand` to test command disable/enable flows
 3. **Maintenance**: Temporarily disable problematic commands instead of removing them
 4. **Critical Commands**: The system prevents disabling essential commands like `help` and `togglecommand` itself
+
+---
+
+## Running Tests
+
+Testing is crucial for ensuring your commands work correctly and don't break existing functionality.
+
+### Test Suite Coverage
+
+The test suite covers:
+
+- ✅ Successful sending/fetching of private & group messages
+- ✅ Error handling and fallback message conditions
+- ✅ Command metadata validation
+- ✅ Permission level enforcement
+- ✅ Service integration
+
+### Running Tests
+
+To run the complete test suite:
+
+```bash
+npm test
+```
+
+To run tests with coverage report:
+
+```bash
+npm test -- --coverage
+```
+
+To run a specific test file:
+
+```bash
+npm test -- tests/commands/General\ Commands/handlePingCommand.test.js
+```
+
+### Writing Tests for Your Command
+
+Every command should have a corresponding test file. Place it in the `tests/` directory matching the command's location:
+
+```
+src/commands/General Commands/handlePingCommand.js
+tests/commands/General Commands/handlePingCommand.test.js
+```
+
+#### Basic Test Structure
+
+```javascript
+const handlePingCommand = require('../../../src/commands/General Commands/handlePingCommand');
+
+describe('handlePingCommand', () => {
+    let mockServices;
+    let mockContext;
+
+    beforeEach(() => {
+        // Setup mocks
+        mockServices = {
+            messageService: {
+                sendResponse: jest.fn()
+            }
+        };
+        
+        mockContext = {
+            sender: { nickname: 'TestUser' },
+            fullMessage: { isPrivateMessage: false }
+        };
+    });
+
+    describe('Metadata Tests', () => {
+        test('should have correct metadata', () => {
+            expect(handlePingCommand.requiredRole).toBe('USER');
+            expect(handlePingCommand.description).toBeDefined();
+            expect(handlePingCommand.example).toBeDefined();
+            expect(handlePingCommand.hidden).toBe(false);
+        });
+    });
+
+    describe('Functionality Tests', () => {
+        test('should respond with pong', async () => {
+            const result = await handlePingCommand({
+                command: 'ping',
+                args: '',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            });
+
+            expect(result.success).toBe(true);
+            expect(mockServices.messageService.sendResponse).toHaveBeenCalled();
+        });
+    });
+
+    describe('Error Handling', () => {
+        test('should handle service failures gracefully', async () => {
+            mockServices.messageService.sendResponse.mockRejectedValue(
+                new Error('Service unavailable')
+            );
+
+            const result = await handlePingCommand({
+                command: 'ping',
+                args: '',
+                services: mockServices,
+                context: mockContext
+            });
+
+            expect(result.success).toBe(false);
+            expect(result.error).toBeDefined();
+        });
+    });
+});
+```
+
+#### Test Best Practices
+
+1. **Test Metadata**: Always verify `requiredRole`, `description`, `example`, and `hidden`
+2. **Mock External Dependencies**: Mock all services, file I/O, and network calls
+3. **Test Success Paths**: Verify the command works with valid inputs
+4. **Test Error Paths**: Ensure graceful handling of errors and edge cases
+5. **Test Permissions**: If applicable, test role-based access control
+6. **Reset Mocks**: Use `beforeEach()` to ensure test isolation
+7. **Avoid Real I/O**: Never perform actual file or network operations in tests
+
+#### Common Mocking Patterns
+
+Mock the `dataService`:
+```javascript
+mockServices.dataService = {
+    getValue: jest.fn(),
+    setValue: jest.fn(),
+    loadData: jest.fn(),
+    getAllData: jest.fn().mockReturnValue({})
+};
+```
+
+Mock the file system (if testing code that uses `fs`):
+```javascript
+jest.mock('fs/promises', () => ({
+    readFile: jest.fn(),
+    writeFile: jest.fn(),
+    access: jest.fn()
+}));
+```
+
+### Continuous Integration
+
+Tests run automatically on:
+- Every pull request
+- Every commit to main branches
+- Before deployments
+
+Ensure all tests pass before submitting pull requests.
+
+### Testing Resources
+
+- [Jest Documentation](https://jestjs.io/docs/getting-started)
+- [Testing Guide](TESTING_GUIDE.md) - Comprehensive testing guidelines
+- Example tests in `tests/` directory
