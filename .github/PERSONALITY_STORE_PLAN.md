@@ -529,7 +529,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
     - Brief description: "Save and switch between personality presets with database storage"
 
 16. **Create detailed documentation**
-    - File: `docs/PERSONALITY_STORE.md`
+    - File: `docs/PERSONALITIES.md`
     - Include:
       - Feature overview and use cases
       - Command syntax and examples for each subcommand
@@ -545,7 +545,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 - `src/commands/Edit Commands/handlePersonalityCommand.js` — Main command handler with subcommand routing, all helper functions (handleListPersonalities shows descriptions, handleShowPersonality shows description, handleShowAllPersonality shows description at top, handleSavePersonality validates description required and ≤50 chars with helpful error messages, handleUpdatePersonality validates description if provided, handleDeletePersonality, handleActivatePersonality), and utility functions (parsePersonalityNameAndDescription for save/update, parsePersonalityName for other commands, validateDescription with error messages, isReservedName, sendResponse, sendSuccessResponse, formatPersonalityList with descriptions, suggestSimilarNames)
 - `tests/commands/handlePersonalityCommand.test.js` — Unit tests for all subcommands, case-insensitive handling, and edge cases
 - `tests/integration/personalityStore.integration.test.js` — Integration test for full workflow including activePersonality tracking
-- `docs/PERSONALITY_STORE.md` — User documentation with examples and troubleshooting
+- `docs/PERSONALITIES.md` — User documentation with examples and troubleshooting
 
 ### To Modify
 - `src/services/databaseService.js` — Add `createPersonalityTables()` in the `createTables()` method with normalized schema (17 tables total: 1 personalities + 5 type tables + 8 content tables + 8 junction tables), personalities table includes description field with 50 character CHECK constraint, and add comprehensive CRUD methods: `savePersonality` (multi-step transaction creating personality with name+description and linking to content, validates description), `updatePersonality` (smart update with reference counting to update exclusive content in-place or create new when shared, validates description if provided), `getPersonalityByName` (multiple queries via junction tables), `getAllPersonalities` (returns description for listings), `deletePersonality` (with automatic orphan cleanup), plus helper methods for content management (`findOrCreate*` for all content types, `update*` for all content types, `getContentReferenceCount`, `getContentIdForPersonality`, `updateJunctionEntry`, `linkPersonalityToContent`, `getPersonalityContent`, `cleanupOrphanedContent`)
