@@ -298,8 +298,8 @@ The word `current` is reserved and cannot be used as a personality name:
 !personality activate "Original Setup"
 
 # 2. Make changes using other commands
-!editPersonality "You are now a chill, laid-back DJ..."
-!editWelcome "Hey there! 🎵 Welcome to the vibe, {username}!"
+!edit MLPersonality "You are now a chill, laid-back DJ..."
+!edit welcomeMessage "Hey there! 🎵 Welcome to the vibe, {username}!"
 
 # 3. Save as new personality
 !personality save "Chill Mode" "Relaxed personality for late nights"
@@ -312,8 +312,8 @@ The word `current` is reserved and cannot be used as a personality name:
 !personality activate "Chill Mode"
 
 # 2. Make your changes
-!editPersonality "Updated personality text..."
-!toggleFeature announcements off
+!edit MLPersonality "Updated personality text..."
+!feature announcements disable
 
 # 3. Save changes back
 !personality update current
@@ -532,8 +532,6 @@ For technical reference, personalities are stored in a normalized SQLite databas
 - Prepared statements for SQL injection protection
 - Transactional updates for data consistency
 
-See [.github/PERSONALITY_STORE_PLAN.md](../.github/PERSONALITY_STORE_PLAN.md) for complete schema details.
-
 ## Permissions
 
 **Access Level:** OWNER only
@@ -549,13 +547,12 @@ Moderators cannot view, create, update, or activate personalities.
 
 These commands work together with the personality system:
 
-- `!editPersonality` - Modify AI personality text
-- `!editInstructions` - Modify AI instructions
-- `!editWelcome` - Modify welcome message
-- `!toggleFeature` - Enable/disable features
-- `!toggleCommand` - Enable/disable commands
+- `!edit` - Manage editable message/question templates (including MLPersonality, MLInstructions, welcomeMessage, etc.)
+- `!feature` - Enable/disable bot features
+- `!command` - Enable/disable bot commands
 - `!trigger` - Manage chat triggers
 - `!token` - Manage custom tokens
+- `!editwelcome` - Manage personalized welcome messages
 
 After making changes with these commands, use `!personality update current` to save them to your active personality.
 
@@ -564,7 +561,3 @@ After making changes with these commands, use `!personality update current` to s
 - **v1.1.0** (2026-05-01) - Initial release of Personality Store feature
 
 ---
-
-For technical implementation details, see:
-- [Version 1.1.0 Changelog](changelog/1.1.0.md)
-- [Implementation Plan](.github/PERSONALITY_STORE_PLAN.md)
