@@ -64,12 +64,14 @@ fetch_available_tags() {
     
     # Fetch digest for each tag and output as tag:digest
     while IFS= read -r tag; do
-        local DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            "https://ghcr.io/v2/jodrell2000/mrrobotov3/manifests/$tag" 2>/dev/null \
-            | grep -o '"digest":"sha256:[^"]*"' \
-            | head -1 \
-            | cut -d'"' -f4)
+        # Use HEAD request with OCI manifest accept header to get Docker-Content-Digest
+        local DIGEST=$(curl -s -X HEAD -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            "https://ghcr.io/v2/jodrell2000/mrrobotov3/manifests/$tag" \
+            -D - 2>/dev/null \
+            | grep -i "^docker-content-digest:" \
+            | cut -d: -f2- \
+            | tr -d ' \r\n')
         
         if [[ -n "$DIGEST" ]]; then
             echo "$tag:$DIGEST"

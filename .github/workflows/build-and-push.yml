@@ -3,8 +3,8 @@ name: Build and Push Docker Image
 on:
   push:
     tags:
-      - 'v*.*.*'        # Triggers on semantic version tags (v1.0.0, v1.2.3, etc.)
-      - 'v*.*.*-*'      # Also supports pre-release tags (v1.0.0-beta, v1.0.0-alpha)
+      - "v*.*.*" # Triggers on semantic version tags (v1.0.0, v1.2.3, etc.)
+      - "v*.*.*-*" # Also supports pre-release tags (v1.0.0-beta, v1.0.0-alpha)
 
 env:
   REGISTRY: ghcr.io
