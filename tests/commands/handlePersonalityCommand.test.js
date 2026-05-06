@@ -25,6 +25,9 @@ describe( 'handlePersonalityCommand', () => {
                 updatePersonality: jest.fn(),
                 deletePersonality: jest.fn()
             },
+            stateService: {
+                getUserRole: jest.fn().mockReturnValue( 'owner' )
+            },
             logger: {
                 info: jest.fn(),
                 debug: jest.fn(),
@@ -40,11 +43,128 @@ describe( 'handlePersonalityCommand', () => {
 
     describe( 'command metadata', () => {
         it( 'should have correct metadata', () => {
-            expect( handlePersonalityCommand.requiredRole ).toBe( 'OWNER' );
+            expect( handlePersonalityCommand.requiredRole ).toBe( 'MODERATOR' );
             expect( handlePersonalityCommand.description ).toBeDefined();
             expect( handlePersonalityCommand.description ).toBe( 'Manage bot personality presets' );
             expect( handlePersonalityCommand.example ).toBeDefined();
             expect( handlePersonalityCommand.hidden ).toBe( false );
+        } );
+    } );
+
+    describe( 'permissions', () => {
+        it( 'should allow moderators to list personalities', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+            mockServices.databaseService.getAllPersonalities.mockResolvedValue( [] );
+
+            const result = await handlePersonalityCommand( {
+                args: 'list',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( mockServices.databaseService.getAllPersonalities ).toHaveBeenCalled();
+        } );
+
+        it( 'should allow moderators to activate personalities', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+            mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
+                name: 'Test',
+                instructions: { MLPersonality: 'test', MLInstructions: 'test' },
+                editableMessages: {},
+                configuration: {},
+                mlQuestions: {},
+                disabledCommands: [],
+                disabledFeatures: [],
+                triggers: {},
+                customTokens: {}
+            } );
+
+            const result = await handlePersonalityCommand( {
+                args: 'activate "Test"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+        } );
+
+        it( 'should prevent moderators from saving personalities', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+
+            const result = await handlePersonalityCommand( {
+                args: 'save "Test" "Description"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( false );
+            expect( result.response ).toContain( 'Only the room owner' );
+            expect( mockServices.databaseService.savePersonality ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should prevent moderators from updating personalities', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+
+            const result = await handlePersonalityCommand( {
+                args: 'update "Test"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( false );
+            expect( result.response ).toContain( 'Only the room owner' );
+            expect( mockServices.databaseService.updatePersonality ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should prevent moderators from deleting personalities', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+
+            const result = await handlePersonalityCommand( {
+                args: 'delete "Test"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( false );
+            expect( result.response ).toContain( 'Only the room owner' );
+            expect( mockServices.databaseService.deletePersonality ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should prevent moderators from viewing full personality details (showall)', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'moderator' );
+
+            const result = await handlePersonalityCommand( {
+                args: 'showall "Test"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( false );
+            expect( result.response ).toContain( 'Only the room owner' );
+            expect( result.response ).toContain( 'Use `show` for a brief overview' );
+        } );
+
+        it( 'should allow owners to perform all operations', async () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
+            mockServices.databaseService.getPersonalityByName.mockResolvedValue( null );
+            mockServices.dataService.getAllData.mockReturnValue( {} );
+
+            const result = await handlePersonalityCommand( {
+                args: 'save "Test" "Description"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( mockServices.databaseService.savePersonality ).toHaveBeenCalled();
         } );
     } );
 
@@ -195,6 +315,7 @@ describe( 'handlePersonalityCommand', () => {
 
     describe( 'save subcommand', () => {
         beforeEach( () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
             mockServices.dataService.getAllData.mockReturnValue( {
                 Instructions: { MLPersonality: 'Test personality', MLInstructions: 'Test instructions' },
                 editableMessages: { welcomeMessage: 'Welcome!' },
@@ -297,6 +418,7 @@ describe( 'handlePersonalityCommand', () => {
 
     describe( 'update subcommand', () => {
         beforeEach( () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
             mockServices.dataService.getAllData.mockReturnValue( {
                 Instructions: { MLPersonality: 'Updated personality', MLInstructions: 'Updated instructions' },
                 editableMessages: {},
@@ -455,6 +577,10 @@ describe( 'handlePersonalityCommand', () => {
     } );
 
     describe( 'delete subcommand', () => {
+        beforeEach( () => {
+            mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
+        } );
+
         it( 'should delete existing personality', async () => {
             mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
                 name: 'TestPersonality'

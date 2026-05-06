@@ -1,6 +1,7 @@
 const config = require( '../../config.js' );
+const { hasPermission } = require( '../../lib/roleUtils' );
 
-const requiredRole = 'OWNER';
+const requiredRole = 'MODERATOR';
 const description = 'Manage bot personality presets';
 const example = 'list | save "Name" "Description" | activate "Name" | delete "Name"';
 const hidden = false;
@@ -127,9 +128,21 @@ async function handleShowPersonality ( personalityName, services, context, respo
 }
 
 async function handleShowAllPersonality ( personalityName, services, context, responseChannel ) {
-    const { messageService, databaseService, logger } = services;
+    const { messageService, databaseService, logger, stateService } = services;
 
     try {
+        const senderRole = stateService.getUserRole( context.sender );
+        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            const response = '❌ Only the room owner can view full personality details. Use `show` for a brief overview.';
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
+        }
+
         if ( !databaseService.initialized ) {
             throw new Error( 'Database not initialized' );
         }
@@ -190,9 +203,21 @@ async function handleShowAllPersonality ( personalityName, services, context, re
 }
 
 async function handleSavePersonality ( personalityName, description, services, context, responseChannel ) {
-    const { messageService, dataService, databaseService, logger } = services;
+    const { messageService, dataService, databaseService, logger, stateService } = services;
 
     try {
+        const senderRole = stateService.getUserRole( context.sender );
+        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            const response = '❌ Only the room owner can save personalities.';
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
+        }
+
         if ( !databaseService.initialized ) {
             throw new Error( 'Database not initialized' );
         }
@@ -276,9 +301,21 @@ async function handleSavePersonality ( personalityName, description, services, c
 }
 
 async function handleUpdatePersonality ( personalityName, description, services, context, responseChannel ) {
-    const { messageService, dataService, databaseService, logger } = services;
+    const { messageService, dataService, databaseService, logger, stateService } = services;
 
     try {
+        const senderRole = stateService.getUserRole( context.sender );
+        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            const response = '❌ Only the room owner can update personalities.';
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
+        }
+
         if ( !databaseService.initialized ) {
             throw new Error( 'Database not initialized' );
         }
@@ -447,9 +484,21 @@ async function handleActivatePersonality ( personalityName, services, context, r
 }
 
 async function handleDeletePersonality ( personalityName, services, context, responseChannel ) {
-    const { messageService, dataService, databaseService, logger } = services;
+    const { messageService, dataService, databaseService, logger, stateService } = services;
 
     try {
+        const senderRole = stateService.getUserRole( context.sender );
+        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            const response = '❌ Only the room owner can delete personalities.';
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+            return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
+        }
+
         if ( !databaseService.initialized ) {
             throw new Error( 'Database not initialized' );
         }

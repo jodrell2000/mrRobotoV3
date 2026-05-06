@@ -537,14 +537,22 @@ For technical reference, personalities are stored in a normalized SQLite databas
 
 ## Permissions
 
-**Access Level:** OWNER only
+### Moderator Access
 
-Only the bot owner can manage personalities. This ensures:
-- Core bot behavior remains under tight control
-- Consistency across personality switches
-- No unauthorized configuration changes
+Moderators can:
+- `!personality list` - View all saved personalities
+- `!personality show <name>` - View personality overview (truncated ML personality text)
+- `!personality activate <name>` - Switch to a different personality
 
-Moderators cannot view, create, update, or activate personalities.
+### Owner-Only Access
+
+Only the bot owner can:
+- `!personality showall <name>` - View full personality details (complete configuration)
+- `!personality save <name> <description>` - Save new personalities
+- `!personality update <name>` - Update existing personalities
+- `!personality delete <name>` - Delete personalities
+
+This permission model allows moderators to switch between existing bot configurations (useful for events or time-based changes) and view basic personality information, while maintaining tight control over full configuration details and personality modification.
 
 ## Related Commands
 
