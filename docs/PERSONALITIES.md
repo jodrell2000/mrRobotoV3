@@ -92,7 +92,7 @@ Save your current bot configuration as a named personality.
 
 **What Gets Saved:**
 - AI personality and instructions
-- Editable messages (welcome, nowPlaying, justPlayed, theme)
+- Editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, theme)
 - Bot configuration settings
 - ML question templates
 - Disabled commands and features
@@ -102,6 +102,7 @@ Save your current bot configuration as a named personality.
 **What Doesn't Get Saved:**
 - Bot identity (name, avatar, color) - remains constant
 - ML conversation history - preserved across personality changes
+- Personalized welcome messages (per-user custom messages/pictures set via `!editwelcome`)
 
 **Reserved Names:**
 - `current` - Reserved for the `update` command
@@ -395,11 +396,13 @@ Each personality stores a complete snapshot of your bot configuration:
 - `MLInstructions` - AI behavioral instructions
 
 **Messages:**
-- `welcomeMessage` - User greeting template
+- `welcomeMessage` - General user greeting template (applies to all users)
 - `nowPlayingMessage` - Song announcement template
 - `justPlayedMessage` - Recently played template
 - `theme` - Hangout theme setting
 - `readTheme` - Theme reading preference
+
+**Note:** Personalized welcome messages (per-user custom messages/pictures managed by `!editwelcome` and stored in `welcomeMessages.json`) are **NOT** included in personalities. These remain constant across personality switches.
 
 **Configuration:**
 - All bot configuration settings
@@ -552,9 +555,9 @@ These commands work together with the personality system:
 - `!command` - Enable/disable bot commands
 - `!trigger` - Manage chat triggers
 - `!token` - Manage custom tokens
-- `!editwelcome` - Manage personalized welcome messages
+- `!editwelcome` - Manage personalized per-user welcome messages (NOT saved in personalities)
 
-After making changes with these commands, use `!personality update current` to save them to your active personality.
+**Important:** Changes made with `!edit`, `!feature`, `!command`, `!trigger`, and `!token` can be saved to a personality using `!personality update current`. However, personalized welcome messages set via `!editwelcome` are stored separately and persist across all personality switches.
 
 ## Version History
 
