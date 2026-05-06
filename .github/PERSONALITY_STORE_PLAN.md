@@ -4,7 +4,7 @@ Add a comprehensive personality management system that allows saving, loading, a
 
 ## TL;DR
 
-Create a `!personality` command with 7 subcommands (list, show, showall, save, update, delete, activate) that manages comprehensive bot personality presets using a normalized SQLite database design (17 tables). Personalities link directly to reusable content records (instructions, messages, configuration, ML questions, triggers, tokens) via junction tables. Automatic content deduplication: when saving personalities with identical content, the same database records are reused. This enables quick switching between different bot modes (e.g., "Admin Mode" with all features enabled, "Public Mode" with restrictions, "Event Mode" with custom triggers) while automatically saving storage through content reuse. Only bot identity (name/avatar/color) and conversation history are excluded.
+Create a `!personality` command with 7 subcommands (list, show, showall, save, update, delete, activate) that manages comprehensive bot personality presets using a normalized SQLite database design (17 tables). Each personality requires a descriptive name and description (max 50 characters) displayed in listings. Personalities link directly to reusable content records (instructions, messages, configuration, ML questions, triggers, tokens) via junction tables. Automatic content deduplication: when saving personalities with identical content, the same database records are reused. This enables quick switching between different bot modes (e.g., "Admin Mode" with all features enabled, "Public Mode" with restrictions, "Event Mode" with custom triggers) while automatically saving storage through content reuse. Only bot identity (name/avatar/color) and conversation history are excluded.
 
 ## Steps
 
@@ -16,10 +16,11 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    - **Normalized Schema Design:**
 
    ```sql
-   -- Central personalities table (only ID, name, timestamps)
+   -- Central personalities table (ID, name, description, timestamps)
    CREATE TABLE IF NOT EXISTS personalities (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     description TEXT NOT NULL CHECK(length(description) <= 50),
      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
    );
@@ -192,7 +193,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    ```
 
    **Key Features:**
-   - Central `personalities` table with only id, name (case-insensitive unique), timestamps
+   - Central `personalities` table with id, name (case-insensitive unique), description (max 50 chars), timestamps
    - Type tables for categorized content (instructions, editable_messages, configurations, triggers)
    - Content tables storing actual data with foreign keys to type tables
    - Junction tables (personality_*) creating direct many-to-many relationships between personalities and content
@@ -203,8 +204,9 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 
 2. **Add CRUD methods to DatabaseService**
    - **Save Personality**: Multi-step transaction to save normalized data
-     - `savePersonality({ name, mlPersonality, mlInstructions, editableMessages, configuration, mlQuestions, disabledCommands, disabledFeatures, triggers, customTokens })`
-     - Creates personality record (just name and timestamps)
+     - `savePersonality({ name, description, mlPersonality, mlInstructions, editableMessages, configuration, mlQuestions, disabledCommands, disabledFeatures, triggers, customTokens })`
+     - Creates personality record (name, description, timestamps)
+     - Validates description exists and is ≤ 50 characters
      - For each component type:
        - Creates instruction content for MLPersonality and MLInstructions
        - Creates content records (or reuses existing matching content for sharing)
@@ -212,7 +214,8 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
      - Returns personality ID
    
    - **Update Personality**: Smart update that modifies exclusive content in-place or creates new content if shared
-     - `updatePersonality({ name, mlPersonality, mlInstructions, editableMessages, configuration, mlQuestions, disabledCommands, disabledFeatures, triggers, customTokens })`
+     - `updatePersonality({ name, description, mlPersonality, mlInstructions, editableMessages, configuration, mlQuestions, disabledCommands, disabledFeatures, triggers, customTokens })`
+     - Updates description if provided (validates ≤ 50 characters)
      - For each content item:
        1. Get current content ID linked to this personality
        2. Check reference count: How many personalities link to this content?
@@ -268,7 +271,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    
    - **Get All Personalities**: List all personalities (lightweight)
      - `getAllPersonalities()`
-     - Returns: id, name, created_at, updated_at only (no component data for listing)
+     - Returns: id, name, description, created_at, updated_at only (no component data for listing)
    
    - **Delete Personality**: Remove personality and automatically cleanup orphaned content
      - `deletePersonality(name)`
@@ -314,16 +317,16 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
      ```javascript
      handlePersonalityCommand.requiredRole = 'OWNER';
      handlePersonalityCommand.description = 'Manage bot personality presets';
-     handlePersonalityCommand.example = 'list | save "Name" | activate "Name" | delete "Name"';
+     handlePersonalityCommand.example = 'list | save "Name" "Description" | activate "Name" | delete "Name"';
      handlePersonalityCommand.hidden = false;
      ```
 
 4. **Implement subcommand: list**
    - Handler: `handleListPersonalities(services, context)`
    - Query database via `services.databaseService.getAllPersonalities()`
-   - Format output: `📋 Saved Personalities:\n• Name 1 (created: DD/MM/YYYY)\n• Name 2 (created: DD/MM/YYYY)`
-   - Show currently active personality at top: `🔵 Active: Current Name\n\n📋 All Personalities:`
-   - If empty: `No saved personalities. Use !personality save "Name" to create one.`
+   - Format output: `📋 Saved Personalities:\n• Name 1 - Description here (created: DD/MM/YYYY)\n• Name 2 - Another description (created: DD/MM/YYYY)`
+   - Show currently active personality at top: `🔵 Active: Current Name - Description\n\n📋 All Personalities:`
+   - If empty: `No saved personalities. Use !personality save "Name" "Description" to create one.`
    - Return success response via `sendSuccessResponse()`
 
 5. **Implement subcommand: show <name>**
@@ -339,6 +342,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    - Handler: `handleShowAllPersonality(personalityName, services, context)`
    - Query database for full personality record (case-insensitive)
    - Format output: Show all personality data in organized sections:
+     - Name and Description
      - ML Personality and Instructions
      - Editable Messages (formatted as YAML-like structure)
      - Configuration settings
@@ -349,8 +353,14 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    - Split into multiple messages to avoid tt.fm limits (suggest sections: 1) ML/Messages, 2) Config/Features, 3) Triggers/Tokens)
    - Return success/error response
 
-7. **Implement subcommand: save <name>**
-   - Handler: `handleSavePersonality(personalityName, services, context)`
+7. **Implement subcommand: save <name> <description>**
+   - Handler: `handleSavePersonality(personalityName, description, services, context)`
+   - Parse name and description from args (support quoted strings with spaces)
+   - **Validate description**:
+     - Must be provided (not undefined/empty)
+     - Must be ≤ 50 characters
+     - If missing: `❌ Description required. Usage: !personality save "Name" "Description" (max 50 chars)`
+     - If too long: `❌ Description must be 50 characters or less (currently: X)`
    - Validate name is provided and not reserved word "current" (case-insensitive check)
    - Validate name doesn't already exist (database handles via UNIQUE COLLATE NOCASE)
    - Load current botConfig via `services.dataService`
@@ -358,10 +368,10 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    - **Transaction flow**:
      ```javascript
      const transaction = db.transaction(() => {
-       // Create personality record
+       // Create personality record with description
        const result = db.prepare(`
-         INSERT INTO personalities (name) VALUES (?)
-       `).run(name);
+         INSERT INTO personalities (name, description) VALUES (?, ?)
+       `).run(name, description);
        const personalityId = result.lastInsertRowid;
        
        // Create/link instructions (MLPersonality and MLInstructions)
@@ -387,8 +397,12 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
    - If name is "current" (any case): `❌ Name "current" is reserved. Please choose a different name.`
    - If name exists: `❌ Personality "${existingName}" already exists. Use 'update' to modify it.` (show DB case)
 
-8. **Implement subcommand: update <name>**
-   - Handler: `handleUpdatePersonality(personalityName, services, context)`
+8. **Implement subcommand: update <name> [description]**
+   - Handler: `handleUpdatePersonality(personalityName, description, services, context)`
+   - Parse name and optional description from args
+   - **Validate description if provided**:
+     - Must be ≤ 50 characters
+     - If too long: `❌ Description must be 50 characters or less (currently: X)`
    - **Special case**: If name is "current" (case-insensitive), update the currently active personality
      - Read `botConfig.activePersonality` to get active personality name
      - If no active personality set: `❌ No active personality. Use 'save' to create one first, then 'activate' it.`
@@ -445,11 +459,13 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
     - If not found: Suggest similar names (case-insensitive Levenshtein)
 
 11. **Add helper functions**
-    - `parsePersonalityName(args)` - Extract name from args, handle quoted strings (preserve case as entered)
+    - `parsePersonalityNameAndDescription(args)` - Extract name and description from args, handle quoted strings (preserve case as entered)
+    - `parsePersonalityName(args)` - Extract only name from args, handle quoted strings (preserve case as entered)
+    - `validateDescription(description)` - Validate description exists and ≤ 50 characters, return error object if invalid
     - `isReservedName(name)` - Check if name is "current" (case-insensitive)
     - `sendResponse(message, services, context)` - Error response helper
     - `sendSuccessResponse(message, services, context)` - Success response helper
-    - `formatPersonalityList(personalities)` - Format list output (uses DB stored case)
+    - `formatPersonalityList(personalities)` - Format list output with descriptions (uses DB stored case)
     - `suggestSimilarNames(invalidName, allNames)` - Levenshtein distance for typos (case-insensitive comparison)
 
 ### Phase 3: Testing (*depends on Phase 2*)
@@ -467,11 +483,16 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
       - ✅ Metadata properties exist and are correct
       - ✅ List personalities (empty and populated, shows active)
       - ✅ Show personality (exists and not found)
-      - ✅ Showall personality
+      - ✅ Showall personality (includes description)
       - ✅ Save new personality (success and duplicate name)
+      - ✅ Save without description (error with usage instructions)
+      - ✅ Save with description >50 chars (error with char count)
+      - ✅ Save with valid description (success)
       - ✅ Save with reserved name "current" (blocked)
       - ✅ Case-insensitive duplicate detection ("My DJ" vs "my dj")
       - ✅ Update existing personality (success and not found)
+      - ✅ Update personality with new description (validates length)
+      - ✅ Update personality with description >50 chars (error)
       - ✅ Update "current" personality (special case)
       - ✅ Activate personality (success, not found, botConfig updates, activePersonality set)
       - ✅ Activate with "current" (blocked)
@@ -486,13 +507,14 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 13. **Create integration test**
     - File: `tests/integration/personalityStore.integration.test.js`
     - Test full workflow:
-      1. Save personality from current botConfig
+      1. Save personality from current botConfig with description
       2. Verify case-insensitive duplicate rejection
-      3. Modify botConfig manually
-      4. List personalities (verify shows active)
-      5. Activate saved personality (verify activePersonality set)
-      6. Update "current" special case
-      7. Delete personality (verify activePersonality cleared)
+      3. Verify description appears in list command
+      4. Modify botConfig manually
+      5. List personalities (verify shows active with description)
+      6. Activate saved personality (verify activePersonality set)
+      7. Update "current" special case with new description
+      8. Delete personality (verify activePersonality cleared)
     - Use actual DatabaseService (not mocked) with test database
     - Clean up test database after run
 
@@ -500,7 +522,7 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 
 14. **Update CHANGELOG.md**
     - Add to `## [Unreleased]` section under `### Added`
-    - Entry: `- **Personality Store**: New \`!personality\` command to save, manage, and switch between bot personality presets stored in a normalized SQLite database. Smart content management: updates exclusive content in-place, preserves shared content to prevent unintended changes to other personalities. Automatic content deduplication via findOrCreate pattern. Includes case-insensitive personality names, reserved "current" keyword for updating active personality, and automatic tracking of active personality. Subcommands: list, show, showall, save, update, delete, activate.`
+    - Entry: `- **Personality Store**: New \`!personality\` command to save, manage, and switch between bot personality presets stored in a normalized SQLite database. Each personality requires a description (max 50 characters) displayed in listings. Smart content management: updates exclusive content in-place, preserves shared content to prevent unintended changes to other personalities. Automatic content deduplication via findOrCreate pattern. Includes case-insensitive personality names, reserved "current" keyword for updating active personality, and automatic tracking of active personality. Subcommands: list, show, showall, save, update, delete, activate.`
 
 15. **Update README.md**
     - Add to features list (if user-facing features are listed)
@@ -520,13 +542,13 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 ## Relevant Files
 
 ### To Create
-- `src/commands/Edit Commands/handlePersonalityCommand.js` — Main command handler with subcommand routing, all helper functions (handleListPersonalities, handleShowPersonality, handleShowAllPersonality, handleSavePersonality, handleUpdatePersonality, handleDeletePersonality, handleActivatePersonality), and utility functions (parsePersonalityName, isReservedName, sendResponse, sendSuccessResponse, formatPersonalityList, suggestSimilarNames)
+- `src/commands/Edit Commands/handlePersonalityCommand.js` — Main command handler with subcommand routing, all helper functions (handleListPersonalities shows descriptions, handleShowPersonality shows description, handleShowAllPersonality shows description at top, handleSavePersonality validates description required and ≤50 chars with helpful error messages, handleUpdatePersonality validates description if provided, handleDeletePersonality, handleActivatePersonality), and utility functions (parsePersonalityNameAndDescription for save/update, parsePersonalityName for other commands, validateDescription with error messages, isReservedName, sendResponse, sendSuccessResponse, formatPersonalityList with descriptions, suggestSimilarNames)
 - `tests/commands/handlePersonalityCommand.test.js` — Unit tests for all subcommands, case-insensitive handling, and edge cases
 - `tests/integration/personalityStore.integration.test.js` — Integration test for full workflow including activePersonality tracking
 - `docs/PERSONALITY_STORE.md` — User documentation with examples and troubleshooting
 
 ### To Modify
-- `src/services/databaseService.js` — Add `createPersonalityTables()` in the `createTables()` method with normalized schema (17 tables total: 1 personalities + 5 type tables + 8 content tables + 8 junction tables), and add comprehensive CRUD methods: `savePersonality` (multi-step transaction creating personality and linking to content), `updatePersonality` (smart update with reference counting to update exclusive content in-place or create new when shared), `getPersonalityByName` (multiple queries via junction tables), `getAllPersonalities`, `deletePersonality` (with automatic orphan cleanup), plus helper methods for content management (`findOrCreate*` for all content types, `update*` for all content types, `getContentReferenceCount`, `getContentIdForPersonality`, `updateJunctionEntry`, `linkPersonalityToContent`, `getPersonalityContent`, `cleanupOrphanedContent`)
+- `src/services/databaseService.js` — Add `createPersonalityTables()` in the `createTables()` method with normalized schema (17 tables total: 1 personalities + 5 type tables + 8 content tables + 8 junction tables), personalities table includes description field with 50 character CHECK constraint, and add comprehensive CRUD methods: `savePersonality` (multi-step transaction creating personality with name+description and linking to content, validates description), `updatePersonality` (smart update with reference counting to update exclusive content in-place or create new when shared, validates description if provided), `getPersonalityByName` (multiple queries via junction tables), `getAllPersonalities` (returns description for listings), `deletePersonality` (with automatic orphan cleanup), plus helper methods for content management (`findOrCreate*` for all content types, `update*` for all content types, `getContentReferenceCount`, `getContentIdForPersonality`, `updateJunctionEntry`, `linkPersonalityToContent`, `getPersonalityContent`, `cleanupOrphanedContent`)
 - `docs/CHANGELOG.md` — Add entry to unreleased section describing the normalized component-based personality system
 - `README.md` — Add Personality Store to features list (if applicable)
 
@@ -549,8 +571,16 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 
 ### Manual Verification
 1. **Save personality**
-   - Command: `!personality save "Test DJ"`
+   - Command: `!personality save "Test DJ" "Friendly test personality"`
    - Verify: Success message with name "Test DJ"
+
+1a. **Test missing description**
+   - Command: `!personality save "Test DJ"`
+   - Verify: Error - Description required with usage instructions
+
+1b. **Test description too long**
+   - Command: `!personality save "Test" "This is a very long description that exceeds fifty characters limit"`
+   - Verify: Error - Description must be 50 characters or less
 
 2. **Test case-insensitive handling**
    - Command: `!personality save "test dj"`
@@ -568,11 +598,11 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 
 4. **List personalities**
    - Command: `!personality list`
-   - Verify: Shows active personality at top, then "Test DJ" in list
+   - Verify: Shows active personality at top with description, then "Test DJ - Friendly test personality" in list
 
 5. **Show personality**
    - Command: `!personality show "test dj"`
-   - Verify: Displays MLPersonality text with name "Test DJ"
+   - Verify: Displays description and MLPersonality text with name "Test DJ"
 
 6. **Modify botConfig manually**
    - Edit `data/botConfig.json` Instructions.MLPersonality
@@ -599,8 +629,9 @@ Create a `!personality` command with 7 subcommands (list, show, showall, save, u
 # Connect to database
 sqlite3 data/mrroboto.db
 
-# Check normalized schema exists
+# Check normalized schema exists with description field
 .schema personalities
+-- Should show: description TEXT NOT NULL CHECK(length(description) <= 50)
 .schema instruction_types
 .schema instructions
 .schema personality_instructions
@@ -610,8 +641,8 @@ sqlite3 data/mrroboto.db
 # ... check other tables
 
 # Test case-insensitive uniqueness
-INSERT INTO personalities (name) VALUES ('Test');
-INSERT INTO personalities (name) VALUES ('TEST');
+INSERT INTO personalities (name, description) VALUES ('Test', 'Test description');
+INSERT INTO personalities (name, description) VALUES ('TEST', 'Another description');
 -- Should fail with UNIQUE constraint error
 
 # Verify normalized data structure and content sharing
@@ -745,12 +776,12 @@ WHERE pi.instruction_id IS NULL;
 
 **4. Personality Cloning**
 - No inheritance system needed
-- Users can clone personalities manually: activate desired personality → save with new name
+- Users can clone personalities manually: activate desired personality → save with new name and description
 - Example workflow:
   ```
   !personality activate "Chill DJ"
   // Make manual tweaks to botConfig
-  !personality save "Chill DJ Evening"
+  !personality save "Chill DJ Evening" "Evening mode with relaxed vibes"
   ```
 
 ### Reserved Names
@@ -762,7 +793,7 @@ WHERE pi.instruction_id IS NULL;
 The normalized database design enables content sharing between personalities through automatic deduplication, with smart update behavior that prevents unintended changes:
 
 **Design Approach:**
-- **Central personalities table** with only id, name (case-insensitive unique), timestamps
+- **Central personalities table** with id, name (case-insensitive unique), description (max 50 chars, NOT NULL), timestamps
 - **Type tables** for categorizing content (instruction_types, editable_message_types, configuration_types, ml_question_types, trigger_types)
 - **Content tables** storing actual data (instructions, editable_messages, configurations, ml_questions, triggers, etc.)
 - **Junction tables** (personality_instructions, personality_editable_messages, etc.) creating direct many-to-many relationships
@@ -774,12 +805,12 @@ The normalized database design enables content sharing between personalities thr
 
 1. **Automatic Content Reuse at Save Time**
    ```
-   Personality "Admin Mode" saves with:
+   Personality "Admin Mode" with description "Full admin features" saves with:
      - Instructions: MLPersonality="Friendly admin assistant..."
      - Messages: welcomeMessage="Welcome! 👋"
      - Configuration: { featureX: true, featureY: true }
    
-   Personality "Public Mode" saves with:
+   Personality "Public Mode" with description "Limited public access" saves with:
      - Instructions: MLPersonality="Professional public bot..." (unique)
      - Messages: welcomeMessage="Welcome! 👋" (REUSED - same content)
      - Configuration: { featureX: true, featureY: true } (REUSED - same content)
