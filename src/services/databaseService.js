@@ -1202,7 +1202,10 @@ class DatabaseService {
                     const triggerList = triggers[ triggerType ];
                     if ( Array.isArray( triggerList ) ) {
                         triggerList.forEach( trigger => {
-                            const contentId = this.findOrCreateTrigger( typeId, trigger.pattern, trigger.response );
+                            // Handle both string format (command names) and object format (pattern/response)
+                            const pattern = typeof trigger === 'string' ? trigger : trigger.pattern;
+                            const response = typeof trigger === 'string' ? trigger : trigger.response;
+                            const contentId = this.findOrCreateTrigger( typeId, pattern, response );
                             this.linkPersonalityToContent( personalityId, 'triggers', contentId );
                         } );
                     }
