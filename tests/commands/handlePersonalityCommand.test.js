@@ -28,6 +28,9 @@ describe( 'handlePersonalityCommand', () => {
             stateService: {
                 getUserRole: jest.fn().mockReturnValue( 'owner' )
             },
+            hangUserService: {
+                updateHangNickname: jest.fn().mockResolvedValue()
+            },
             logger: {
                 info: jest.fn(),
                 debug: jest.fn(),
@@ -73,7 +76,7 @@ describe( 'handlePersonalityCommand', () => {
                 name: 'Test',
                 instructions: { MLPersonality: 'test', MLInstructions: 'test' },
                 editableMessages: {},
-                configuration: {},
+                configuration: { botName: 'TestBot' },
                 mlQuestions: {},
                 disabledCommands: [],
                 disabledFeatures: [],
@@ -317,6 +320,7 @@ describe( 'handlePersonalityCommand', () => {
         beforeEach( () => {
             mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
             mockServices.dataService.getAllData.mockReturnValue( {
+                botData: { CHAT_NAME: 'TestBot' },
                 Instructions: { MLPersonality: 'Test personality', MLInstructions: 'Test instructions' },
                 editableMessages: { welcomeMessage: 'Welcome!' },
                 configuration: { timezone: 'UTC' },
@@ -420,6 +424,7 @@ describe( 'handlePersonalityCommand', () => {
         beforeEach( () => {
             mockServices.stateService.getUserRole.mockReturnValue( 'owner' );
             mockServices.dataService.getAllData.mockReturnValue( {
+                botData: { CHAT_NAME: 'TestBot' },
                 Instructions: { MLPersonality: 'Updated personality', MLInstructions: 'Updated instructions' },
                 editableMessages: {},
                 configuration: {},
@@ -528,7 +533,7 @@ describe( 'handlePersonalityCommand', () => {
                 description: 'Test description',
                 instructions: { MLPersonality: 'Test', MLInstructions: 'Instructions' },
                 editableMessages: { welcomeMessage: 'Welcome!' },
-                configuration: {},
+                configuration: { botName: 'NewBotName' },
                 mlQuestions: {},
                 disabledCommands: [],
                 disabledFeatures: [],
@@ -546,6 +551,19 @@ describe( 'handlePersonalityCommand', () => {
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'Activated' );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', 'TestPersonality' );
+            expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'botData.CHAT_NAME', 'NewBotName' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            
+            // Verify loading message is sent first, then success message
+            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledTimes( 2 );
+            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 1, 
+                expect.stringContaining( 'Loading new personality' ), 
+                expect.any( Object ) 
+            );
+            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 2, 
+                expect.stringContaining( 'Activated' ), 
+                expect.any( Object ) 
+            );
         } );
 
         it( 'should reject reserved name "current"', async () => {

@@ -91,6 +91,7 @@ Save your current bot configuration as a named personality.
 ```
 
 **What Gets Saved:**
+- Bot name (not avatar or color - those remain constant)
 - AI personality and instructions
 - Editable message templates (welcomeMessage, nowPlayingMessage, justPlayedMessage, theme)
 - Bot configuration settings
@@ -100,7 +101,7 @@ Save your current bot configuration as a named personality.
 - Custom tokens
 
 **What Doesn't Get Saved:**
-- Bot identity (name, avatar, color) - remains constant
+- Bot avatar and color - set once at bot creation, remain constant across personalities
 - ML conversation history - preserved across personality changes
 - Personalized welcome messages (per-user custom messages/pictures set via `!editwelcome`)
 
@@ -147,6 +148,8 @@ Load a saved personality, applying all its settings to your bot.
 
 **What Happens:**
 - All bot settings are replaced with the personality's stored configuration
+- Bot name changes to match the personality (via TT.fm API)
+- Bot avatar and color remain unchanged (set at bot creation)
 - AI personality and behavior changes immediately
 - ML conversation history is preserved (maintains song/conversation context)
 - The bot tracks this as the "active" personality
@@ -391,7 +394,12 @@ Descriptions are limited to 50 characters and displayed in listings. Make them c
 
 Each personality stores a complete snapshot of your bot configuration:
 
-**Instructions:**
+**Bot Identity:**
+- Bot name (CHAT_NAME) - updated via TT.fm API when personality is activated
+
+**Note:** Avatar ID and color are set once during bot creation and remain constant across all personalities.
+
+**Instructions:****
 - `MLPersonality` - AI personality description
 - `MLInstructions` - AI behavioral instructions
 

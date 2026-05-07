@@ -265,7 +265,10 @@ async function handleSavePersonality ( personalityName, description, services, c
             mlPersonality: botConfig.Instructions?.MLPersonality || '',
             mlInstructions: botConfig.Instructions?.MLInstructions || '',
             editableMessages: botConfig.editableMessages || {},
-            configuration: botConfig.configuration || {},
+            configuration: {
+                ...( botConfig.configuration || {} ),
+                botName: botConfig.botData?.CHAT_NAME || ''
+            },
             mlQuestions: botConfig.mlQuestions || {},
             disabledCommands: botConfig.disabledCommands || [],
             disabledFeatures: botConfig.disabledFeatures || [],
@@ -371,7 +374,10 @@ async function handleUpdatePersonality ( personalityName, description, services,
             mlPersonality: botConfig.Instructions?.MLPersonality || '',
             mlInstructions: botConfig.Instructions?.MLInstructions || '',
             editableMessages: botConfig.editableMessages || {},
-            configuration: botConfig.configuration || {},
+            configuration: {
+                ...( botConfig.configuration || {} ),
+                botName: botConfig.botData?.CHAT_NAME || ''
+            },
             mlQuestions: botConfig.mlQuestions || {},
             disabledCommands: botConfig.disabledCommands || [],
             disabledFeatures: botConfig.disabledFeatures || [],
@@ -442,6 +448,15 @@ async function handleActivatePersonality ( personalityName, services, context, r
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
 
+        // Send loading message
+        const loadingMessage = `🤖 Loading new personality...please wait`;
+        await messageService.sendResponse( loadingMessage, {
+            responseChannel,
+            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+            sender: context?.sender,
+            services
+        } );
+
         await dataService.loadData();
         await dataService.setValue( 'Instructions.MLPersonality', personality.instructions.MLPersonality );
         await dataService.setValue( 'Instructions.MLInstructions', personality.instructions.MLInstructions );
@@ -450,7 +465,15 @@ async function handleActivatePersonality ( personalityName, services, context, r
             await dataService.setValue( `editableMessages.${ key }`, value );
         }
 
-        await dataService.setValue( 'configuration', personality.configuration );
+        // Extract botName from configuration if it exists
+        const { botName, ...otherConfig } = personality.configuration;
+        if ( botName ) {
+            await dataService.setValue( 'botData.CHAT_NAME', botName );
+            // Update bot name on TT.fm platform
+            await services.hangUserService.updateHangNickname( botName );
+        }
+        await dataService.setValue( 'configuration', otherConfig );
+
         await dataService.setValue( 'mlQuestions', personality.mlQuestions );
         await dataService.setValue( 'disabledCommands', personality.disabledCommands );
         await dataService.setValue( 'disabledFeatures', personality.disabledFeatures );
@@ -650,9 +673,22 @@ function formatConfiguration ( config ) {
     if ( !config || Object.keys( config ).length === 0 ) {
         return 'None';
     }
-    return Object.entries( config )
-        .map( ( [ key, value ] ) => `  • ${ key }: ${ JSON.stringify( value ) }` )
-        .join( '\n' );
+
+    const { botName, ...otherConfig } = config;
+    const parts = [];
+
+    // Format bot name separately if it exists
+    if ( botName ) {
+        parts.push( `  • Bot Name: ${ botName }` );
+    }
+
+    // Format other config items
+    const otherItems = Object.entries( otherConfig )
+        .map( ( [ key, value ] ) => `  • ${ key }: ${ JSON.stringify( value ) }` );
+
+    parts.push( ...otherItems );
+
+    return parts.length > 0 ? parts.join( '\n' ) : 'None';
 }
 
 function formatMlQuestions ( questions ) {
