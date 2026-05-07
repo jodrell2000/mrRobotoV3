@@ -749,8 +749,15 @@ function formatCustomTokens ( tokens ) {
     }
     return Object.entries( tokens )
         .map( ( [ key, value ] ) => {
-            // Handle objects properly (convert to JSON string)
-            const displayValue = typeof value === 'object' ? JSON.stringify( value ) : value;
+            // Extract just the value if it's a token object, otherwise display as-is
+            let displayValue;
+            if ( typeof value === 'object' && value !== null && 'value' in value ) {
+                displayValue = value.value;
+            } else if ( typeof value === 'object' ) {
+                displayValue = JSON.stringify( value );
+            } else {
+                displayValue = value;
+            }
             return `  • {${ key }}: "${ displayValue }"`;
         } )
         .join( '\n' );
