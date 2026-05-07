@@ -42,9 +42,7 @@ async function handleListPersonalities ( services, context, responseChannel ) {
         response += '📋 **Saved Personalities:**\n';
         personalities.forEach( p => {
             const date = new Date( p.created_at ).toLocaleDateString( 'en-GB' );
-            const isActive = activePersonality && p.name.toLowerCase() === activePersonality.toLowerCase();
-            const marker = isActive ? '' : '• ';
-            response += `${ marker }**${ p.name }** - ${ p.description } (created: ${ date })\n`;
+            response += `"${ p.name }" - ${ p.description } (created: ${ date })\n`;
         } );
 
         await messageService.sendResponse( response, {
