@@ -168,8 +168,11 @@ async function handleShowAllPersonality ( personalityName, services, context, re
         const created = new Date( personality.created_at ).toLocaleDateString( 'en-GB' );
         const updated = new Date( personality.updated_at ).toLocaleDateString( 'en-GB' );
 
+        // Extract bot name for prominent display
+        const botName = personality.configuration?.botName || 'Not set';
+
         const messages = [
-            `**${ personality.name }** - ${ personality.description }\n_Created: ${ created } | Updated: ${ updated }_\n\n**ML Personality:**\n\`\`\`\n${ personality.instructions.MLPersonality || 'Not set' }\n\`\`\`\n\n**ML Instructions:**\n\`\`\`\n${ personality.instructions.MLInstructions || 'Not set' }\n\`\`\``,
+            `**${ personality.name }** - ${ personality.description }\n_Created: ${ created } | Updated: ${ updated }_\n\n**Bot Name:** ${ botName }\n\n**ML Personality:**\n\`\`\`\n${ personality.instructions.MLPersonality || 'Not set' }\n\`\`\`\n\n**ML Instructions:**\n\`\`\`\n${ personality.instructions.MLInstructions || 'Not set' }\n\`\`\``,
 
             `**Editable Messages:**\n${ formatEditableMessages( personality.editableMessages ) }\n\n**Configuration:**\n${ formatConfiguration( personality.configuration ) }`,
 
@@ -692,21 +695,17 @@ function formatConfiguration ( config ) {
         return 'None';
     }
 
+    // Exclude bot name since it's shown prominently at the top
     const { botName, ...otherConfig } = config;
-    const parts = [];
 
-    // Format bot name separately if it exists
-    if ( botName ) {
-        parts.push( `  • Bot Name: ${ botName }` );
+    if ( Object.keys( otherConfig ).length === 0 ) {
+        return 'None';
     }
 
     // Format other config items
-    const otherItems = Object.entries( otherConfig )
-        .map( ( [ key, value ] ) => `  • ${ key }: ${ JSON.stringify( value ) }` );
-
-    parts.push( ...otherItems );
-
-    return parts.length > 0 ? parts.join( '\n' ) : 'None';
+    return Object.entries( otherConfig )
+        .map( ( [ key, value ] ) => `  • ${ key }: ${ JSON.stringify( value ) }` )
+        .join( '\n' );
 }
 
 function formatMlQuestions ( questions ) {
@@ -730,7 +729,19 @@ function formatTriggers ( triggers ) {
         return 'None';
     }
     return Object.entries( triggers )
-        .map( ( [ type, items ] ) => `  **${ type }:**\n${ items.map( t => `    • "${ t.pattern }" → "${ t.response }"` ).join( '\n' ) }` )
+        .map( ( [ type, items ] ) => {
+            const formattedItems = items.map( t => {
+                // Handle both string format (simple command) and object format (pattern/response)
+                if ( typeof t === 'string' ) {
+                    return `    • "${ t }"`;
+                } else if ( t && typeof t === 'object' && t.pattern && t.response ) {
+                    return `    • "${ t.pattern }" → "${ t.response }"`;
+                } else {
+                    return `    • Invalid trigger format`;
+                }
+            } ).join( '\n' );
+            return `  **${ type }:**\n${ formattedItems }`;
+        } )
         .join( '\n' );
 }
 
@@ -739,7 +750,11 @@ function formatCustomTokens ( tokens ) {
         return 'None';
     }
     return Object.entries( tokens )
-        .map( ( [ key, value ] ) => `  • {${ key }}: "${ value }"` )
+        .map( ( [ key, value ] ) => {
+            // Handle objects properly (convert to JSON string)
+            const displayValue = typeof value === 'object' ? JSON.stringify( value ) : value;
+            return `  • {${ key }}: "${ displayValue }"`;
+        } )
         .join( '\n' );
 }
 
