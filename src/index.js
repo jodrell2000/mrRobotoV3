@@ -75,7 +75,7 @@ services.logger.info( '======================================= Application Start
         services.logger.debug( `🔄 Syncing bot name to TT.fm platform: ${ savedBotName }` );
         await services.hangUserService.updateHangNickname( savedBotName );
         services.logger.info( `✅ Bot name synced to TT.fm: ${ savedBotName }` );
-        
+
         // Leave and rejoin CometChat to refresh display name
         try {
           services.logger.debug( '🔄 Leaving CometChat to refresh display name...' );

@@ -472,9 +472,17 @@ async function handleActivatePersonality ( personalityName, services, context, r
             // Update bot name on TT.fm platform
             await services.hangUserService.updateHangNickname( botName );
 
-            // Rejoin CometChat to update display name in chat window
+            // Leave and rejoin CometChat to refresh display name in chat window
             try {
-                logger.debug( '🔄 Rejoining CometChat to update display name...' );
+                logger.debug( '🔄 Leaving CometChat to refresh display name...' );
+                await messageService.leaveChat( services.config.HANGOUT_ID );
+                logger.debug( '✅ Left CometChat group' );
+            } catch ( leaveError ) {
+                logger.warn( `⚠️ Failed to leave CometChat (will still try to rejoin): ${ leaveError.message }` );
+            }
+
+            try {
+                logger.debug( '🔄 Rejoining CometChat with new display name...' );
                 await messageService.joinChat( services.config.HANGOUT_ID );
                 logger.debug( '✅ CometChat rejoin successful' );
             } catch ( rejoinError ) {

@@ -10,7 +10,8 @@ describe( 'handlePersonalityCommand', () => {
         mockServices = {
             messageService: {
                 sendResponse: jest.fn(),
-                joinChat: jest.fn().mockResolvedValue()
+                joinChat: jest.fn().mockResolvedValue(),
+                leaveChat: jest.fn().mockResolvedValue()
             },
             dataService: {
                 getAllData: jest.fn(),
@@ -558,6 +559,7 @@ describe( 'handlePersonalityCommand', () => {
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', 'TestPersonality' );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'botData.CHAT_NAME', 'NewBotName' );
             expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.messageService.leaveChat ).toHaveBeenCalledWith( 'test-hangout-id' );
             expect( mockServices.messageService.joinChat ).toHaveBeenCalledWith( 'test-hangout-id' );
 
             // Verify loading message is sent first, then success message
@@ -608,6 +610,7 @@ describe( 'handlePersonalityCommand', () => {
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'Activated' );
             expect( mockServices.hangUserService.updateHangNickname ).not.toHaveBeenCalled();
+            expect( mockServices.messageService.leaveChat ).not.toHaveBeenCalled();
             expect( mockServices.messageService.joinChat ).not.toHaveBeenCalled();
         } );
 
@@ -624,7 +627,7 @@ describe( 'handlePersonalityCommand', () => {
                 triggers: {},
                 customTokens: {}
             } );
-            mockServices.messageService.joinChat.mockRejectedValue( new Error( 'CometChat error' ) );
+            mockServices.messageService.joinChat.mockRejectedValue( new Error( 'CometChat join error' ) );
 
             const result = await handlePersonalityCommand( {
                 args: 'activate "TestPersonality"',
@@ -637,9 +640,43 @@ describe( 'handlePersonalityCommand', () => {
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'Activated' );
             expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.messageService.leaveChat ).toHaveBeenCalled();
             expect( mockServices.messageService.joinChat ).toHaveBeenCalled();
             expect( mockServices.logger.warn ).toHaveBeenCalledWith(
                 expect.stringContaining( 'Failed to rejoin CometChat' )
+            );
+        } );
+
+        it( 'should handle CometChat leave errors gracefully', async () => {
+            mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
+                name: 'TestPersonality',
+                description: 'Test description',
+                instructions: { MLPersonality: 'Test', MLInstructions: 'Instructions' },
+                editableMessages: { welcomeMessage: 'Welcome!' },
+                configuration: { botName: 'NewBotName' },
+                mlQuestions: {},
+                disabledCommands: [],
+                disabledFeatures: [],
+                triggers: {},
+                customTokens: {}
+            } );
+            mockServices.messageService.leaveChat.mockRejectedValue( new Error( 'CometChat leave error' ) );
+
+            const result = await handlePersonalityCommand( {
+                args: 'activate "TestPersonality"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            // Should still succeed and attempt rejoin even if leave fails
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'Activated' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.messageService.leaveChat ).toHaveBeenCalled();
+            expect( mockServices.messageService.joinChat ).toHaveBeenCalled();
+            expect( mockServices.logger.warn ).toHaveBeenCalledWith(
+                expect.stringContaining( 'Failed to leave CometChat' )
             );
         } );
 

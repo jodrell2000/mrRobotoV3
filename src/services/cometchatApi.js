@@ -172,7 +172,7 @@ async function joinChatGroup ( roomId ) {
 async function leaveChatGroup ( roomId ) {
   const executeRequest = async () => {
     const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members/${ config.BOT_UID }`;
-    
+
     try {
       return await axios.delete( url, { headers } );
     } catch ( error ) {
