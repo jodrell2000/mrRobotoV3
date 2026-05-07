@@ -868,7 +868,10 @@ class DatabaseService {
                     const triggerList = triggers[ triggerType ];
                     if ( Array.isArray( triggerList ) ) {
                         triggerList.forEach( trigger => {
-                            const contentId = this.findOrCreateTrigger( typeId, trigger.pattern, trigger.response );
+                            // Handle both string format (command names) and object format (pattern/response)
+                            const pattern = typeof trigger === 'string' ? trigger : trigger.pattern;
+                            const response = typeof trigger === 'string' ? trigger : trigger.response;
+                            const contentId = this.findOrCreateTrigger( typeId, pattern, response );
                             this.linkPersonalityToContent( personalityId, 'triggers', contentId );
                         } );
                     }
@@ -1003,7 +1006,14 @@ class DatabaseService {
             if ( !triggers[ row.type ] ) {
                 triggers[ row.type ] = [];
             }
-            triggers[ row.type ].push( { pattern: row.pattern, response: row.response } );
+            // Convert back to simple command name format (matching botConfig structure)
+            // If pattern and response are the same, it's a simple command trigger
+            if ( row.pattern === row.response ) {
+                triggers[ row.type ].push( row.pattern );
+            } else {
+                // Preserve full object format for future pattern/response triggers
+                triggers[ row.type ].push( { pattern: row.pattern, response: row.response } );
+            }
         } );
 
         // Get custom tokens
