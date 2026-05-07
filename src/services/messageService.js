@@ -34,6 +34,7 @@ const messageService = {
 
   // Direct exports from groupMessageService
   joinChat: groupMessageService.joinChat,
+  leaveChat: groupMessageService.leaveChat,
   sendGroupMessage: groupMessageService.sendGroupMessage,
   sendGroupPictureMessage: groupMessageService.sendGroupPictureMessage,
   fetchGroupMessages: groupMessageService.fetchGroupMessages,

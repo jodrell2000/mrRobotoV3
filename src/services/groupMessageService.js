@@ -71,6 +71,21 @@ const groupMessageService = {
     },
 
     /**
+     * Leave a chat group
+     * @param {string} roomId - The room ID to leave
+     * @returns {Promise<Object>} Response object
+     */
+    leaveChat: async function ( roomId ) {
+        try {
+            const response = await cometchatApi.leaveChatGroup( roomId );
+            return response;
+        } catch ( error ) {
+            logger.error( `❌ Error leaving chat: ${ error.message }` );
+            throw error;
+        }
+    },
+
+    /**
      * Send a group message
      * @param {string|Object} theMessage - Message text or options object
      * @param {Object} options - Additional options

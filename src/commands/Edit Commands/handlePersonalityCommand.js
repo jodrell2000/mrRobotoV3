@@ -471,7 +471,7 @@ async function handleActivatePersonality ( personalityName, services, context, r
             await dataService.setValue( 'botData.CHAT_NAME', botName );
             // Update bot name on TT.fm platform
             await services.hangUserService.updateHangNickname( botName );
-            
+
             // Rejoin CometChat to update display name in chat window
             try {
                 logger.debug( '🔄 Rejoining CometChat to update display name...' );

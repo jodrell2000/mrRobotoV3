@@ -49,9 +49,9 @@ async function buildCustomData ( theMessage, services, senderUid = null, senderN
 
   const customData = {
     message: theMessage,
-    avatarId: senderAvatarId || config.CHAT_AVATAR_ID || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || 'bot-01',
-    userName: senderName || config.CHAT_NAME || dataService?.getValue( 'botData.CHAT_NAME' ) || 'Bot',
-    color: senderColor || `#${ config.CHAT_COLOUR || dataService?.getValue( 'botData.CHAT_COLOUR' ) || 'ff9900' }`,
+    avatarId: senderAvatarId || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || config.CHAT_AVATAR_ID || 'bot-01',
+    userName: senderName || dataService?.getValue( 'botData.CHAT_NAME' ) || config.CHAT_NAME || 'Bot',
+    color: senderColor || `#${ dataService?.getValue( 'botData.CHAT_COLOUR' ) || config.CHAT_COLOUR || 'ff9900' }`,
     mentions: [],
     userUuid: config.BOT_UID,
     badges: [ 'VERIFIED', 'STAFF' ],
@@ -162,6 +162,41 @@ async function joinChatGroup ( roomId ) {
     // Fallback to direct request if retry service not available
     return await executeRequest();
   }
+}
+
+/**
+ * Leave a chat group
+ * @param {string} roomId - The room ID to leave
+ * @returns {Promise<Object>} API response
+ */
+async function leaveChatGroup ( roomId ) {
+  const executeRequest = async () => {
+    const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members/${ config.BOT_UID }`;
+    
+    try {
+      return await axios.delete( url, { headers } );
+    } catch ( error ) {
+      // If already not a member, treat as success
+      if ( error.response?.status === 404 || error.response?.status === 400 ) {
+        logger.info( `✅ [CometChat API] Bot is not a member of group ${ roomId }` );
+        return {
+          status: 200,
+          data: { message: 'Not a member', alreadyLeft: true }
+        };
+      }
+      throw error;
+    }
+  };
+
+  if ( retryService ) {
+    return await retryService.executeWithRetry(
+      executeRequest,
+      { maxRetries: 2 },
+      'cometchat-leaveGroup'
+    );
+  }
+
+  return await executeRequest();
 }
 
 /**
@@ -297,6 +332,7 @@ module.exports = {
   buildPayload,
   sendMessage,
   joinChatGroup,
+  leaveChatGroup,
   fetchMessages,
   markConversationAsRead,
   setRetryService

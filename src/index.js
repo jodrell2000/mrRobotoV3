@@ -68,6 +68,28 @@ services.logger.info( '======================================= Application Start
       throw connectError;
     }
 
+    // Sync bot name from data.json to TT.fm platform on startup
+    try {
+      const savedBotName = services.dataService.getValue( 'botData.CHAT_NAME' );
+      if ( savedBotName ) {
+        services.logger.debug( `🔄 Syncing bot name to TT.fm platform: ${ savedBotName }` );
+        await services.hangUserService.updateHangNickname( savedBotName );
+        services.logger.info( `✅ Bot name synced to TT.fm: ${ savedBotName }` );
+        
+        // Leave and rejoin CometChat to refresh display name
+        try {
+          services.logger.debug( '🔄 Leaving CometChat to refresh display name...' );
+          await services.messageService.leaveChat( services.config.HANGOUT_ID );
+          services.logger.debug( '✅ Left CometChat group' );
+        } catch ( leaveError ) {
+          services.logger.warn( `⚠️ Failed to leave CometChat (will still try to rejoin): ${ leaveError.message }` );
+        }
+      }
+    } catch ( syncError ) {
+      services.logger.warn( `⚠️ Failed to sync bot name on startup: ${ syncError.message }` );
+      // Don't throw - this is not critical for bot operation
+    }
+
     // Join the chat group before processing messages
     try {
       services.logger.debug( '🔄 Joining chat group...' );
