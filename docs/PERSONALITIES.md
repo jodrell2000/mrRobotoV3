@@ -149,6 +149,7 @@ Load a saved personality, applying all its settings to your bot.
 **What Happens:**
 - All bot settings are replaced with the personality's stored configuration
 - Bot name changes to match the personality (via TT.fm API)
+- CometChat connection is refreshed to update the display name in chat
 - Bot avatar and color remain unchanged (set at bot creation)
 - AI personality and behavior changes immediately
 - ML conversation history is preserved (maintains song/conversation context)
@@ -395,7 +396,7 @@ Descriptions are limited to 50 characters and displayed in listings. Make them c
 Each personality stores a complete snapshot of your bot configuration:
 
 **Bot Identity:**
-- Bot name (CHAT_NAME) - updated via TT.fm API when personality is activated
+- Bot name (CHAT_NAME) - updated via TT.fm API when personality is activated, with automatic CometChat reconnection to refresh display name
 
 **Note:** Avatar ID and color are set once during bot creation and remain constant across all personalities.
 

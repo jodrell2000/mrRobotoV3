@@ -9,7 +9,8 @@ describe( 'handlePersonalityCommand', () => {
 
         mockServices = {
             messageService: {
-                sendResponse: jest.fn()
+                sendResponse: jest.fn(),
+                joinChat: jest.fn().mockResolvedValue()
             },
             dataService: {
                 getAllData: jest.fn(),
@@ -31,10 +32,14 @@ describe( 'handlePersonalityCommand', () => {
             hangUserService: {
                 updateHangNickname: jest.fn().mockResolvedValue()
             },
+            config: {
+                HANGOUT_ID: 'test-hangout-id'
+            },
             logger: {
                 info: jest.fn(),
                 debug: jest.fn(),
-                error: jest.fn()
+                error: jest.fn(),
+                warn: jest.fn()
             }
         };
 
@@ -553,16 +558,17 @@ describe( 'handlePersonalityCommand', () => {
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', 'TestPersonality' );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'botData.CHAT_NAME', 'NewBotName' );
             expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
-            
+            expect( mockServices.messageService.joinChat ).toHaveBeenCalledWith( 'test-hangout-id' );
+
             // Verify loading message is sent first, then success message
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledTimes( 2 );
-            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 1, 
-                expect.stringContaining( 'Loading new personality' ), 
-                expect.any( Object ) 
+            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 1,
+                expect.stringContaining( 'Loading new personality' ),
+                expect.any( Object )
             );
-            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 2, 
-                expect.stringContaining( 'Activated' ), 
-                expect.any( Object ) 
+            expect( mockServices.messageService.sendResponse ).toHaveBeenNthCalledWith( 2,
+                expect.stringContaining( 'Activated' ),
+                expect.any( Object )
             );
         } );
 
@@ -576,6 +582,65 @@ describe( 'handlePersonalityCommand', () => {
 
             expect( result.success ).toBe( false );
             expect( result.response ).toContain( 'reserved' );
+        } );
+
+        it( 'should activate personality without botName (no CometChat rejoin)', async () => {
+            mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
+                name: 'TestPersonality',
+                description: 'Test description',
+                instructions: { MLPersonality: 'Test', MLInstructions: 'Instructions' },
+                editableMessages: { welcomeMessage: 'Welcome!' },
+                configuration: {}, // No botName
+                mlQuestions: {},
+                disabledCommands: [],
+                disabledFeatures: [],
+                triggers: {},
+                customTokens: {}
+            } );
+
+            const result = await handlePersonalityCommand( {
+                args: 'activate "TestPersonality"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'Activated' );
+            expect( mockServices.hangUserService.updateHangNickname ).not.toHaveBeenCalled();
+            expect( mockServices.messageService.joinChat ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should handle CometChat rejoin errors gracefully', async () => {
+            mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
+                name: 'TestPersonality',
+                description: 'Test description',
+                instructions: { MLPersonality: 'Test', MLInstructions: 'Instructions' },
+                editableMessages: { welcomeMessage: 'Welcome!' },
+                configuration: { botName: 'NewBotName' },
+                mlQuestions: {},
+                disabledCommands: [],
+                disabledFeatures: [],
+                triggers: {},
+                customTokens: {}
+            } );
+            mockServices.messageService.joinChat.mockRejectedValue( new Error( 'CometChat error' ) );
+
+            const result = await handlePersonalityCommand( {
+                args: 'activate "TestPersonality"',
+                services: mockServices,
+                context: mockContext,
+                responseChannel: 'public'
+            } );
+
+            // Should still succeed even if CometChat rejoin fails
+            expect( result.success ).toBe( true );
+            expect( result.response ).toContain( 'Activated' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.messageService.joinChat ).toHaveBeenCalled();
+            expect( mockServices.logger.warn ).toHaveBeenCalledWith(
+                expect.stringContaining( 'Failed to rejoin CometChat' )
+            );
         } );
 
         it( 'should reject non-existent personality', async () => {
