@@ -350,12 +350,15 @@ describe( 'handlePersonalityCommand', () => {
 
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'saved successfully' );
+            expect( result.response ).toContain( 'activated' );
             expect( mockServices.databaseService.savePersonality ).toHaveBeenCalledWith(
                 expect.objectContaining( {
                     name: 'TestPersonality',
                     description: 'Test description'
                 } )
             );
+            // Should set as active personality
+            expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', 'TestPersonality' );
         } );
 
         it( 'should reject save without description', async () => {
@@ -395,18 +398,6 @@ describe( 'handlePersonalityCommand', () => {
 
             expect( result.success ).toBe( false );
             expect( result.response ).toContain( 'Description required' );
-        } );
-
-        it( 'should reject reserved name "current"', async () => {
-            const result = await handlePersonalityCommand( {
-                args: 'save "current" "Test description"',
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( result.success ).toBe( false );
-            expect( result.response ).toContain( 'reserved' );
         } );
 
         it( 'should reject duplicate personality names', async () => {
@@ -481,7 +472,7 @@ describe( 'handlePersonalityCommand', () => {
             );
         } );
 
-        it( 'should update "current" personality when active exists', async () => {
+        it( 'should update active personality when no name provided', async () => {
             mockServices.dataService.getValue.mockReturnValue( 'ActivePersonality' );
             mockServices.databaseService.getPersonalityByName.mockResolvedValue( {
                 name: 'ActivePersonality',
@@ -489,7 +480,7 @@ describe( 'handlePersonalityCommand', () => {
             } );
 
             const result = await handlePersonalityCommand( {
-                args: 'update "current"',
+                args: 'update',
                 services: mockServices,
                 context: mockContext,
                 responseChannel: 'public'
@@ -499,11 +490,11 @@ describe( 'handlePersonalityCommand', () => {
             expect( mockServices.databaseService.getPersonalityByName ).toHaveBeenCalledWith( 'ActivePersonality' );
         } );
 
-        it( 'should reject update of "current" when no active personality', async () => {
+        it( 'should reject update when no name and no active personality', async () => {
             mockServices.dataService.getValue.mockReturnValue( undefined );
 
             const result = await handlePersonalityCommand( {
-                args: 'update "current"',
+                args: 'update',
                 services: mockServices,
                 context: mockContext,
                 responseChannel: 'public'
@@ -572,18 +563,6 @@ describe( 'handlePersonalityCommand', () => {
                 expect.stringContaining( 'Activated' ),
                 expect.any( Object )
             );
-        } );
-
-        it( 'should reject reserved name "current"', async () => {
-            const result = await handlePersonalityCommand( {
-                args: 'activate "current"',
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( result.success ).toBe( false );
-            expect( result.response ).toContain( 'reserved' );
         } );
 
         it( 'should activate personality without botName (no CometChat rejoin)', async () => {
@@ -733,18 +712,6 @@ describe( 'handlePersonalityCommand', () => {
 
             expect( result.success ).toBe( true );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', undefined );
-        } );
-
-        it( 'should reject reserved name "current"', async () => {
-            const result = await handlePersonalityCommand( {
-                args: 'delete "current"',
-                services: mockServices,
-                context: mockContext,
-                responseChannel: 'public'
-            } );
-
-            expect( result.success ).toBe( false );
-            expect( result.response ).toContain( 'reserved' );
         } );
     } );
 

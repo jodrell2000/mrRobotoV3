@@ -5,7 +5,7 @@ The Personality Store allows you to save, manage, and switch between different b
 ## Quick Start
 
 ```bash
-# Save your current setup
+# Save your current setup (automatically activates it)
 !personality save "My Setup" "Description here"
 
 # List all saved personalities
@@ -14,8 +14,11 @@ The Personality Store allows you to save, manage, and switch between different b
 # Switch to a different personality
 !personality activate "My Setup"
 
-# Update current personality with changes
-!personality update current
+# Update the active personality with changes
+!personality update
+
+# Or update a specific personality
+!personality update "My Setup"
 
 # Delete a personality
 !personality delete "My Setup"
@@ -78,7 +81,7 @@ View complete details of a personality including all configuration.
 - Metadata (created, updated timestamps)
 
 ### `!personality save <name> <description>`
-Save your current bot configuration as a named personality.
+Save your current bot configuration as a named personality and activate it.
 
 **Required:**
 - **Name**: Unique identifier for the personality (case-insensitive)
@@ -89,6 +92,11 @@ Save your current bot configuration as a named personality.
 !personality save "Public Mode" "Restricted features for public sessions"
 !personality save "Admin Mode" "Full features for admin work"
 ```
+
+**Behavior:**
+- Saves your current configuration to the database
+- Automatically activates the newly saved personality
+- The personality becomes the "active" personality
 
 **What Gets Saved:**
 - Bot name (not avatar or color - those remain constant)
@@ -105,32 +113,29 @@ Save your current bot configuration as a named personality.
 - ML conversation history - preserved across personality changes
 - Personalized welcome messages (per-user custom messages/pictures set via `!editwelcome`)
 
-**Reserved Names:**
-- `current` - Reserved for the `update` command
-
 **Validation:**
 - Description is required and must be 50 characters or less
 - Name must be unique (case-insensitive)
-- Cannot use reserved keyword "current"
 
-### `!personality update <name> [description]`
+### `!personality update [name] [description]`
 Update an existing personality with your current bot configuration.
 
 **Examples:**
 ```
-# Update specific personality
+# Update currently active personality
+!personality update
+
+# Update specific personality by name
 !personality update "Admin Mode"
 
 # Update with new description
 !personality update "Admin Mode" "Updated description here"
-
-# Update currently active personality
-!personality update current
 ```
 
-**Special Keyword:**
-- `current` - Updates whichever personality is currently active
-- Useful when you've made changes and want to save them back to the active personality
+**Behavior:**
+- Without a name: Updates the currently active personality
+- With a name: Updates the specified personality
+- Useful when you've made changes and want to save them back
 
 **Description:**
 - Optional when updating
@@ -155,8 +160,6 @@ Load a saved personality, applying all its settings to your bot.
 - ML conversation history is preserved (maintains song/conversation context)
 - The bot tracks this as the "active" personality
 
-**Note:** Cannot activate a personality named "current" (reserved keyword).
-
 ### `!personality delete <name>`
 Remove a personality from the database.
 
@@ -169,7 +172,6 @@ Remove a personality from the database.
 **Behavior:**
 - Permanently removes the personality
 - If deleting the currently active personality, clears the active personality tracking
-- Cannot delete a personality named "current" (reserved keyword)
 - Confirmation message shows the personality name with proper casing
 
 ## Use Cases
@@ -267,26 +269,12 @@ Personality names are **case-insensitive**. These all refer to the same personal
 
 The original case you use when saving is preserved and displayed in listings.
 
-## Reserved Keywords
-
-The word `current` is reserved and cannot be used as a personality name:
-
-```bash
-# ❌ NOT ALLOWED
-!personality save "current" "Description"
-!personality activate "current"
-!personality delete "current"
-
-# ✅ ALLOWED - Special function
-!personality update current          # Updates active personality
-```
-
 ## Workflow Examples
 
 ### Initial Setup
 
 ```bash
-# 1. Save your current configuration as baseline
+# 1. Save your current configuration as baseline (automatically activates it)
 !personality save "Original Setup" "Initial bot configuration"
 
 # 2. List to verify
@@ -320,8 +308,8 @@ The word `current` is reserved and cannot be used as a personality name:
 !edit MLPersonality "Updated personality text..."
 !feature announcements disable
 
-# 3. Save changes back
-!personality update current
+# 3. Save changes back to the active personality
+!personality update
 
 # Or specify by name
 !personality update "Chill Mode"
@@ -349,7 +337,6 @@ The word `current` is reserved and cannot be used as a personality name:
 **Avoid:**
 - `test` - Too vague
 - `asdf` - Not descriptive
-- `current` - Reserved keyword
 
 ### Descriptions
 
@@ -454,7 +441,7 @@ The bot tracks which personality is currently active:
 
 **Possible causes:**
 - Typo in the name
-- Wrong case (shouldn't matter, but verify)
+- Case sensitivity issue (verify with list)
 
 **Solution:**
 ```bash
@@ -483,19 +470,6 @@ The bot tracks which personality is currently active:
 # Current length shown in error message
 # Shorten your description
 !personality save "My Setup" "Brief description"
-```
-
-### "Name 'current' is reserved"
-
-**Problem:** Trying to use "current" as a personality name
-
-**Solution:**
-```bash
-# Choose a different name
-!personality save "Active Setup" "Description"
-
-# Or use 'current' correctly for updates
-!personality update current
 ```
 
 ### "Personality already exists"

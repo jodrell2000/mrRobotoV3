@@ -6,8 +6,6 @@ const description = 'Manage bot personality presets';
 const example = 'list | save "Name" "Description" | activate "Name" | delete "Name"';
 const hidden = false;
 
-const RESERVED_NAME = 'current';
-
 async function handleListPersonalities ( services, context, responseChannel ) {
     const { messageService, dataService, databaseService, logger } = services;
 
@@ -279,7 +277,10 @@ async function handleSavePersonality ( personalityName, description, services, c
 
         await databaseService.savePersonality( personalityData );
 
-        const response = `✅ Personality "${ personalityName }" saved successfully`;
+        // Set newly saved personality as active
+        await dataService.setValue( 'activePersonality', personalityName );
+
+        const response = `✅ Personality "${ personalityName }" saved successfully and activated`;
         await messageService.sendResponse( response, {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -337,12 +338,13 @@ async function handleUpdatePersonality ( personalityName, description, services,
             }
         }
 
+        // If no personality name provided, update the active personality
         let targetName = personalityName;
-        if ( personalityName.toLowerCase() === RESERVED_NAME ) {
+        if ( !personalityName || personalityName.trim().length === 0 ) {
             await dataService.loadData();
             const activePersonality = dataService.getValue( 'activePersonality' );
             if ( !activePersonality ) {
-                const response = `❌ No active personality. Use \`${ config.COMMAND_SWITCH }personality save "Name" "Description"\` to create one first, then \`${ config.COMMAND_SWITCH }personality activate "Name"\`.`;
+                const response = `❌ No active personality. Use \`${ config.COMMAND_SWITCH }personality save "Name" "Description"\` to create one first.`;
                 await messageService.sendResponse( response, {
                     responseChannel,
                     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
@@ -629,9 +631,6 @@ function validatePersonalityName ( name ) {
     if ( !name || name.trim().length === 0 ) {
         return `❌ Please provide a personality name. Usage: \`${ config.COMMAND_SWITCH }personality save "Name" "Description"\``;
     }
-    if ( name.toLowerCase() === RESERVED_NAME ) {
-        return `❌ Name "${ RESERVED_NAME }" is reserved. Please choose a different name.`;
-    }
     return undefined;
 }
 
@@ -768,7 +767,7 @@ async function handlePersonalityCommand ( commandParams ) {
     const { messageService } = services;
 
     if ( !args || args.trim().length === 0 ) {
-        const response = `❌ Please specify a command.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }personality list\` - Show all saved personalities\n• \`${ config.COMMAND_SWITCH }personality show "Name"\` - Show personality overview\n• \`${ config.COMMAND_SWITCH }personality showall "Name"\` - Show full personality details\n• \`${ config.COMMAND_SWITCH }personality save "Name" "Description"\` - Save current configuration\n• \`${ config.COMMAND_SWITCH }personality update "Name"\` - Update existing personality\n• \`${ config.COMMAND_SWITCH }personality activate "Name"\` - Load a saved personality\n• \`${ config.COMMAND_SWITCH }personality delete "Name"\` - Delete a saved personality`;
+        const response = `❌ Please specify a command.\n\n**Usage:**\n• \`${ config.COMMAND_SWITCH }personality list\` - Show all saved personalities\n• \`${ config.COMMAND_SWITCH }personality show "Name"\` - Show personality overview\n• \`${ config.COMMAND_SWITCH }personality showall "Name"\` - Show full personality details\n• \`${ config.COMMAND_SWITCH }personality save "Name" "Description"\` - Save and activate current configuration\n• \`${ config.COMMAND_SWITCH }personality update ["Name"]\` - Update active or specified personality\n• \`${ config.COMMAND_SWITCH }personality activate "Name"\` - Load a saved personality\n• \`${ config.COMMAND_SWITCH }personality delete "Name"\` - Delete a saved personality`;
 
         await messageService.sendResponse( response, {
             responseChannel,
@@ -836,6 +835,10 @@ async function handlePersonalityCommand ( commandParams ) {
 
     if ( subCommand === 'update' ) {
         const restArgs = args.substring( args.indexOf( subCommand ) + subCommand.length ).trim();
+        if ( !restArgs ) {
+            // No name provided, update active personality
+            return await handleUpdatePersonality( undefined, undefined, services, context, responseChannel );
+        }
         const parsed = parseQuotedStrings( restArgs );
         if ( parsed ) {
             return await handleUpdatePersonality( parsed.name, parsed.description, services, context, responseChannel );
