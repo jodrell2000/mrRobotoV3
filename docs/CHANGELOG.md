@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-05-12
+
+### Fixed
+- **Timezone Support**: Added `tzdata` package to Docker image to fix timezone handling
+  - Alpine Linux base image lacked timezone database
+  - Token `{currentTime}` now correctly displays time in configured timezone instead of defaulting to system time
+
 ## [1.1.0] - 2026-05-11
 
 ### Changed
@@ -18,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[1.1.1](changelog/1.1.1.md)** | 2026-05-12 | 🐛 Timezone Support Fix | Fixed Docker image timezone handling by adding `tzdata` package. Token `{currentTime}` now correctly displays time in configured timezone. |
 | **[1.1.0](changelog/1.1.0.md)** | 2026-05-11 | 🎭 Personality Store - Normalized Configuration Presets | New `!personality` command system with normalized database design (17 tables) for managing bot configuration presets. Automatic content deduplication: personalities with identical content share database records. Save entire bot state (AI personality, messages, configuration, ML questions, features, triggers, tokens) as named presets. Enables "Admin Mode", "Public Mode", "Event Mode" scenarios. Case-insensitive names, improved UX with auto-activation on save and simplified update syntax. |
 | **[1.0.0](changelog/1.0.0.md)** | 2026-04-22 | ☁️ Free Oracle Cloud Hosting & Production Ready | Oracle Cloud Infrastructure deployment with automated scripts, Always Free tier hosting (£0/month forever). ML calls updated to Gemma 4 model support. See the [Cloud Hosting Guide](CLOUD_HOSTING.md) for full deployment instructions. |
 | **[0.9.8_beta](changelog/0.9.8_beta.md)** | 2026-03-14 | � AFK Monitor & Auto-Removal, Moderator Commands, Theme Tokens | `!afkMonitor` management command with position-aware deferred removal; `!mod` with `listUsers`, `remove`, `skip`; `!say`; owner-settable `{theme}` / `{readTheme}` tokens; per-user welcome messages with `!editWelcome` |

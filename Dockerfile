@@ -7,6 +7,9 @@ LABEL maintainer="MrRobotoV3 Team"
 LABEL description="Discord bot for hang.fm - Version 3"
 LABEL version="1.0.0"
 
+# Install timezone data for proper timezone support
+RUN apk add --no-cache tzdata
+
 # Create app directory
 WORKDIR /usr/src/app
 
