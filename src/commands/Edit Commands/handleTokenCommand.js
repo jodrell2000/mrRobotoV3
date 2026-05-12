@@ -111,17 +111,17 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
     try {
         // Normalize token name to include braces
         const normalizedName = tokenName.startsWith( '{' ) ? tokenName : `{${ tokenName }}`;
-        
+
         // Check if this is a configuration token
         const configKey = CONFIGURATION_TOKENS[ normalizedName ];
         if ( configKey ) {
             // Update the configuration value
             await dataService.loadData();
             await dataService.setValue( `configuration.${ configKey }`, tokenValue );
-            
+
             // Also update the custom token for display purposes
             const result = await tokenService.setCustomToken( tokenName, tokenValue );
-            
+
             if ( !result.success ) {
                 const response = `❌ ${ result.error }`;
                 await messageService.sendResponse( response, {
@@ -152,7 +152,7 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
                 response
             };
         }
-        
+
         // Regular custom token
         const result = await tokenService.setCustomToken( tokenName, tokenValue );
 
