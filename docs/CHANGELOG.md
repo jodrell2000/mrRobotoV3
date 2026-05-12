@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-05-12
+
+### Fixed
+- **Configuration Token Handling**: Fixed `!token add` command to properly update configuration values for built-in tokens
+  - Configuration tokens (`{timezone}`, `{locale}`, `{dateFormat}`, `{timeFormat}`) now update both the configuration AND create custom token overlays
+  - `{currentTime}` and other built-in tokens now respect updated configuration values
+  - Previously, `!token add {timezone} "America/Los_Angeles"` only created a display token; now it updates the actual configuration used by built-in token functions
+- **Personality Configuration Merging**: Fixed personality activation to merge configuration instead of overwriting
+  - When activating a personality with missing configuration values, existing values are now preserved
+  - Prevents losing manually configured settings when switching between personalities
+  - Example: If current config has `timezone: "America/Los_Angeles"` and personality has no timezone, the LA timezone is preserved
+
 ## [1.1.1] - 2026-05-12
 
 ### Fixed
@@ -25,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[1.1.2](changelog/1.1.2.md)** | 2026-05-12 | 🐛 Configuration Token Fix | Fixed `!token add` to properly update configuration values for built-in tokens (`{timezone}`, `{locale}`, etc.). Fixed personality activation to merge configuration instead of overwriting. |
 | **[1.1.1](changelog/1.1.1.md)** | 2026-05-12 | 🐛 Timezone Support Fix | Fixed Docker image timezone handling by adding `tzdata` package. Token `{currentTime}` now correctly displays time in configured timezone. |
 | **[1.1.0](changelog/1.1.0.md)** | 2026-05-11 | 🎭 Personality Store - Normalized Configuration Presets | New `!personality` command system with normalized database design (17 tables) for managing bot configuration presets. Automatic content deduplication: personalities with identical content share database records. Save entire bot state (AI personality, messages, configuration, ML questions, features, triggers, tokens) as named presets. Enables "Admin Mode", "Public Mode", "Event Mode" scenarios. Case-insensitive names, improved UX with auto-activation on save and simplified update syntax. |
 | **[1.0.0](changelog/1.0.0.md)** | 2026-04-22 | ☁️ Free Oracle Cloud Hosting & Production Ready | Oracle Cloud Infrastructure deployment with automated scripts, Always Free tier hosting (£0/month forever). ML calls updated to Gemma 4 model support. See the [Cloud Hosting Guide](CLOUD_HOSTING.md) for full deployment instructions. |

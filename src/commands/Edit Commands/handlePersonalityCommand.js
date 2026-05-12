@@ -493,7 +493,11 @@ async function handleActivatePersonality ( personalityName, services, context, r
                 logger.warn( `⚠️ Failed to rejoin CometChat: ${ rejoinError.message }` );
             }
         }
-        await dataService.setValue( 'configuration', otherConfig );
+        
+        // Merge configuration with existing values (don't overwrite missing values)
+        const currentConfig = dataService.getValue( 'configuration' ) || {};
+        const mergedConfig = { ...currentConfig, ...otherConfig };
+        await dataService.setValue( 'configuration', mergedConfig );
 
         await dataService.setValue( 'mlQuestions', personality.mlQuestions );
         await dataService.setValue( 'disabledCommands', personality.disabledCommands );

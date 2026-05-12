@@ -93,12 +93,67 @@ async function handleListTokens ( services, context, responseChannel ) {
 }
 
 /**
+ * Configuration tokens that update both configuration and custom tokens
+ */
+const CONFIGURATION_TOKENS = {
+    '{timezone}': 'timezone',
+    '{locale}': 'locale',
+    '{dateFormat}': 'dateFormat',
+    '{timeFormat}': 'timeFormat'
+};
+
+/**
  * Handle adding a token
  */
 async function handleAddToken ( tokenName, tokenValue, services, context, responseChannel ) {
-    const { messageService, tokenService } = services;
+    const { messageService, tokenService, dataService } = services;
 
     try {
+        // Normalize token name to include braces
+        const normalizedName = tokenName.startsWith( '{' ) ? tokenName : `{${ tokenName }}`;
+        
+        // Check if this is a configuration token
+        const configKey = CONFIGURATION_TOKENS[ normalizedName ];
+        if ( configKey ) {
+            // Update the configuration value
+            await dataService.loadData();
+            await dataService.setValue( `configuration.${ configKey }`, tokenValue );
+            
+            // Also update the custom token for display purposes
+            const result = await tokenService.setCustomToken( tokenName, tokenValue );
+            
+            if ( !result.success ) {
+                const response = `❌ ${ result.error }`;
+                await messageService.sendResponse( response, {
+                    responseChannel,
+                    isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                    sender: context?.sender,
+                    services
+                } );
+                return {
+                    success: false,
+                    shouldRespond: true,
+                    response,
+                    error: result.error
+                };
+            }
+
+            const response = `✅ Configuration updated: ${ normalizedName } = "${ tokenValue }" (affects ${ configKey } behavior)`;
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+
+            return {
+                success: true,
+                shouldRespond: true,
+                response
+            };
+        }
+        
+        // Regular custom token
         const result = await tokenService.setCustomToken( tokenName, tokenValue );
 
         if ( !result.success ) {
