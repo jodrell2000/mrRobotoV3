@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-05-14
+
+### Changed
+- **Personality Selective Merging**: Enhanced personality activation to preserve existing settings when not explicitly set in personality
+  - When activating a personality, empty or unset values no longer overwrite existing settings
+  - Allows switching personalities while retaining specific settings like themes, triggers, or custom tokens
+  - Example: Activate a personality with no theme set → current theme is preserved
+  - Example: Activate a personality with empty `disabledCommands` array → current disabled commands remain
+  - Applies to: instructions, editable messages, ML questions, disabled commands/features, triggers, and custom tokens
+  - If a personality explicitly sets a value (even empty string), that value is applied
+  - Configuration merging (from v1.1.2) is now consistent with all other personality data
+
 ## [1.1.2] - 2026-05-12
 
 ### Fixed
@@ -37,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[1.1.3](changelog/1.1.3.md)** | 2026-05-14 | 🔄 Personality Selective Merging | Personality activation now preserves existing settings when not explicitly set in personality. Allows switching personalities while retaining themes, triggers, tokens, etc. |
 | **[1.1.2](changelog/1.1.2.md)** | 2026-05-12 | 🐛 Configuration Token Fix | Fixed `!token add` to properly update configuration values for built-in tokens (`{timezone}`, `{locale}`, etc.). Fixed personality activation to merge configuration instead of overwriting. |
 | **[1.1.1](changelog/1.1.1.md)** | 2026-05-12 | 🐛 Timezone Support Fix | Fixed Docker image timezone handling by adding `tzdata` package. Token `{currentTime}` now correctly displays time in configured timezone. |
 | **[1.1.0](changelog/1.1.0.md)** | 2026-05-11 | 🎭 Personality Store - Normalized Configuration Presets | New `!personality` command system with normalized database design (17 tables) for managing bot configuration presets. Automatic content deduplication: personalities with identical content share database records. Save entire bot state (AI personality, messages, configuration, ML questions, features, triggers, tokens) as named presets. Enables "Admin Mode", "Public Mode", "Event Mode" scenarios. Case-insensitive names, improved UX with auto-activation on save and simplified update syntax. |

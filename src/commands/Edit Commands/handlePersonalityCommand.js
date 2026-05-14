@@ -415,6 +415,19 @@ async function handleUpdatePersonality ( personalityName, description, services,
     }
 }
 
+/**
+ * Helper function to check if a value should be applied or skipped (keep existing)
+ * @param {*} value - Value to check
+ * @returns {boolean} - true if value should be applied, false if empty/should skip
+ */
+function shouldApplyValue ( value ) {
+    if ( value === undefined || value === null ) return false;
+    if ( typeof value === 'string' && value.trim() === '' ) return false;
+    if ( Array.isArray( value ) && value.length === 0 ) return false;
+    if ( typeof value === 'object' && !Array.isArray( value ) && Object.keys( value ).length === 0 ) return false;
+    return true;
+}
+
 async function handleActivatePersonality ( personalityName, services, context, responseChannel ) {
     const { messageService, dataService, databaseService, logger } = services;
 
@@ -461,11 +474,20 @@ async function handleActivatePersonality ( personalityName, services, context, r
         } );
 
         await dataService.loadData();
-        await dataService.setValue( 'Instructions.MLPersonality', personality.instructions.MLPersonality );
-        await dataService.setValue( 'Instructions.MLInstructions', personality.instructions.MLInstructions );
 
+        // Only update instructions if they're set in the personality
+        if ( shouldApplyValue( personality.instructions.MLPersonality ) ) {
+            await dataService.setValue( 'Instructions.MLPersonality', personality.instructions.MLPersonality );
+        }
+        if ( shouldApplyValue( personality.instructions.MLInstructions ) ) {
+            await dataService.setValue( 'Instructions.MLInstructions', personality.instructions.MLInstructions );
+        }
+
+        // Only update editable messages if they're set in the personality
         for ( const [ key, value ] of Object.entries( personality.editableMessages ) ) {
-            await dataService.setValue( `editableMessages.${ key }`, value );
+            if ( shouldApplyValue( value ) ) {
+                await dataService.setValue( `editableMessages.${ key }`, value );
+            }
         }
 
         // Extract botName from configuration if it exists
@@ -499,11 +521,37 @@ async function handleActivatePersonality ( personalityName, services, context, r
         const mergedConfig = { ...currentConfig, ...otherConfig };
         await dataService.setValue( 'configuration', mergedConfig );
 
-        await dataService.setValue( 'mlQuestions', personality.mlQuestions );
-        await dataService.setValue( 'disabledCommands', personality.disabledCommands );
-        await dataService.setValue( 'disabledFeatures', personality.disabledFeatures );
-        await dataService.setValue( 'triggers', personality.triggers );
-        await dataService.setValue( 'customTokens', personality.customTokens );
+        // Only update mlQuestions if they're set in the personality
+        if ( shouldApplyValue( personality.mlQuestions ) ) {
+            // Merge mlQuestions - only update questions that have non-empty values
+            const currentMlQuestions = dataService.getValue( 'mlQuestions' ) || {};
+            const mergedMlQuestions = { ...currentMlQuestions };
+            for ( const [ key, value ] of Object.entries( personality.mlQuestions ) ) {
+                if ( shouldApplyValue( value ) ) {
+                    mergedMlQuestions[ key ] = value;
+                }
+            }
+            await dataService.setValue( 'mlQuestions', mergedMlQuestions );
+        }
+
+        // Only update disabled commands/features if they're set in the personality
+        if ( shouldApplyValue( personality.disabledCommands ) ) {
+            await dataService.setValue( 'disabledCommands', personality.disabledCommands );
+        }
+        if ( shouldApplyValue( personality.disabledFeatures ) ) {
+            await dataService.setValue( 'disabledFeatures', personality.disabledFeatures );
+        }
+
+        // Only update triggers if they're set in the personality
+        if ( shouldApplyValue( personality.triggers ) ) {
+            await dataService.setValue( 'triggers', personality.triggers );
+        }
+
+        // Only update custom tokens if they're set in the personality
+        if ( shouldApplyValue( personality.customTokens ) ) {
+            await dataService.setValue( 'customTokens', personality.customTokens );
+        }
+
         await dataService.setValue( 'activePersonality', personality.name );
 
         const response = `✅ Activated personality "${ personality.name }"`;
