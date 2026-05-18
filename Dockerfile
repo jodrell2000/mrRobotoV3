@@ -45,6 +45,11 @@ RUN mkdir -p logs && \
     chown -R mrroboto:nodejs logs && \
     chmod 755 logs
 
+# Create html directory for generated documentation
+RUN mkdir -p html && \
+    chown -R mrroboto:nodejs html && \
+    chmod 755 html
+
 # Ensure data directory and botConfig.json exist with proper permissions
 RUN mkdir -p data && \
     touch data/botConfig.json && \
