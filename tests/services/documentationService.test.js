@@ -30,8 +30,9 @@ describe( 'DocumentationService', () => {
         };
 
         mockStateService = {
+            getHangoutName: jest.fn().mockReturnValue( 'Test Room' ),
             _getCurrentState: jest.fn().mockReturnValue( {
-                hangoutName: 'Test Room',
+                settings: { name: 'Test Room' },
                 allUserData: {
                     'user1': { userProfile: { nickname: 'User1' } },
                     'user2': { userProfile: { nickname: 'User2' } }
@@ -161,15 +162,17 @@ describe( 'DocumentationService', () => {
         } );
 
         it( 'should handle not connected state', async () => {
+            mockStateService.getHangoutName.mockReturnValue( 'our Hangout' );
             mockStateService._getCurrentState.mockReturnValue( {
-                hangoutName: undefined,
+                settings: { name: undefined },
                 allUserData: {},
                 djs: []
             } );
 
             const html = await documentationService.generateLandingPage();
 
-            expect( html ).toContain( 'Not connected' );
+            expect( html ).toContain( 'our Hangout' );
+            expect( html ).toContain( '0' ); // 0 users and DJs
         } );
 
         it( 'should handle when stateService is not initialized', async () => {
@@ -192,8 +195,9 @@ describe( 'DocumentationService', () => {
         } );
 
         it( 'should escape user-provided content to prevent XSS', async () => {
+            mockStateService.getHangoutName.mockReturnValue( '<script>alert("xss")</script>' );
             mockStateService._getCurrentState.mockReturnValue( {
-                hangoutName: '<script>alert("xss")</script>',
+                settings: { name: '<script>alert("xss")</script>' },
                 allUserData: {},
                 djs: []
             } );
@@ -205,7 +209,7 @@ describe( 'DocumentationService', () => {
         } );
 
         it( 'should handle when stateService throws error', async () => {
-            mockStateService._getCurrentState.mockImplementation( () => {
+            mockStateService.getHangoutName.mockImplementation( () => {
                 throw new Error( 'State service error' );
             } );
 
@@ -213,6 +217,7 @@ describe( 'DocumentationService', () => {
 
             expect( html ).toContain( 'Not connected' );
             expect( html ).toContain( 'v1.2.0' );
+            expect( html ).toContain( '0' ); // 0 users and DJs
         } );
     } );
 } );

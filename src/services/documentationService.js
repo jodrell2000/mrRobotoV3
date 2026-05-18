@@ -148,7 +148,7 @@ class DocumentationService {
         </nav>
         ${ content }
         <div class="footer">
-            <p>Mr. Roboto V3 - TT.fm Music Bot</p>
+            <p>Mr. Roboto V3 - hang.fm Music Bot</p>
         </div>
     </div>
 </body>
@@ -181,17 +181,18 @@ class DocumentationService {
     async generateLandingPage () {
         try {
             const version = await this.versionService.getVersion();
-            
+
             // Get state if stateService is initialized, otherwise use empty state
-            let state = {
-                hangoutName: undefined,
-                allUserData: {},
-                djs: []
-            };
-            
+            let hangoutName = 'Not connected';
+            let userCount = 0;
+            let djCount = 0;
+
             if ( this.services.stateService ) {
                 try {
-                    state = this.services.stateService._getCurrentState();
+                    hangoutName = this.services.stateService.getHangoutName();
+                    const state = this.services.stateService._getCurrentState();
+                    userCount = Object.keys( state.allUserData || {} ).length;
+                    djCount = ( state.djs || [] ).length;
                 } catch ( stateError ) {
                     logger.warn( `Could not get state: ${ stateError.message }` );
                 }
@@ -204,7 +205,7 @@ class DocumentationService {
                 </p>
                 
                 <p>
-                    Mr. Roboto V3 is a music bot for TT.fm rooms, providing automated DJ services,
+                    Mr. Roboto V3 is a music bot for hang.fm rooms, providing automated DJ services,
                     chat commands, and room management features.
                 </p>
 
@@ -220,9 +221,9 @@ class DocumentationService {
                     
                     <div class="info-card">
                         <h3>Hangout Information</h3>
-                        <p><strong>Room:</strong> ${ this.escapeHtml( state.hangoutName || 'Not connected' ) }</p>
-                        <p><strong>Users:</strong> ${ Object.keys( state.allUserData || {} ).length }</p>
-                        <p><strong>DJs:</strong> ${ ( state.djs || [] ).length }</p>
+                        <p><strong>Room:</strong> ${ this.escapeHtml( hangoutName ) }</p>
+                        <p><strong>Users:</strong> ${ userCount }</p>
+                        <p><strong>DJs:</strong> ${ djCount }</p>
                     </div>
                 </div>
 
@@ -237,7 +238,7 @@ class DocumentationService {
                 <h2>About This Bot</h2>
                 <p>
                     Mr. Roboto V3 is built with Node.js and runs in a Docker container.
-                    It connects to TT.fm rooms via WebSocket and provides various features including:
+                    It connects to hang.fm rooms via WebSocket and provides various features including:
                 </p>
                 <ul>
                     <li>Automated DJ rotation and queue management</li>
