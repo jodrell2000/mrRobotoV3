@@ -1,4 +1,6 @@
 const http = require( 'node:http' );
+const fs = require( 'node:fs' );
+const path = require( 'node:path' );
 const services = require( './services/serviceContainer.js' );
 const { Bot } = require( './lib/bot.js' );
 const { runAfkMonitorTick, TICK_INTERVAL_MS } = require( './tasks/afkMonitorTask.js' );
@@ -47,6 +49,22 @@ const healthServer = http.createServer( async ( req, res ) => {
       res.end( html );
     } catch ( error ) {
       services.logger.error( `Error generating landing page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
+  } else if ( url.pathname === '/chatcommands' ) {
+    try {
+      const htmlPath = path.join( __dirname, '../html/chat.html' );
+      if ( fs.existsSync( htmlPath ) ) {
+        const html = fs.readFileSync( htmlPath, 'utf8' );
+        res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+        res.end( html );
+      } else {
+        res.writeHead( 404, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+        res.end( 'Chat commands documentation not yet generated' );
+      }
+    } catch ( error ) {
+      services.logger.error( `Error serving chat commands: ${ error.message }` );
       res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
       res.end( 'Internal Server Error' );
     }
@@ -197,6 +215,20 @@ services.logger.info( '======================================= Application Start
 
     // Initialize validation cache on startup
     services.validationService.loadCache();
+
+    // Rebuild chat documentation on startup
+    services.logger.debug( '📄 Rebuilding chat documentation...' );
+    try {
+      const result = await services.documentationService.rebuildChatDocumentation();
+      if ( result.success ) {
+        services.logger.info( `✅ Chat documentation rebuilt: ${ result.message }` );
+      } else {
+        services.logger.warn( `⚠️ Chat documentation rebuild failed: ${ result.message }` );
+      }
+    } catch ( docError ) {
+      services.logger.error( `❌ Error rebuilding chat documentation: ${ docError.message }` );
+      // Don't throw - this is not critical for bot operation
+    }
 
     // Small delay to allow state to settle after room join and initial patches
     services.logger.debug( '⏳ Waiting 2 seconds for state to settle...' );

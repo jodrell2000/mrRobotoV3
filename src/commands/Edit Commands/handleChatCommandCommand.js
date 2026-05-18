@@ -105,6 +105,26 @@ async function sendSuccessResponse ( message, services, context ) {
 }
 
 /**
+ * Write chat.json and rebuild documentation
+ * @param {string} chatPath - Path to chat.json file
+ * @param {Object} chatData - Chat data to write
+ * @param {Object} services - Services container
+ */
+async function writeChatDataAndRebuild ( chatPath, chatData, services ) {
+    // Save to chat.json
+    fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+
+    // Rebuild documentation
+    try {
+        logger.debug( '📄 Rebuilding chat documentation after chat.json modification...' );
+        await services.documentationService.rebuildChatDocumentation();
+    } catch ( docError ) {
+        logger.warn( `Failed to rebuild documentation: ${ docError.message }` );
+        // Don't fail the command if documentation rebuild fails
+    }
+}
+
+/**
  * Adds a new chat command
  */
 async function addCommand ( commandName, services, context ) {
@@ -143,8 +163,8 @@ async function addCommand ( commandName, services, context ) {
             pictures: []
         };
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Chat command "${ commandName }" added by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Chat command "${ commandName }" created. Use \`!chatCommand addMessage\` to add messages and \`!chatCommand addImage\` to add images.`, services, context );
@@ -174,8 +194,8 @@ async function removeCommand ( commandName, services, context ) {
         // Remove command
         delete chatData[ commandName ];
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Chat command "${ commandName }" removed by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Chat command "${ commandName }" removed.`, services, context );
@@ -219,8 +239,8 @@ async function addMessage ( commandName, message, services, context ) {
         // Add message
         chatData[ commandName ].messages.push( message );
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Message added to command "${ commandName }" by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Message added to command "${ commandName }".`, services, context );
@@ -264,8 +284,8 @@ async function removeMessage ( commandName, message, services, context ) {
         // Remove message
         chatData[ commandName ].messages.splice( index, 1 );
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Message removed from command "${ commandName }" by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Message removed from command "${ commandName }".`, services, context );
@@ -313,8 +333,8 @@ async function addImage ( commandName, imageUrl, services, context ) {
         // Add image
         chatData[ commandName ].pictures.push( imageUrl );
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Image added to command "${ commandName }" by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Image added to command "${ commandName }".`, services, context );
@@ -358,8 +378,8 @@ async function removeImage ( commandName, imageUrl, services, context ) {
         // Remove image
         chatData[ commandName ].pictures.splice( index, 1 );
 
-        // Save to chat.json
-        fs.writeFileSync( chatPath, JSON.stringify( chatData, null, 2 ), 'utf8' );
+        // Save to chat.json and rebuild documentation
+        await writeChatDataAndRebuild( chatPath, chatData, services );
         logger.info( `Image removed from command "${ commandName }" by ${ context?.sender }` );
 
         return await sendSuccessResponse( `✅ Image removed from command "${ commandName }".`, services, context );

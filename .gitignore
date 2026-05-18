@@ -79,6 +79,9 @@ data/image-validation-cache.json
 data/specialCharacters.json
 data/welcomeMessages.json
 
+# generated documentation
+html/
+
 # backups
 data-backup*
 

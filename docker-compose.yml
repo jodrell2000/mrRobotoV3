@@ -24,6 +24,7 @@ services:
     # Mount volumes for persistent data
     volumes:
       - ./data:/usr/src/app/data
+      - ./html:/usr/src/app/html
       - ./logs:/usr/src/app/logs
       # Optional: Mount config if you want to modify it without rebuilding
       # - ./src/config.js:/usr/src/app/src/config.js:ro

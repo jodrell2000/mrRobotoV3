@@ -8,6 +8,15 @@ jest.mock( '../../src/lib/logging.js', () => ( {
     }
 } ) );
 
+// Mock fs
+jest.mock( 'fs', () => ( {
+    existsSync: jest.fn(),
+    readFileSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    mkdirSync: jest.fn()
+} ) );
+
+const fs = require( 'fs' );
 const DocumentationService = require( '../../src/services/documentationService' );
 
 describe( 'DocumentationService', () => {
@@ -218,6 +227,280 @@ describe( 'DocumentationService', () => {
             expect( html ).toContain( 'Not connected' );
             expect( html ).toContain( 'v1.2.0' );
             expect( html ).toContain( '0' ); // 0 users and DJs
+        } );
+    } );
+
+    describe( 'rebuildChatDocumentation', () => {
+        beforeEach( () => {
+            // Reset fs mocks
+            fs.existsSync.mockReset();
+            fs.readFileSync.mockReset();
+            fs.writeFileSync.mockReset();
+            fs.mkdirSync.mockReset();
+        } );
+
+        it( 'should generate documentation from chat.json and aliases.json', async () => {
+            // Mock chat.json exists
+            fs.existsSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) return true;
+                if ( path.includes( 'aliases.json' ) ) return true;
+                if ( path.includes( 'html' ) ) return true;
+                return false;
+            } );
+
+            // Mock file contents
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        props: {
+                            messages: [ 'Nice one {djUsername}!' ],
+                            pictures: [ 'https://example.com/props.gif' ]
+                        },
+                        hello: {
+                            messages: [ 'Hello {senderUsername}!' ],
+                            pictures: []
+                        }
+                    } );
+                }
+                if ( path.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        propos: { command: 'props' },
+                        hi: { command: 'hello' }
+                    } );
+                }
+                return '{}';
+            } );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( true );
+            expect( result.message ).toContain( '2 commands' );
+            expect( fs.writeFileSync ).toHaveBeenCalled();
+
+            // Verify the HTML was written
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'Chat Commands' );
+            expect( htmlContent ).toContain( '!props' );
+            expect( htmlContent ).toContain( '!hello' );
+            expect( htmlContent ).toContain( 'propos' ); // alias
+            expect( htmlContent ).toContain( 'hi' ); // alias
+            expect( htmlContent ).toContain( 'Nice one {djUsername}!' );
+            expect( htmlContent ).toContain( 'Hello {senderUsername}!' );
+            expect( htmlContent ).toContain( 'Show Images (1)' );
+        } );
+
+        it( 'should create html directory if it does not exist', async () => {
+            fs.existsSync.mockImplementation( path => {
+                if ( path.includes( 'html' ) ) return false; // html dir doesn't exist
+                return true;
+            } );
+
+            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+
+            await documentationService.rebuildChatDocumentation();
+
+            expect( fs.mkdirSync ).toHaveBeenCalledWith(
+                expect.stringContaining( 'html' ),
+                { recursive: true }
+            );
+        } );
+
+        it( 'should handle missing chat.json gracefully', async () => {
+            fs.existsSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) return false;
+                if ( path.includes( 'aliases.json' ) ) return true;
+                if ( path.includes( 'html' ) ) return true;
+                return false;
+            } );
+
+            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( true );
+            expect( result.message ).toContain( '0 commands' );
+            expect( fs.writeFileSync ).toHaveBeenCalled();
+        } );
+
+        it( 'should handle missing aliases.json gracefully', async () => {
+            fs.existsSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) return true;
+                if ( path.includes( 'aliases.json' ) ) return false;
+                if ( path.includes( 'html' ) ) return true;
+                return false;
+            } );
+
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        test: { messages: [ 'Test' ], pictures: [] }
+                    } );
+                }
+                return '{}';
+            } );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( true );
+            expect( fs.writeFileSync ).toHaveBeenCalled();
+        } );
+
+        it( 'should sort commands alphabetically', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        zebra: { messages: [ 'Z' ], pictures: [] },
+                        alpha: { messages: [ 'A' ], pictures: [] },
+                        beta: { messages: [ 'B' ], pictures: [] }
+                    } );
+                }
+                return '{}';
+            } );
+
+            await documentationService.rebuildChatDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            // Check order in HTML
+            const alphaIndex = htmlContent.indexOf( '!alpha' );
+            const betaIndex = htmlContent.indexOf( '!beta' );
+            const zebraIndex = htmlContent.indexOf( '!zebra' );
+
+            expect( alphaIndex ).toBeLessThan( betaIndex );
+            expect( betaIndex ).toBeLessThan( zebraIndex );
+        } );
+
+        it( 'should handle commands with no messages or pictures', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        empty: { messages: [], pictures: [] }
+                    } );
+                }
+                return '{}';
+            } );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( true );
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( '!empty' );
+            expect( htmlContent ).toContain( 'none' );
+        } );
+
+        it( 'should escape HTML in command data to prevent XSS', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        'xss<script>': {
+                            messages: [ '<script>alert("xss")</script>' ],
+                            pictures: []
+                        }
+                    } );
+                }
+                if ( path.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        '<script>': { command: 'xss<script>' }
+                    } );
+                }
+                return '{}';
+            } );
+
+            await documentationService.rebuildChatDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( '&lt;script&gt;' );
+            expect( htmlContent ).not.toContain( '<script>alert' );
+        } );
+
+        it( 'should handle file write errors', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+            fs.writeFileSync.mockImplementation( () => {
+                throw new Error( 'Write failed' );
+            } );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( false );
+            expect( result.message ).toContain( 'Write failed' );
+        } );
+
+        it( 'should handle JSON parse errors', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockReturnValue( 'invalid json' );
+
+            const result = await documentationService.rebuildChatDocumentation();
+
+            expect( result.success ).toBe( false );
+            expect( result.message ).toContain( 'Failed to rebuild documentation' );
+        } );
+
+        it( 'should include image toggle buttons for commands with pictures', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        test: {
+                            messages: [ 'Test' ],
+                            pictures: [
+                                'https://example.com/1.gif',
+                                'https://example.com/2.gif',
+                                'https://example.com/3.gif'
+                            ]
+                        }
+                    } );
+                }
+                return '{}';
+            } );
+
+            await documentationService.rebuildChatDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'Show Images (3)' );
+            expect( htmlContent ).toContain( 'toggleImages' );
+            expect( htmlContent ).toContain( 'https://example.com/1.gif' );
+        } );
+
+        it( 'should group multiple aliases for the same command', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readFileSync.mockImplementation( path => {
+                if ( path.includes( 'chat.json' ) ) {
+                    return JSON.stringify( {
+                        props: { messages: [ 'Props!' ], pictures: [] }
+                    } );
+                }
+                if ( path.includes( 'aliases.json' ) ) {
+                    return JSON.stringify( {
+                        propos: { command: 'props' },
+                        porps: { command: 'props' },
+                        banger: { command: 'props' }
+                    } );
+                }
+                return '{}';
+            } );
+
+            await documentationService.rebuildChatDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'propos' );
+            expect( htmlContent ).toContain( 'porps' );
+            expect( htmlContent ).toContain( 'banger' );
         } );
     } );
 } );

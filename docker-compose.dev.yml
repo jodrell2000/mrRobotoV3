@@ -23,4 +23,5 @@ services:
       - ./tests:/usr/src/app/tests:ro
       - ./package.json:/usr/src/app/package.json:ro
       - ./data:/usr/src/app/data
+      - ./html:/usr/src/app/html
       - ./logs:/usr/src/app/logs

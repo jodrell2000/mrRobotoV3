@@ -100,6 +100,15 @@ async function handleImageValidatorCommand ( { command, args, services, context 
             const result = await services.validationService.removeDeadImages();
 
             if ( result.success ) {
+                // Rebuild chat documentation after removing dead images
+                try {
+                    logger.debug( '📄 Rebuilding chat documentation after removing dead images...' );
+                    await services.documentationService.rebuildChatDocumentation();
+                } catch ( docError ) {
+                    logger.warn( `Failed to rebuild documentation: ${ docError.message }` );
+                    // Don't fail the command if documentation rebuild fails
+                }
+
                 return await sendSuccessResponse( `🗑️ ${ result.message }` );
             } else {
                 return await sendErrorResponse( `❌ ${ result.message }` );

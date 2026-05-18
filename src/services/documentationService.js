@@ -1,4 +1,6 @@
 const { logger } = require( '../lib/logging.js' );
+const fs = require( 'fs' );
+const path = require( 'path' );
 
 class DocumentationService {
     constructor ( { versionService, services } ) {
@@ -258,6 +260,281 @@ class DocumentationService {
             `;
             return this.generateHtmlWrapper( 'Error', errorContent );
         }
+    }
+
+    /**
+     * Generate chat commands documentation HTML and write to file
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async rebuildChatDocumentation () {
+        try {
+            const chatPath = path.join( __dirname, '../../data/chat.json' );
+            const aliasesPath = path.join( __dirname, '../../data/aliases.json' );
+            const outputPath = path.join( __dirname, '../../html/chat.html' );
+
+            // Ensure html directory exists
+            const htmlDir = path.dirname( outputPath );
+            if ( !fs.existsSync( htmlDir ) ) {
+                fs.mkdirSync( htmlDir, { recursive: true } );
+            }
+
+            // Read chat.json
+            let chatData = {};
+            if ( fs.existsSync( chatPath ) ) {
+                const chatDataRaw = fs.readFileSync( chatPath, 'utf8' );
+                chatData = JSON.parse( chatDataRaw );
+            } else {
+                logger.warn( 'chat.json not found, generating empty documentation' );
+            }
+
+            // Read aliases.json
+            let aliasesData = {};
+            if ( fs.existsSync( aliasesPath ) ) {
+                const aliasesDataRaw = fs.readFileSync( aliasesPath, 'utf8' );
+                aliasesData = JSON.parse( aliasesDataRaw );
+            }
+
+            // Build reverse alias map (command -> array of aliases)
+            const commandAliases = {};
+            for ( const [ alias, data ] of Object.entries( aliasesData ) ) {
+                const targetCommand = data.command;
+                if ( !commandAliases[ targetCommand ] ) {
+                    commandAliases[ targetCommand ] = [];
+                }
+                commandAliases[ targetCommand ].push( alias );
+            }
+
+            // Generate HTML
+            const html = this._generateChatCommandsHTML( chatData, commandAliases );
+
+            // Write to file
+            fs.writeFileSync( outputPath, html, 'utf8' );
+
+            const commandCount = Object.keys( chatData ).length;
+            logger.info( `✅ Rebuilt chat documentation: ${ commandCount } commands written to ${ outputPath }` );
+
+            return {
+                success: true,
+                message: `Generated documentation for ${ commandCount } commands`
+            };
+        } catch ( error ) {
+            logger.error( `❌ Failed to rebuild chat documentation: ${ error.message }` );
+            return {
+                success: false,
+                message: `Failed to rebuild documentation: ${ error.message }`
+            };
+        }
+    }
+
+    /**
+     * Generate HTML for chat commands table
+     * @private
+     * @param {Object} chatData - Chat commands data
+     * @param {Object} commandAliases - Map of command -> array of aliases
+     * @returns {string} Complete HTML page
+     */
+    _generateChatCommandsHTML ( chatData, commandAliases ) {
+        // Sort commands alphabetically
+        const sortedCommands = Object.keys( chatData ).sort();
+
+        // Generate table rows
+        let tableRows = '';
+        for ( const commandName of sortedCommands ) {
+            const command = chatData[ commandName ];
+            const aliases = commandAliases[ commandName ] || [];
+            const messages = command.messages || [];
+            const pictures = command.pictures || [];
+
+            tableRows += this._generateCommandRow( commandName, aliases, messages, pictures );
+        }
+
+        const content = `
+            <h1>Chat Commands</h1>
+            <p>
+                This page lists all available chat commands that Mr. Roboto can respond to.
+                Commands are user-created and can include text messages and images.
+            </p>
+            <p>
+                <strong>Total Commands:</strong> ${ sortedCommands.length }
+            </p>
+
+            <style>
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                th {
+                    background: rgba(0, 217, 255, 0.2);
+                    color: #00d9ff;
+                    padding: 15px;
+                    text-align: left;
+                    font-weight: 600;
+                    border-bottom: 2px solid #00d9ff;
+                }
+                td {
+                    padding: 12px 15px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                tr:hover {
+                    background: rgba(0, 217, 255, 0.05);
+                }
+                .command-name {
+                    color: #00d9ff;
+                    font-weight: 600;
+                    font-family: 'Courier New', monospace;
+                }
+                .aliases {
+                    color: #b0b0b0;
+                    font-style: italic;
+                }
+                .messages {
+                    color: #e0e0e0;
+                }
+                .message-item {
+                    margin: 5px 0;
+                    padding-left: 10px;
+                    border-left: 2px solid rgba(0, 217, 255, 0.3);
+                }
+                .images-cell {
+                    text-align: center;
+                }
+                .image-toggle-btn {
+                    background: #00d9ff;
+                    color: #1a1a2e;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.2s;
+                }
+                .image-toggle-btn:hover {
+                    background: #66ffff;
+                    transform: translateY(-2px);
+                }
+                .images-container {
+                    display: none;
+                    margin-top: 10px;
+                }
+                .images-container.visible {
+                    display: block;
+                }
+                .image-item {
+                    margin: 10px 0;
+                }
+                .image-item img {
+                    max-width: 300px;
+                    max-height: 300px;
+                    border-radius: 5px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+                }
+                @media (max-width: 768px) {
+                    table {
+                        font-size: 0.9rem;
+                    }
+                    th, td {
+                        padding: 10px;
+                    }
+                    .image-item img {
+                        max-width: 100%;
+                    }
+                }
+            </style>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Aliases</th>
+                        <th>Messages</th>
+                        <th>Images</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ tableRows }
+                </tbody>
+            </table>
+
+            <script>
+                function toggleImages(commandName) {
+                    const container = document.getElementById('images-' + commandName);
+                    const btn = document.getElementById('btn-' + commandName);
+                    if (container.classList.contains('visible')) {
+                        container.classList.remove('visible');
+                        btn.textContent = 'Show Images';
+                    } else {
+                        container.classList.add('visible');
+                        btn.textContent = 'Hide Images';
+                    }
+                }
+            </script>
+        `;
+
+        return this.generateHtmlWrapper( 'Chat Commands', content );
+    }
+
+    /**
+     * Generate a single table row for a command
+     * @private
+     * @param {string} commandName - Name of the command
+     * @param {Array<string>} aliases - Array of alias names
+     * @param {Array<string>} messages - Array of message templates
+     * @param {Array<string>} pictures - Array of image URLs
+     * @returns {string} HTML table row
+     */
+    _generateCommandRow ( commandName, aliases, messages, pictures ) {
+        const escapedCommandName = this.escapeHtml( commandName );
+        const safeCommandId = commandName.replace( /[^a-zA-Z0-9]/g, '_' );
+
+        // Generate aliases cell
+        let aliasesHtml = '';
+        if ( aliases.length > 0 ) {
+            aliasesHtml = `<span class="aliases">${ aliases.map( a => this.escapeHtml( a ) ).join( ', ' ) }</span>`;
+        } else {
+            aliasesHtml = '<span class="aliases">none</span>';
+        }
+
+        // Generate messages cell
+        let messagesHtml = '';
+        if ( messages.length > 0 ) {
+            messagesHtml = messages.map( msg =>
+                `<div class="message-item">${ this.escapeHtml( msg ) }</div>`
+            ).join( '' );
+        } else {
+            messagesHtml = '<span class="aliases">none</span>';
+        }
+
+        // Generate images cell
+        let imagesHtml = '';
+        if ( pictures.length > 0 ) {
+            const imagesContent = pictures.map( url =>
+                `<div class="image-item"><img src="${ this.escapeHtml( url ) }" alt="Command image" loading="lazy"></div>`
+            ).join( '' );
+
+            imagesHtml = `
+                <button class="image-toggle-btn" id="btn-${ safeCommandId }" onclick="toggleImages('${ safeCommandId }')">
+                    Show Images (${ pictures.length })
+                </button>
+                <div class="images-container" id="images-${ safeCommandId }">
+                    ${ imagesContent }
+                </div>
+            `;
+        } else {
+            imagesHtml = '<span class="aliases">none</span>';
+        }
+
+        return `
+            <tr>
+                <td><span class="command-name">!${ escapedCommandName }</span></td>
+                <td>${ aliasesHtml }</td>
+                <td class="messages">${ messagesHtml }</td>
+                <td class="images-cell">${ imagesHtml }</td>
+            </tr>
+        `;
     }
 }
 
