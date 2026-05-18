@@ -4,11 +4,20 @@ const { Bot } = require( './lib/bot.js' );
 const { runAfkMonitorTick, TICK_INTERVAL_MS } = require( './tasks/afkMonitorTask.js' );
 const dailyCloudSyncTask = require( './tasks/dailyCloudSyncTask.js' );
 
-// Bind a minimal HTTP server so Cloud Run health checks pass.
+// Bind a minimal HTTP server with secure routing
 // The bot is a WebSocket client — there is no real HTTP API here.
-const healthServer = http.createServer( ( _req, res ) => {
-  res.writeHead( 200 );
-  res.end( 'ok' );
+const healthServer = http.createServer( ( req, res ) => {
+  const url = new URL( req.url, `http://${ req.headers.host }` );
+
+  // Only allow specific endpoints
+  if ( url.pathname === '/health' ) {
+    res.writeHead( 200, { 'Content-Type': 'text/plain' } );
+    res.end( 'ok' );
+  } else {
+    // Return 404 for all other paths (including file access attempts)
+    res.writeHead( 404, { 'Content-Type': 'text/plain' } );
+    res.end( 'Not Found' );
+  }
 } );
 healthServer.listen( process.env.PORT || 8080 );
 
