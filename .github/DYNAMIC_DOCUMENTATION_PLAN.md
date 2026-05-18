@@ -290,8 +290,17 @@ After reviewing the old system (https://github.com/jodrell2000/TTLive-Mr-Roboto2
 6. Add docker volume mount for `./html` directory
 7. Register /chatcommands route to serve static file from disk
 8. Call rebuildChatDocumentation() on startup
-9. Hook into command/alias update handlers to trigger rebuild
+9. Hook into chat.json modification points (see Integration Points below)
 10. Write tests for HTML generation and file creation
+
+**Image Validator Integration:**
+The image validator has a specific flow that avoids multiple documentation rebuilds:
+- **During validation** (`!imageValidator start`): Checks images at 1/sec, updates cache only, does NOT modify chat.json
+- **After validation completes**: Saves cache only, does NOT modify chat.json
+- **After user removes dead images** (`!imageValidator remove`): Single write to chat.json, then trigger rebuild
+- **Result**: Only ONE documentation rebuild after validation cleanup, not during the validation process
+
+This design ensures efficient documentation regeneration without unnecessary rebuilds during long-running validation operations.
 
 **Docker Changes Required:**
 - Add volume mount: `./html:/usr/src/app/html` (matches existing `./data` pattern)
@@ -299,10 +308,20 @@ After reviewing the old system (https://github.com/jodrell2000/TTLive-Mr-Roboto2
 - No additional complexity beyond existing volume mounting
 
 **Regeneration Triggers:**
-- On bot startup (ensure fresh HTML)
-- When chat.json is updated
-- When aliases.json is updated
-- Can be manually triggered via chat command (e.g., `!rebuildchat`)
+- **On bot startup**: Call rebuildChatDocumentation() during initialization
+- **After chat command modifications**: Call after handleChatCommandCommand writes to chat.json
+  - add, edit, remove, addimage, removeimage, editmessage subcommands
+- **After image validation cleanup**: Call after validationService.removeDeadImages() completes
+  - Note: Validation itself does NOT modify chat.json, only removeDeadImages() does
+  - Single rebuild after all dead images removed (not during validation process)
+- **After alias changes**: Call after handleCommandCommand modifies aliases.json
+- **Manual trigger**: Optional !rebuildchat command for manual regeneration
+
+**Integration Points:**
+1. `src/index.js` - Call on startup after services initialized
+2. `src/services/validationService.js` - Call at end of removeDeadImages() method
+3. `src/commands/Edit Commands/handleChatCommandCommand.js` - Call after each chat.json write
+4. `src/commands/Bot Commands/handleCommandCommand.js` - Call after aliases.json write (if implementing /commands page)
 
 **No Additional Dependencies Required:**
 - No pug package needed
