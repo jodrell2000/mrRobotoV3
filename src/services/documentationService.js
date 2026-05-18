@@ -419,7 +419,6 @@ class DocumentationService {
                 .images-container {
                     display: none;
                     margin-top: 10px;
-                    display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
                 }
