@@ -282,8 +282,8 @@ describe( 'DocumentationService', () => {
             const htmlContent = writeCall[ 1 ];
 
             expect( htmlContent ).toContain( 'Chat Commands' );
-            expect( htmlContent ).toContain( '!props' );
-            expect( htmlContent ).toContain( '!hello' );
+            expect( htmlContent ).toContain( 'props' );
+            expect( htmlContent ).toContain( 'hello' );
             expect( htmlContent ).toContain( 'propos' ); // alias
             expect( htmlContent ).toContain( 'hi' ); // alias
             expect( htmlContent ).toContain( 'Nice one {djUsername}!' );
@@ -366,9 +366,9 @@ describe( 'DocumentationService', () => {
             const htmlContent = writeCall[ 1 ];
 
             // Check order in HTML
-            const alphaIndex = htmlContent.indexOf( '!alpha' );
-            const betaIndex = htmlContent.indexOf( '!beta' );
-            const zebraIndex = htmlContent.indexOf( '!zebra' );
+            const alphaIndex = htmlContent.indexOf( 'alpha' );
+            const betaIndex = htmlContent.indexOf( 'beta' );
+            const zebraIndex = htmlContent.indexOf( 'zebra' );
 
             expect( alphaIndex ).toBeLessThan( betaIndex );
             expect( betaIndex ).toBeLessThan( zebraIndex );
@@ -392,7 +392,7 @@ describe( 'DocumentationService', () => {
             const writeCall = fs.writeFileSync.mock.calls[ 0 ];
             const htmlContent = writeCall[ 1 ];
 
-            expect( htmlContent ).toContain( '!empty' );
+            expect( htmlContent ).toContain( 'empty' );
             expect( htmlContent ).toContain( 'none' );
         } );
 

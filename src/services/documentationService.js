@@ -36,7 +36,7 @@ class DocumentationService {
             padding: 20px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 100%;
             margin: 0 auto;
             background: rgba(30, 30, 46, 0.8);
             border-radius: 12px;
@@ -419,16 +419,19 @@ class DocumentationService {
                 .images-container {
                     display: none;
                     margin-top: 10px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
                 }
                 .images-container.visible {
-                    display: block;
+                    display: flex;
                 }
                 .image-item {
-                    margin: 10px 0;
+                    flex: 0 0 auto;
                 }
                 .image-item img {
-                    max-width: 300px;
-                    max-height: 300px;
+                    width: 100px;
+                    height: auto;
                     border-radius: 5px;
                     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
                 }
@@ -529,7 +532,7 @@ class DocumentationService {
 
         return `
             <tr>
-                <td><span class="command-name">!${ escapedCommandName }</span></td>
+                <td><span class="command-name">${ escapedCommandName }</span></td>
                 <td>${ aliasesHtml }</td>
                 <td class="messages">${ messagesHtml }</td>
                 <td class="images-cell">${ imagesHtml }</td>
