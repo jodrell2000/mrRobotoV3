@@ -408,6 +408,7 @@ ssh_exec "cd ${REMOTE_DIR} && docker run -d \
   --name ${CONTAINER_NAME} \
   --restart unless-stopped \
   --env-file .env \
+  -p 8080:8080 \
   -v ${REMOTE_DIR}/data:/usr/src/app/data \
   ${IMAGE_NAME}"
 

@@ -2,10 +2,18 @@
 # Using Node.js 18 LTS for stability
 FROM node:18-alpine
 
+# Accept version information as build arguments
+ARG VERSION_TAG=unknown
+ARG BUILD_DATE=unknown
+ARG GIT_COMMIT=unknown
+ARG PACKAGE_VERSION=unknown
+
 # Set metadata for the image
 LABEL maintainer="MrRobotoV3 Team"
 LABEL description="Discord bot for hang.fm - Version 3"
-LABEL version="1.0.0"
+LABEL version="${VERSION_TAG}"
+LABEL build.date="${BUILD_DATE}"
+LABEL git.commit="${GIT_COMMIT}"
 
 # Install timezone data for proper timezone support
 RUN apk add --no-cache tzdata
@@ -44,15 +52,20 @@ RUN mkdir -p data && \
     chmod -R 755 data && \
     chmod 644 data/botConfig.json
 
+# Create VERSION file with build information
+RUN echo "{\"version\":\"${VERSION_TAG}\",\"tag\":\"${VERSION_TAG}\",\"buildDate\":\"${BUILD_DATE}\",\"gitCommit\":\"${GIT_COMMIT}\",\"packageVersion\":\"${PACKAGE_VERSION}\"}" > VERSION && \
+    chown mrroboto:nodejs VERSION && \
+    chmod 644 VERSION
+
 # Switch to non-root user
 USER mrroboto
 
-# Expose port (if needed for health checks or future web interface)
-EXPOSE 3000
+# Expose port for web documentation and health checks
+EXPOSE 8080
 
-# Add health check
+# Add health check using HTTP endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "console.log('Health check passed')" || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Set default environment variables
 ENV NODE_ENV=production

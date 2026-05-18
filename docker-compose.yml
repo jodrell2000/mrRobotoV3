@@ -17,6 +17,10 @@ services:
     # env_file:
     #   - .env
 
+    # Port mapping for web documentation and health checks
+    ports:
+      - "8080:8080"
+
     # Mount volumes for persistent data
     volumes:
       - ./data:/usr/src/app/data
