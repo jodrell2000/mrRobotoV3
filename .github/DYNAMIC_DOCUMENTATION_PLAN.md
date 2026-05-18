@@ -4,8 +4,8 @@
 **Target Version:** `v1.2.0`  
 **Development Tag:** `v1.2.0-development` (hyphen for semver compliance)  
 **Created:** 2026-05-18  
-**Status:** Phase 1 Complete - Infrastructure Ready  
-**Current Phase:** Phase 2 - Documentation Service
+**Status:** Phase 2 Complete - Documentation Service Ready  
+**Current Phase:** Phase 3 - Chat Commands Documentation
 
 ## Version Notes
 
@@ -70,6 +70,14 @@ Add a web-based documentation system that exposes bot information, commands, sta
 - ✅ Oracle ingress rule configured for port 8080
 - ✅ WEB_DOCS_URL auto-configured during deployment
 - ✅ Security verified: unauthorized access blocked
+
+### Documentation Service Status (Phase 2) ✅
+- ✅ versionService reads VERSION file with fallback to package.json
+- ✅ documentationService generates HTML pages with dark theme
+- ✅ Landing page (GET /) displays version and hangout info
+- ✅ HTTP routing secure with whitelist approach
+- ✅ All tests passing (28 tests total for Phase 2)
+- ✅ Ready for local and production testing
 
 ## Architecture Design
 
@@ -203,13 +211,34 @@ GET /stats            → Statistics from database
 9. ✅ **Oracle Cloud:** Configure ingress rule for port 8080
 10. ✅ **Changelog:** Start docs/changelog/1.2.0.md with OCI setup guide
 
-### Phase 2: Documentation Service
-1. Create `versionService.js` for reading version info
-2. Create `documentationService.js`
-3. Implement HTML template wrapper
-4. Register services in serviceContainer
-5. Add basic landing page generation
-6. Test services independently
+### Phase 2: Documentation Service ✅ COMPLETE
+1. ✅ Create `versionService.js` for reading version info
+   - Reads VERSION file generated during Docker build
+   - Falls back to package.json if VERSION file missing
+   - Caches version info to avoid repeated file reads
+2. ✅ Create `documentationService.js`
+   - HTML generation with dark theme styling
+   - Mobile-responsive design with CSS grid
+   - XSS protection via HTML escaping
+3. ✅ Implement HTML template wrapper
+   - Common navigation header
+   - Consistent styling across pages
+   - Footer with bot branding
+4. ✅ Register services in serviceContainer
+   - Added versionService and documentationService
+   - Configured dependencies (versionService, stateService)
+5. ✅ Add basic landing page generation
+   - Displays version info (tag, build date, commit)
+   - Shows hangout status (room name, user count, DJ count)
+   - Lists available pages with descriptions
+6. ✅ Test services independently
+   - versionService: 12 tests (all passing)
+   - documentationService: 16 tests (all passing)
+   - Covers version loading, HTML generation, XSS protection, error handling
+7. ✅ Update HTTP server routing
+   - Added GET / endpoint for landing page
+   - Maintains security whitelist (only / and /health allowed)
+   - Returns 404 for all unauthorized paths
 
 ### Phase 3: Chat Commands Documentation
 1. Add `pug` package dependency

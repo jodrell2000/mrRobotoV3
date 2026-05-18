@@ -19,6 +19,8 @@ const RetryService = require( './retryService.js' );
 const AfkService = require( './afkService.js' );
 const validationService = require( './validationService.js' );
 const CloudStorageService = require( './cloudStorageService.js' );
+const VersionService = require( './versionService.js' );
+const DocumentationService = require( './documentationService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -43,6 +45,9 @@ const retryService = new RetryService();
 
 // Initialize afkService
 const afkService = new AfkService();
+
+// Initialize versionService
+const versionService = new VersionService();
 
 // Note: machineLearningService and triggerService will be initialized after services object is created
 // to avoid circular dependency issues
@@ -101,10 +106,12 @@ const services = {
   featuresService,
   retryService,
   afkService,
+  versionService,
   validationService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
   tokenService: null, // Will be initialized after services object is created
+  documentationService: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -166,10 +173,14 @@ const services = {
   }
 };
 
-// Initialize triggerService, machineLearningService and tokenService after services object is created to avoid circular dependencies
+// Initialize triggerService, machineLearningService, tokenService and documentationService after services object is created to avoid circular dependencies
 services.machineLearningService = new MachineLearningService( services );
 services.triggerService = new TriggerService( services );
 services.tokenService = new TokenService( services );
+services.documentationService = new DocumentationService( {
+  versionService: services.versionService,
+  stateService: services.stateService
+} );
 
 // Initialize retry service connection to CometChat API
 const cometchatApi = require( './cometchatApi.js' );

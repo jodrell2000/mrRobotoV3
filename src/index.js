@@ -6,13 +6,23 @@ const dailyCloudSyncTask = require( './tasks/dailyCloudSyncTask.js' );
 
 // Bind a minimal HTTP server with secure routing
 // The bot is a WebSocket client — there is no real HTTP API here.
-const healthServer = http.createServer( ( req, res ) => {
+const healthServer = http.createServer( async ( req, res ) => {
   const url = new URL( req.url, `http://${ req.headers.host }` );
 
-  // Only allow specific endpoints
+  // Route handling
   if ( url.pathname === '/health' ) {
     res.writeHead( 200, { 'Content-Type': 'text/plain' } );
     res.end( 'ok' );
+  } else if ( url.pathname === '/' ) {
+    try {
+      const html = await services.documentationService.generateLandingPage();
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8' } );
+      res.end( html );
+    } catch ( error ) {
+      services.logger.error( `Error generating landing page: ${error.message}` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain' } );
+      res.end( 'Internal Server Error' );
+    }
   } else {
     // Return 404 for all other paths (including file access attempts)
     res.writeHead( 404, { 'Content-Type': 'text/plain' } );

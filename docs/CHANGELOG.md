@@ -5,46 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.3] - 2026-05-14
-
-### Changed
-- **Personality Selective Merging**: Enhanced personality activation to preserve existing settings when not explicitly set in personality
-  - When activating a personality, empty or unset values no longer overwrite existing settings
-  - Allows switching personalities while retaining specific settings like themes, triggers, or custom tokens
-  - Example: Activate a personality with no theme set → current theme is preserved
-  - Example: Activate a personality with empty `disabledCommands` array → current disabled commands remain
-  - Applies to: instructions, editable messages, ML questions, disabled commands/features, triggers, and custom tokens
-  - If a personality explicitly sets a value (even empty string), that value is applied
-  - Configuration merging (from v1.1.2) is now consistent with all other personality data
-
-## [1.1.2] - 2026-05-12
-
-### Fixed
-- **Configuration Token Handling**: Fixed `!token add` command to properly update configuration values for built-in tokens
-  - Configuration tokens (`{timezone}`, `{locale}`, `{dateFormat}`, `{timeFormat}`) now update both the configuration AND create custom token overlays
-  - `{currentTime}` and other built-in tokens now respect updated configuration values
-  - Previously, `!token add {timezone} "America/Los_Angeles"` only created a display token; now it updates the actual configuration used by built-in token functions
-- **Personality Configuration Merging**: Fixed personality activation to merge configuration instead of overwriting
-  - When activating a personality with missing configuration values, existing values are now preserved
-  - Prevents losing manually configured settings when switching between personalities
-  - Example: If current config has `timezone: "America/Los_Angeles"` and personality has no timezone, the LA timezone is preserved
-
-## [1.1.1] - 2026-05-12
-
-### Fixed
-- **Timezone Support**: Added `tzdata` package to Docker image to fix timezone handling
-  - Alpine Linux base image lacked timezone database
-  - Token `{currentTime}` now correctly displays time in configured timezone instead of defaulting to system time
-
-## [1.1.0] - 2026-05-11
-
-### Changed
-- **Personality Store**: Improved `!personality` command UX
-  - Newly saved personalities are now automatically activated
-  - `!personality update` without a name now updates the active personality (simplified from `!personality update current`)
-  - Removed "current" as a reserved personality name - can now be used as a regular personality name
-  - Updated response message: `!personality save` now confirms "saved successfully and activated"
-
 ## Release History
 
 | Version | Date | Summary | Details |
