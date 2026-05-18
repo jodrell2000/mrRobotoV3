@@ -4,7 +4,8 @@
 **Target Version:** `v1.2.0`  
 **Development Tag:** `v1.2.0-development` (hyphen for semver compliance)  
 **Created:** 2026-05-18  
-**Status:** Planning
+**Status:** Phase 1 Complete - Infrastructure Ready  
+**Current Phase:** Phase 2 - Documentation Service
 
 ## Version Notes
 
@@ -53,16 +54,22 @@ Add a web-based documentation system that exposes bot information, commands, sta
 ## Current State
 
 ### Existing Infrastructure
-- HTTP server exists in `src/index.js` (lines 7-13)
+- HTTP server exists in `src/index.js` (lines 9-20)
 - Server listens on `process.env.PORT || 8080`
-- Currently only responds with `"ok"` for health checks
+- **Security implemented:** Path whitelist routing
+  - `/health` endpoint returns "ok" (200 OK)
+  - All other paths return "Not Found" (404)
+  - Blocks access to `.env`, `data.json`, and all sensitive files
+- Production deployed and tested on Oracle Cloud
 - Originally designed for Google Cloud Run
 
-### Current Limitations
-- Port 8080 not exposed in Oracle deployment
-- Dockerfile exposes port 3000 (mismatch with server listening on 8080)
-- No routing logic - all requests get same response
-- No HTML generation capabilities
+### Infrastructure Status (Phase 1) ✅
+- ✅ Port 8080 exposed in Dockerfile, docker-compose.yml, and Oracle deployment
+- ✅ VERSION file generated during Docker build with metadata
+- ✅ GitHub Actions workflow enhanced with version build args
+- ✅ Oracle ingress rule configured for port 8080
+- ✅ WEB_DOCS_URL auto-configured during deployment
+- ✅ Security verified: unauthorized access blocked
 
 ## Architecture Design
 
@@ -181,17 +188,20 @@ GET /stats            → Statistics from database
 
 ## Implementation Plan
 
-### Phase 1: Infrastructure Setup
+### Phase 1: Infrastructure Setup ✅ COMPLETE
 1. ✅ Create feature branch
 2. ✅ Create planning document
-3. Update Dockerfile:
-   - Fix port exposure (3000 → 8080)
-   - Add VERSION_TAG build arg
-   - Create VERSION file during build
-4. Update GitHub Actions workflow to pass version as build arg
-5. Update Oracle deployment script to map port 8080
-6. Update docker-compose.yml to expose port 8080
-7. Test basic HTTP server accessibility
+3. ✅ Update Dockerfile:
+   - ✅ Fix port exposure (3000 → 8080)
+   - ✅ Add VERSION_TAG build arg
+   - ✅ Create VERSION file during build
+4. ✅ Update GitHub Actions workflow to pass version as build arg
+5. ✅ Update Oracle deployment script to map port 8080
+6. ✅ Update docker-compose.yml to expose port 8080
+7. ✅ Test basic HTTP server accessibility
+8. ✅ **Security fix:** Implement proper HTTP routing with path whitelist
+9. ✅ **Oracle Cloud:** Configure ingress rule for port 8080
+10. ✅ **Changelog:** Start docs/changelog/1.2.0.md with OCI setup guide
 
 ### Phase 2: Documentation Service
 1. Create `versionService.js` for reading version info
@@ -398,7 +408,9 @@ GET /stats            → Statistics from database
 
 ## Success Criteria
 
-- [ ] Web server accessible from browser at `http://193.123.182.235:8080`
+- [x] Web server accessible from browser at `http://193.123.182.235:8080`
+- [x] Security implemented: only whitelisted endpoints accessible
+- [x] Sensitive files (.env, data.json) properly blocked with 404
 - [ ] All planned routes return valid HTML or appropriate responses
 - [ ] /chatcommands displays commands with messages and images using pug templates
 - [ ] /commands documentation is accurate and complete with metadata
