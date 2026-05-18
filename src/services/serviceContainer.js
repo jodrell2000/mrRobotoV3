@@ -21,6 +21,7 @@ const validationService = require( './validationService.js' );
 const CloudStorageService = require( './cloudStorageService.js' );
 const VersionService = require( './versionService.js' );
 const DocumentationService = require( './documentationService.js' );
+const RateLimiterService = require( './rateLimiterService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -48,6 +49,9 @@ const afkService = new AfkService();
 
 // Initialize versionService
 const versionService = new VersionService();
+
+// Initialize rateLimiterService
+const rateLimiterService = new RateLimiterService();
 
 // Note: machineLearningService and triggerService will be initialized after services object is created
 // to avoid circular dependency issues
@@ -107,6 +111,7 @@ const services = {
   retryService,
   afkService,
   versionService,
+  rateLimiterService,
   validationService,
   machineLearningService: null, // Will be initialized after services object is created
   triggerService: null, // Will be initialized after services object is created
@@ -179,7 +184,7 @@ services.triggerService = new TriggerService( services );
 services.tokenService = new TokenService( services );
 services.documentationService = new DocumentationService( {
   versionService: services.versionService,
-  stateService: services.stateService
+  services: services
 } );
 
 // Initialize retry service connection to CometChat API

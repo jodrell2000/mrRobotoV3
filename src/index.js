@@ -8,24 +8,51 @@ const dailyCloudSyncTask = require( './tasks/dailyCloudSyncTask.js' );
 // The bot is a WebSocket client — there is no real HTTP API here.
 const healthServer = http.createServer( async ( req, res ) => {
   const url = new URL( req.url, `http://${ req.headers.host }` );
+  
+  // Extract client IP (handle proxies)
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                   req.headers['x-real-ip'] || 
+                   req.socket.remoteAddress;
+  
+  // Check rate limit
+  const rateLimitResult = services.rateLimiterService.checkLimit( clientIp, url.pathname );
+  
+  if ( !rateLimitResult.allowed ) {
+    res.writeHead( 429, { 
+      'Content-Type': 'text/plain',
+      'Retry-After': Math.ceil( ( rateLimitResult.resetTime - Date.now() ) / 1000 ),
+      'X-RateLimit-Limit': rateLimitResult.limit,
+      'X-RateLimit-Remaining': rateLimitResult.remaining,
+      'X-RateLimit-Reset': rateLimitResult.resetTime
+    } );
+    res.end( 'Too Many Requests' );
+    return;
+  }
+  
+  // Add rate limit headers to all responses
+  const rateLimitHeaders = {
+    'X-RateLimit-Limit': rateLimitResult.limit,
+    'X-RateLimit-Remaining': rateLimitResult.remaining,
+    'X-RateLimit-Reset': rateLimitResult.resetTime
+  };
 
   // Route handling
   if ( url.pathname === '/health' ) {
-    res.writeHead( 200, { 'Content-Type': 'text/plain' } );
+    res.writeHead( 200, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
     res.end( 'ok' );
   } else if ( url.pathname === '/' ) {
     try {
       const html = await services.documentationService.generateLandingPage();
-      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8' } );
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
       res.end( html );
     } catch ( error ) {
-      services.logger.error( `Error generating landing page: ${error.message}` );
-      res.writeHead( 500, { 'Content-Type': 'text/plain' } );
+      services.logger.error( `Error generating landing page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
       res.end( 'Internal Server Error' );
     }
   } else {
     // Return 404 for all other paths (including file access attempts)
-    res.writeHead( 404, { 'Content-Type': 'text/plain' } );
+    res.writeHead( 404, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
     res.end( 'Not Found' );
   }
 } );

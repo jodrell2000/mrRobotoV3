@@ -20,32 +20,32 @@ class VersionService {
             const versionPath = path.join( process.cwd(), 'VERSION' );
             const fileContent = await fs.readFile( versionPath, 'utf8' );
             this.versionInfo = JSON.parse( fileContent );
-            logger.info( `Loaded version info from VERSION file: ${this.versionInfo.tag}` );
+            logger.info( `Loaded version info from VERSION file: ${ this.versionInfo.tag }` );
             return this.versionInfo;
         } catch ( error ) {
             if ( error.code === 'ENOENT' ) {
                 logger.warn( 'VERSION file not found, falling back to package.json' );
             } else {
-                logger.warn( `Failed to read VERSION file: ${error.message}, falling back to package.json` );
+                logger.warn( `Failed to read VERSION file: ${ error.message }, falling back to package.json` );
             }
 
             try {
                 const packagePath = path.join( process.cwd(), 'package.json' );
                 const packageContent = await fs.readFile( packagePath, 'utf8' );
                 const packageJson = JSON.parse( packageContent );
-                
+
                 this.versionInfo = {
                     version: packageJson.version,
-                    tag: `v${packageJson.version}`,
+                    tag: `v${ packageJson.version }`,
                     buildDate: undefined,
                     gitCommit: undefined,
                     packageVersion: packageJson.version
                 };
 
-                logger.info( `Using version from package.json: ${this.versionInfo.version}` );
+                logger.info( `Using version from package.json: ${ this.versionInfo.version }` );
                 return this.versionInfo;
             } catch ( fallbackError ) {
-                logger.error( `Failed to read package.json: ${fallbackError.message}` );
+                logger.error( `Failed to read package.json: ${ fallbackError.message }` );
                 this.versionInfo = {
                     version: 'unknown',
                     tag: 'unknown',

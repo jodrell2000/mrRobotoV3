@@ -14,6 +14,7 @@ describe( 'DocumentationService', () => {
     let documentationService;
     let mockVersionService;
     let mockStateService;
+    let mockServices;
 
     beforeEach( () => {
         jest.clearAllMocks();
@@ -39,9 +40,13 @@ describe( 'DocumentationService', () => {
             } )
         };
 
+        mockServices = {
+            stateService: mockStateService
+        };
+
         documentationService = new DocumentationService( {
             versionService: mockVersionService,
-            stateService: mockStateService
+            services: mockServices
         } );
     } );
 
@@ -167,6 +172,16 @@ describe( 'DocumentationService', () => {
             expect( html ).toContain( 'Not connected' );
         } );
 
+        it( 'should handle when stateService is not initialized', async () => {
+            mockServices.stateService = undefined;
+
+            const html = await documentationService.generateLandingPage();
+
+            expect( html ).toContain( 'Not connected' );
+            expect( html ).toContain( 'v1.2.0' );
+            expect( html ).toContain( '0' ); // 0 users
+        } );
+
         it( 'should return error page when version service fails', async () => {
             mockVersionService.getVersion.mockRejectedValue( new Error( 'Version load failed' ) );
 
@@ -187,6 +202,17 @@ describe( 'DocumentationService', () => {
 
             expect( html ).toContain( '&lt;script&gt;' );
             expect( html ).not.toContain( '<script>alert' );
+        } );
+
+        it( 'should handle when stateService throws error', async () => {
+            mockStateService._getCurrentState.mockImplementation( () => {
+                throw new Error( 'State service error' );
+            } );
+
+            const html = await documentationService.generateLandingPage();
+
+            expect( html ).toContain( 'Not connected' );
+            expect( html ).toContain( 'v1.2.0' );
         } );
     } );
 } );

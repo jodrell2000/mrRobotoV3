@@ -1,9 +1,9 @@
 const { logger } = require( '../lib/logging.js' );
 
 class DocumentationService {
-    constructor ( { versionService, stateService } ) {
+    constructor ( { versionService, services } ) {
         this.versionService = versionService;
-        this.stateService = stateService;
+        this.services = services;
     }
 
     /**
@@ -18,7 +18,7 @@ class DocumentationService {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${this.escapeHtml( title )} - Mr. Roboto V3</title>
+    <title>${ this.escapeHtml( title ) } - Mr. Roboto V3</title>
     <style>
         * {
             margin: 0;
@@ -146,7 +146,7 @@ class DocumentationService {
             <a href="/health">Health</a>
             <a href="/status">Status</a>
         </nav>
-        ${content}
+        ${ content }
         <div class="footer">
             <p>Mr. Roboto V3 - TT.fm Music Bot</p>
         </div>
@@ -171,7 +171,7 @@ class DocumentationService {
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.toString().replace( /[&<>"']/g, m => map[m] );
+        return text.toString().replace( /[&<>"']/g, m => map[ m ] );
     }
 
     /**
@@ -181,12 +181,26 @@ class DocumentationService {
     async generateLandingPage () {
         try {
             const version = await this.versionService.getVersion();
-            const state = this.stateService._getCurrentState();
             
+            // Get state if stateService is initialized, otherwise use empty state
+            let state = {
+                hangoutName: undefined,
+                allUserData: {},
+                djs: []
+            };
+            
+            if ( this.services.stateService ) {
+                try {
+                    state = this.services.stateService._getCurrentState();
+                } catch ( stateError ) {
+                    logger.warn( `Could not get state: ${ stateError.message }` );
+                }
+            }
+
             const content = `
                 <h1>Welcome to Mr. Roboto V3</h1>
                 <p>
-                    <span class="version-badge">${this.escapeHtml( version.tag )}</span>
+                    <span class="version-badge">${ this.escapeHtml( version.tag ) }</span>
                 </p>
                 
                 <p>
@@ -198,17 +212,17 @@ class DocumentationService {
                 <div class="info-grid">
                     <div class="info-card">
                         <h3>Version Information</h3>
-                        <p><strong>Version:</strong> ${this.escapeHtml( version.version )}</p>
-                        <p><strong>Tag:</strong> ${this.escapeHtml( version.tag )}</p>
-                        ${version.buildDate ? `<p><strong>Built:</strong> ${this.escapeHtml( new Date( version.buildDate ).toLocaleString() )}</p>` : ''}
-                        ${version.gitCommit ? `<p><strong>Commit:</strong> ${this.escapeHtml( version.gitCommit.substring( 0, 8 ) )}</p>` : ''}
+                        <p><strong>Version:</strong> ${ this.escapeHtml( version.version ) }</p>
+                        <p><strong>Tag:</strong> ${ this.escapeHtml( version.tag ) }</p>
+                        ${ version.buildDate ? `<p><strong>Built:</strong> ${ this.escapeHtml( new Date( version.buildDate ).toLocaleString() ) }</p>` : '' }
+                        ${ version.gitCommit ? `<p><strong>Commit:</strong> ${ this.escapeHtml( version.gitCommit.substring( 0, 8 ) ) }</p>` : '' }
                     </div>
                     
                     <div class="info-card">
                         <h3>Hangout Information</h3>
-                        <p><strong>Room:</strong> ${this.escapeHtml( state.hangoutName || 'Not connected' )}</p>
-                        <p><strong>Users:</strong> ${Object.keys( state.allUserData || {} ).length}</p>
-                        <p><strong>DJs:</strong> ${( state.djs || [] ).length}</p>
+                        <p><strong>Room:</strong> ${ this.escapeHtml( state.hangoutName || 'Not connected' ) }</p>
+                        <p><strong>Users:</strong> ${ Object.keys( state.allUserData || {} ).length }</p>
+                        <p><strong>DJs:</strong> ${ ( state.djs || [] ).length }</p>
                     </div>
                 </div>
 
@@ -236,7 +250,7 @@ class DocumentationService {
 
             return this.generateHtmlWrapper( 'Home', content );
         } catch ( error ) {
-            logger.error( `Failed to generate landing page: ${error.message}` );
+            logger.error( `Failed to generate landing page: ${ error.message }` );
             const errorContent = `
                 <h1>Error</h1>
                 <p>Failed to load bot information. Please try again later.</p>
