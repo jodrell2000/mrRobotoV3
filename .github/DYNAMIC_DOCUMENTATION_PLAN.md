@@ -95,7 +95,7 @@ Add a web-based documentation system that exposes bot information, commands, sta
 ```
 GET /                 → Landing page with bot overview
 GET /health           → Health check endpoint (lightweight, machine-focused)
-GET /chatcommands     → Chat commands with messages and images (using .pug templates)
+GET /chatcommands     → Chat commands with messages and images (generated HTML table)
 GET /commands         → Command reference documentation (metadata)
 GET /status           → Live bot status (detailed, human-focused)
 GET /tokens           → Token reference guide
@@ -114,14 +114,14 @@ GET /stats            → Statistics from database
 
 **/chatcommands Endpoint:**
 - **Purpose:** Display all available chat commands with messages and images
-- **Response:** HTML page rendered from .pug templates (reused from existing project)
-- **Template Engine:** Pug (jade) - requires adding as dependency
+- **Response:** Static HTML file generated from JSON data
+- **Implementation:** Read pre-generated html/chat.html file
 - **Content:**
-  - List of all chat commands
-  - Associated messages for each command
-  - Images/screenshots showing command usage
-  - Visual examples of command output
-- **Data Source:** Command files + image directory
+  - Table with columns: Command | Aliases | Messages | Images
+  - Show/Hide Images buttons with lazy loading
+  - Sorted alphabetically
+  - Inline JavaScript for image toggling
+- **Data Source:** data/chat.json + data/aliases.json
 - **Users:** End users wanting to learn available commands
 
 **/commands Endpoint:**
@@ -152,42 +152,53 @@ GET /stats            → Statistics from database
 
 **Responsibilities:**
 - Generate HTML pages from bot data
-- Render pug templates for /chatcommands
-- Generate inline HTML for other endpoints
+- Generate static HTML files for documentation (chat commands, command reference)
+- Write generated files to html/ directory
+- Create responsive HTML with inline CSS and JavaScript
 - Read command metadata from command files
-- Serve static files and images
-- Query live state from stateService
+- Query live state from stateService for dynamic pages
 - Access configuration from dataService
-- Retrieve statistics from databaseService
-- Provide simple HTML templating
+- Retrieve statistics from databaseService for dynamic pages
+- Provide regeneration methods for static content
 
 **Key Methods:**
 ```javascript
 - generateLandingPage()
-- generateChatCommandsPage() // Uses pug templates
-- generateCommandsPage()      // Technical reference
-- generateStatusPage()
+- rebuildChatDocumentation()  // Generates and writes html/chat.html
+- generateCommandsPage()      // Technical reference (on-demand or static)
+- generateStatusPage()         // Always dynamic (live data)
 - generateTokensPage()
 - generatePersonalityPage()
-- generateStatsPage()
-- renderPugTemplate(templateName, data)
-- serveStaticFile(filePath)
-- wrapInTemplate(title, content) // For non-pug pages
+- generateStatsPage()          // Always dynamic (database queries)
+- generateHtmlWrapper(title, content) // Common HTML structure
+- escapeHtml(text)            // XSS protection
 ```
 
-### 3. HTML Templates
+### 3. HTML Generation Strategy
 
-**Template Engine:** Pug (formerly Jade) - to be added as dependency
+**Approach:** Static file generation for documentation, dynamic generation for live data
 
-**Template Locations:**
-- Reuse existing .pug templates from other project for /chatcommands
-- Create new templates in `src/templates/web/` or `templates/` for other pages
-- Option to mix: Pug templates for complex pages, inline HTML for simple pages
+**Page Types:**
+- **Static pages** (chat commands, command reference): Generate to disk, serve from file
+- **Dynamic pages** (status, stats): Generate on-demand with live data
 
-**Files:**
-- `chatcommands.pug` - Chat commands listing with images (reused from existing project)
-- `layout.pug` - Base HTML structure with CSS (if using pug for all pages)
-- Alternative: Simple inline HTML generation for other endpoints (no template engine needed)
+**Static File Pattern:**
+- Generate HTML using `generateHtmlWrapper(title, content)` for consistent structure
+- Write to `html/` directory using Node.js fs module
+- Serve via file read on request
+- Regenerate when source data changes
+
+**Dynamic Page Pattern:**
+- Generate HTML on every request
+- Query live state/database
+- Return immediately without caching
+
+**Benefits:**
+- Memory efficient (critical for 1GB OCI instance)
+- Fast serving for static content
+- Always fresh data for dynamic content
+- Simple regeneration triggers
+- Leverages existing Docker volume mounting
 
 **Styling:**
 - Inline CSS or separate stylesheet
@@ -241,13 +252,64 @@ GET /stats            → Statistics from database
    - Returns 404 for all unauthorized paths
 
 ### Phase 3: Chat Commands Documentation
-1. Add `pug` package dependency
-2. Import .pug templates from existing project
-3. Implement chat commands discovery logic
-4. Parse command metadata and associated messages
-5. Serve command images from data directory
-6. Generate /chatcommands page using pug templates
-7. Test template rendering and image serving
+
+**Implementation Approach:** Static HTML file generation (memory-efficient for 1GB OCI instance)
+
+**Data Sources:**
+- `data/chat.json` - Contains `chatMessages` object with command messages and pictures
+- `data/aliases.json` - Contains `commands` object mapping commands to aliases
+
+**Architecture Decision:**
+After reviewing the old system (https://github.com/jodrell2000/TTLive-Mr-Roboto2/blob/main/src/libs/documentationFunctions.js) and considering OCI's 1GB memory limit, chose static file generation:
+- Generate HTML once to disk (`html/chat.html`)
+- Serve as static file via GET /chatcommands endpoint
+- Regenerate only when data changes (not on every request)
+- Use existing Docker volume mounting pattern (data/ already mounted)
+- Memory efficient: file reads use minimal memory vs caching full HTML
+
+**Table Structure (matching old system):**
+```
+| Command | Aliases | Messages | Images |
+|---------|---------|----------|--------|
+| bow     | bows    | Thank you... | [Show Images button] |
+```
+
+**Features:**
+- Lazy-loaded images with show/hide toggle
+- Inline JavaScript for image expansion
+- Sorted alphabetically by command name
+- HTML escaping for XSS protection
+- Mobile-responsive table design
+
+**Tasks:**
+1. Add `rebuildChatDocumentation()` method to documentationService
+2. Read `chat.json` and `aliases.json` from dataService
+3. Generate HTML table with commands, aliases, messages, images
+4. Write HTML file to `html/chat.html` using fs.writeFileSync
+5. Implement image toggle JavaScript (inline, matching old system)
+6. Add docker volume mount for `./html` directory
+7. Register /chatcommands route to serve static file from disk
+8. Call rebuildChatDocumentation() on startup
+9. Hook into command/alias update handlers to trigger rebuild
+10. Write tests for HTML generation and file creation
+
+**Docker Changes Required:**
+- Add volume mount: `./html:/usr/src/app/html` (matches existing `./data` pattern)
+- Ensure html/ directory exists on host
+- No additional complexity beyond existing volume mounting
+
+**Regeneration Triggers:**
+- On bot startup (ensure fresh HTML)
+- When chat.json is updated
+- When aliases.json is updated
+- Can be manually triggered via chat command (e.g., `!rebuildchat`)
+
+**No Additional Dependencies Required:**
+- No pug package needed
+- No template engine
+- Uses Node.js built-in fs module for file operations
+- Uses existing dark theme CSS from documentationService
+- Leverages existing Docker volume mounting pattern (./data already mounted)
 
 ### Phase 4: Command Reference Documentation
 1. Implement command metadata discovery
@@ -290,11 +352,17 @@ GET /stats            → Statistics from database
 - Simple routing needs don't justify framework overhead
 - Current server is already using native `http` module
 
-### Template Engine Decision
-- **Pug templates** for /chatcommands (reusing existing templates from other project)
-- **Mixed approach:** Can use pug where beneficial, inline HTML for simple pages
-- **Dependency:** Add `pug` package for template rendering
-- **Rationale:** Reusing proven templates saves development time, pug is lightweight
+### HTML Generation Decision
+- **No template engine** - Generate HTML dynamically in JavaScript
+- **Static files for documentation** - Write to disk, serve from file system
+- **Dynamic generation for live data** - Status, stats generated on-demand
+- **Rationale:** 
+  - Memory efficient for 1GB OCI instance (no in-memory caching)
+  - Simpler than template engine (no compilation step)
+  - Fast serving for static content (file reads)
+  - Leverages existing Docker volume mounting infrastructure
+  - Infrequent regeneration (chat commands don't change often)
+  - Old system's HTML structure is simple enough to generate programmatically
 
 ### Security Considerations
 - **Read-only access** - no control endpoints
@@ -313,10 +381,13 @@ GET /stats            → Statistics from database
 ## Data Sources
 
 ### Chat Commands (for /chatcommands)
-- Source: Command files in `src/commands/` + message data + images
-- Data: Command names, associated messages, images/screenshots
-- Images: Served from `data/` or `html/images/` directory
-- Templates: Pug templates (reused from existing project)
+- Source: `data/chat.json` (chatMessages object) + `data/aliases.json` (commands object)
+- Data: Command names, aliases, messages array, pictures array
+- Format: HTML table with columns: Command | Aliases | Messages | Images
+- Images: URLs stored in JSON, lazy-loaded with show/hide toggle
+- Generation: Build HTML from JSON, write to `html/chat.html` file
+- Serving: Read file from disk on request (memory efficient)
+- Regeneration: Only when chat.json or aliases.json changes
 - Purpose: User-friendly visual guide to commands
 
 ### Commands Documentation (for /commands)
@@ -486,7 +557,9 @@ GET /stats            → Statistics from database
 
 ### Medium Risk
 - Performance impact if documentation generation is slow
-- Mitigation: Cache generated HTML, lazy load stats
+- Mitigation: Generate to static files, serve from disk (fast reads)
+- OCI 1GB memory limit requires memory-efficient approach
+- Mitigation: Static file approach uses minimal memory (no caching needed)
 
 ### High Risk
 - None identified
@@ -508,9 +581,11 @@ GET /stats            → Statistics from database
 - Keep implementation simple and maintainable
 - Follow existing code style and patterns
 - Use CommonJS modules (no ES6 imports)
-- Add `pug` as dependency for template rendering
-- Reuse existing .pug templates from other project for /chatcommands
-- Avoid external dependencies where possible (except pug)
+- No template engine needed - generate HTML programmatically
+- Static file generation for documentation (memory efficient for 1GB OCI)
+- Dynamic generation for live data (status, stats)
+- Avoid external dependencies where possible
 - Test thoroughly before deployment
 - Document configuration changes needed for Oracle Cloud
-- Ensure images are served correctly from data directory
+- Add html/ directory volume mount (matches existing data/ pattern)
+- Ensure generated files are properly escaped for XSS protection
