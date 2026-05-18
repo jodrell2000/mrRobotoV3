@@ -345,6 +345,10 @@ GET /stats            → Statistics from database
 
 ### Environment Variables
 - `PORT` - Already exists (defaults to 8080)
+- `WEB_DOCS_URL` - **Auto-configured by deployment script** (e.g., http://193.123.182.235:8080)
+  - Oracle deployment: Automatically injected based on ORACLE_IP
+  - Local development: Optional, set manually in .env if needed
+  - Used by bot to advertise documentation URLs in chat commands
 - `ENABLE_WEB_DOCS` - Optional feature flag (default: true)
 - `WEB_DOCS_TITLE` - Customize page title (default: "Mr. Roboto V3 Documentation")
 

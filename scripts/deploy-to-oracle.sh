@@ -380,6 +380,11 @@ else
     print_warn "Skipping .env upload (using existing file on VM)"
 fi
 
+# Step 3.5: Inject WEB_DOCS_URL based on ORACLE_IP
+print_info "Configuring WEB_DOCS_URL for web documentation..."
+ssh_exec "sed -i.bak '/^WEB_DOCS_URL=/d' ${REMOTE_DIR}/.env && echo 'WEB_DOCS_URL=http://${ORACLE_IP}:8080' >> ${REMOTE_DIR}/.env"
+print_info "WEB_DOCS_URL set to http://${ORACLE_IP}:8080"
+
 # Step 4: Upload data directory (optional)
 if [[ "$UPLOAD_DATA" == "true" ]]; then
     if [[ -d "./data" ]]; then
