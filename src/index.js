@@ -84,6 +84,46 @@ const healthServer = http.createServer( async ( req, res ) => {
       res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
       res.end( 'Internal Server Error' );
     }
+  } else if ( url.pathname === '/status' ) {
+    try {
+      const html = await services.documentationService.generateStatusPage();
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+      res.end( html );
+    } catch ( error ) {
+      services.logger.error( `Error generating status page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
+  } else if ( url.pathname === '/tokens' ) {
+    try {
+      const html = await services.documentationService.generateTokensPage();
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+      res.end( html );
+    } catch ( error ) {
+      services.logger.error( `Error generating tokens page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
+  } else if ( url.pathname === '/personality' ) {
+    try {
+      const html = await services.documentationService.generatePersonalityPage();
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+      res.end( html );
+    } catch ( error ) {
+      services.logger.error( `Error generating personality page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
+  } else if ( url.pathname === '/stats' ) {
+    try {
+      const html = await services.documentationService.generateStatsPage();
+      res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+      res.end( html );
+    } catch ( error ) {
+      services.logger.error( `Error generating stats page: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
   } else {
     // Return 404 for all other paths (including file access attempts)
     res.writeHead( 404, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );

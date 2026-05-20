@@ -232,9 +232,12 @@ class DocumentationService {
                 <h2>Available Pages</h2>
                 <ul>
                     <li><a href="/health">Health Check</a> - Simple health check endpoint</li>
-                    <li><a href="/status">Bot Status</a> - Detailed bot status and live information (coming soon)</li>
-                    <li><a href="/commands">Commands Reference</a> - Technical command documentation (coming soon)</li>
-                    <li><a href="/chatcommands">Chat Commands</a> - User-friendly command guide with examples (coming soon)</li>
+                    <li><a href="/status">Bot Status</a> - Live bot and hangout information</li>
+                    <li><a href="/chatcommands">Chat Commands</a> - User-friendly command guide with examples</li>
+                    <li><a href="/commands">Commands Reference</a> - Technical command documentation</li>
+                    <li><a href="/tokens">Token Reference</a> - Available tokens for messages and AI</li>
+                    <li><a href="/personality">Personality</a> - Current bot personality configuration</li>
+                    <li><a href="/stats">Statistics</a> - Song history and DJ statistics</li>
                 </ul>
 
                 <h2>About This Bot</h2>
@@ -940,6 +943,747 @@ class DocumentationService {
         `;
 
         return this.generateHtmlWrapper( 'Commands Reference', content );
+    }
+
+    /**
+     * Generate live status page with bot and hangout information
+     * @returns {Promise<string>} HTML page
+     */
+    async generateStatusPage () {
+        try {
+            // Get version info
+            const versionInfo = await this.versionService.getVersion();
+
+            // Get bot uptime
+            const uptimeSeconds = Math.floor( process.uptime() );
+            const uptimeDays = Math.floor( uptimeSeconds / 86400 );
+            const uptimeHours = Math.floor( ( uptimeSeconds % 86400 ) / 3600 );
+            const uptimeMinutes = Math.floor( ( uptimeSeconds % 3600 ) / 60 );
+            const uptimeFormatted = `${ uptimeDays }d ${ uptimeHours }h ${ uptimeMinutes }m`;
+
+            // Get state from stateService
+            const state = this.services.stateService?._getCurrentState?.() || {};
+            const hangoutName = this.services.stateService?.getHangoutName?.() || 'Not connected';
+            const botNickname = this.services.getState?.( 'botNickname' ) || 'Unknown';
+            
+            // Get user count
+            const allUsers = state.allUserData || {};
+            const userCount = Object.keys( allUsers ).length;
+
+            // Get DJ list
+            const djs = state.djs || [];
+            const djList = djs.length > 0
+                ? djs.map( dj => {
+                    const userData = allUsers[ dj.uuid ];
+                    return userData?.userProfile?.nickname || 'Unknown';
+                } ).join( ', ' )
+                : 'No DJs currently spinning';
+
+            // Get current song
+            const currentSong = state.currentSong || {};
+            const songDisplay = currentSong.metadata?.trackName
+                ? `<strong>${ this.escapeHtml( currentSong.metadata.trackName ) }</strong> by ${ this.escapeHtml( currentSong.metadata.artistName ) }`
+                : 'No song currently playing';
+            
+            const djNickname = currentSong.djUuid && allUsers[ currentSong.djUuid ]?.userProfile?.nickname
+                ? this.escapeHtml( allUsers[ currentSong.djUuid ].userProfile.nickname )
+                : 'N/A';
+
+            // Get vote counts
+            const voteCounts = state.voteCounts || { likes: 0, dislikes: 0, stars: 0 };
+
+            // Connection status
+            const isConnected = hangoutName !== 'Not connected';
+            const connectionStatus = isConnected 
+                ? '<span style="color: #4caf50;">● Connected</span>' 
+                : '<span style="color: #f44336;">● Disconnected</span>';
+
+            const content = `
+            <div class="status-grid">
+                <div class="status-card">
+                    <h2>🤖 Bot Information</h2>
+                    <div class="info-row">
+                        <span class="label">Status:</span>
+                        <span class="value">${ connectionStatus }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Bot Name:</span>
+                        <span class="value">${ this.escapeHtml( botNickname ) }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Version:</span>
+                        <span class="value">${ this.escapeHtml( versionInfo.tag || versionInfo.version ) }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Build Date:</span>
+                        <span class="value">${ versionInfo.buildDate || 'N/A' }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Git Commit:</span>
+                        <span class="value"><code>${ versionInfo.gitCommit ? versionInfo.gitCommit.substring( 0, 7 ) : 'N/A' }</code></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Uptime:</span>
+                        <span class="value">${ uptimeFormatted }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Node.js:</span>
+                        <span class="value">${ process.version }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Platform:</span>
+                        <span class="value">${ process.platform }</span>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <h2>🎵 Hangout Information</h2>
+                    <div class="info-row">
+                        <span class="label">Hangout:</span>
+                        <span class="value">${ this.escapeHtml( hangoutName ) }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Users:</span>
+                        <span class="value">${ userCount }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">DJs:</span>
+                        <span class="value">${ this.escapeHtml( djList ) }</span>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <h2>🎧 Now Playing</h2>
+                    <div class="info-row">
+                        <span class="label">Track:</span>
+                        <span class="value">${ songDisplay }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">DJ:</span>
+                        <span class="value">${ djNickname }</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Votes:</span>
+                        <span class="value">
+                            <span style="color: #4caf50;">👍 ${ voteCounts.likes }</span>
+                            <span style="color: #f44336; margin-left: 15px;">👎 ${ voteCounts.dislikes }</span>
+                            <span style="color: #ffeb3b; margin-left: 15px;">⭐ ${ voteCounts.stars }</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .status-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+                .status-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 20px;
+                }
+                .status-card h2 {
+                    margin-bottom: 20px;
+                    color: #64b5f6;
+                    font-size: 1.2em;
+                    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+                    padding-bottom: 10px;
+                }
+                .info-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }
+                .info-row:last-child {
+                    border-bottom: none;
+                }
+                .info-row .label {
+                    color: #9e9e9e;
+                    font-weight: 500;
+                }
+                .info-row .value {
+                    color: #e0e0e0;
+                    font-weight: 400;
+                    text-align: right;
+                }
+                .info-row code {
+                    background: rgba(0, 0, 0, 0.3);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 0.9em;
+                }
+            </style>
+        `;
+
+            return this.generateHtmlWrapper( 'Bot Status', content );
+        } catch ( error ) {
+            logger.error( `Error generating status page: ${ error.message }` );
+            return this.generateHtmlWrapper( 'Error', '<p>Failed to generate status page</p>' );
+        }
+    }
+
+    /**
+     * Generate tokens reference page
+     * @returns {Promise<string>} HTML page
+     */
+    async generateTokensPage () {
+        try {
+            const tokenService = this.services.tokenService;
+            
+            if ( !tokenService ) {
+                return this.generateHtmlWrapper( 'Tokens', '<p>Token service not available</p>' );
+            }
+
+            const tokenList = await tokenService.getTokenList();
+            
+            const builtInTokens = tokenList.filter( t => t.type === 'built-in' );
+            const customTokens = tokenList.filter( t => t.type === 'custom' );
+
+            let content = `
+            <div class="tokens-container">
+                <div class="intro">
+                    <p>Tokens are dynamic placeholders that can be used in messages, AI instructions, and chat commands.</p>
+                    <p>They are automatically replaced with their corresponding values when used.</p>
+                </div>
+            `;
+
+            // Built-in tokens section
+            if ( builtInTokens.length > 0 ) {
+                content += `
+                <div class="token-section">
+                    <h2>🔧 Built-in Tokens (${ builtInTokens.length })</h2>
+                    <div class="token-grid">
+                `;
+
+                builtInTokens.forEach( token => {
+                    content += `
+                        <div class="token-card">
+                            <div class="token-name"><code>${ this.escapeHtml( token.name ) }</code></div>
+                            <div class="token-description">${ this.escapeHtml( token.description ) }</div>
+                        </div>
+                    `;
+                } );
+
+                content += `
+                    </div>
+                </div>
+                `;
+            }
+
+            // Custom tokens section
+            if ( customTokens.length > 0 ) {
+                content += `
+                <div class="token-section">
+                    <h2>✨ Custom Tokens (${ customTokens.length })</h2>
+                    <div class="token-grid">
+                `;
+
+                customTokens.forEach( token => {
+                    content += `
+                        <div class="token-card custom">
+                            <div class="token-name"><code>${ this.escapeHtml( token.name ) }</code></div>
+                            <div class="token-description">${ this.escapeHtml( token.description ) }</div>
+                            ${ token.createdAt ? `<div class="token-meta">Created: ${ new Date( token.createdAt ).toLocaleDateString() }</div>` : '' }
+                        </div>
+                    `;
+                } );
+
+                content += `
+                    </div>
+                </div>
+                `;
+            } else {
+                content += `
+                <div class="token-section">
+                    <h2>✨ Custom Tokens</h2>
+                    <p class="empty-state">No custom tokens defined yet. Use <code>!token add</code> to create one.</p>
+                </div>
+                `;
+            }
+
+            content += `
+                <div class="usage-section">
+                    <h2>💡 Usage Examples</h2>
+                    <div class="example-card">
+                        <div class="example-title">In Chat Commands:</div>
+                        <code>Welcome to {hangoutName}, {senderUsername}!</code>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-title">In AI Instructions:</div>
+                        <code>You are {botName}, a DJ bot in {hangoutName}. Current time: {currentTime}</code>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .tokens-container {
+                    max-width: 1200px;
+                }
+                .intro {
+                    background: rgba(100, 181, 246, 0.1);
+                    border-left: 4px solid #64b5f6;
+                    padding: 15px 20px;
+                    margin-bottom: 30px;
+                    border-radius: 4px;
+                }
+                .intro p {
+                    margin: 5px 0;
+                }
+                .token-section {
+                    margin-bottom: 40px;
+                }
+                .token-section h2 {
+                    color: #64b5f6;
+                    margin-bottom: 20px;
+                    font-size: 1.5em;
+                }
+                .token-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 15px;
+                }
+                .token-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-left: 4px solid #4caf50;
+                    padding: 15px;
+                    border-radius: 4px;
+                }
+                .token-card.custom {
+                    border-left-color: #ff9800;
+                }
+                .token-name {
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }
+                .token-name code {
+                    background: rgba(0, 0, 0, 0.3);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 1em;
+                    color: #64b5f6;
+                }
+                .token-description {
+                    color: #b0b0b0;
+                    font-size: 0.9em;
+                    line-height: 1.5;
+                }
+                .token-meta {
+                    color: #808080;
+                    font-size: 0.8em;
+                    margin-top: 8px;
+                    font-style: italic;
+                }
+                .usage-section {
+                    margin-top: 40px;
+                    padding-top: 40px;
+                    border-top: 2px solid rgba(255, 255, 255, 0.1);
+                }
+                .usage-section h2 {
+                    color: #64b5f6;
+                    margin-bottom: 20px;
+                    font-size: 1.5em;
+                }
+                .example-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    padding: 15px;
+                    border-radius: 4px;
+                    margin-bottom: 15px;
+                }
+                .example-title {
+                    color: #9e9e9e;
+                    font-size: 0.9em;
+                    margin-bottom: 8px;
+                    font-weight: 500;
+                }
+                .example-card code {
+                    background: rgba(0, 0, 0, 0.3);
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    display: block;
+                    color: #e0e0e0;
+                    font-size: 0.95em;
+                    overflow-x: auto;
+                }
+                .empty-state {
+                    color: #808080;
+                    font-style: italic;
+                    padding: 20px;
+                    text-align: center;
+                }
+                .empty-state code {
+                    background: rgba(0, 0, 0, 0.3);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
+            </style>
+        `;
+
+            return this.generateHtmlWrapper( 'Token Reference', content );
+        } catch ( error ) {
+            logger.error( `Error generating tokens page: ${ error.message }` );
+            return this.generateHtmlWrapper( 'Error', '<p>Failed to generate tokens page</p>' );
+        }
+    }
+
+    /**
+     * Generate personality configuration page
+     * @returns {Promise<string>} HTML page
+     */
+    async generatePersonalityPage () {
+        try {
+            const dataService = this.services.dataService;
+            
+            if ( !dataService ) {
+                return this.generateHtmlWrapper( 'Personality', '<p>Data service not available</p>' );
+            }
+
+            await dataService.loadData();
+
+            const instructions = dataService.getValue( 'Instructions' ) || 'No personality instructions configured';
+            const configuration = dataService.getValue( 'configuration' ) || {};
+            const botNickname = this.services.getState?.( 'botNickname' ) || 'Unknown';
+
+            const content = `
+            <div class="personality-container">
+                <div class="intro">
+                    <p>This page displays the current AI personality configuration for the bot.</p>
+                    <p>These settings control how the bot behaves and responds to users.</p>
+                </div>
+
+                <div class="personality-section">
+                    <h2>🤖 Bot Identity</h2>
+                    <div class="config-card">
+                        <div class="config-row">
+                            <span class="label">Bot Name:</span>
+                            <span class="value">${ this.escapeHtml( botNickname ) }</span>
+                        </div>
+                        <div class="config-row">
+                            <span class="label">Timezone:</span>
+                            <span class="value">${ this.escapeHtml( configuration.timezone || 'Europe/London' ) }</span>
+                        </div>
+                        <div class="config-row">
+                            <span class="label">Locale:</span>
+                            <span class="value">${ this.escapeHtml( configuration.locale || 'en-GB' ) }</span>
+                        </div>
+                        <div class="config-row">
+                            <span class="label">Date Format:</span>
+                            <span class="value">${ this.escapeHtml( configuration.dateFormat || 'DD/MM/YYYY' ) }</span>
+                        </div>
+                        <div class="config-row">
+                            <span class="label">Time Format:</span>
+                            <span class="value">${ this.escapeHtml( configuration.timeFormat || '24' ) }-hour</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="personality-section">
+                    <h2>💭 AI Instructions</h2>
+                    <div class="instructions-card">
+                        <pre>${ this.escapeHtml( instructions ) }</pre>
+                    </div>
+                </div>
+
+                <div class="personality-section">
+                    <h2>⚙️ Configuration</h2>
+                    <div class="config-card">
+                        <pre>${ this.escapeHtml( JSON.stringify( configuration, null, 2 ) ) }</pre>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .personality-container {
+                    max-width: 1000px;
+                }
+                .intro {
+                    background: rgba(100, 181, 246, 0.1);
+                    border-left: 4px solid #64b5f6;
+                    padding: 15px 20px;
+                    margin-bottom: 30px;
+                    border-radius: 4px;
+                }
+                .intro p {
+                    margin: 5px 0;
+                }
+                .personality-section {
+                    margin-bottom: 40px;
+                }
+                .personality-section h2 {
+                    color: #64b5f6;
+                    margin-bottom: 20px;
+                    font-size: 1.5em;
+                }
+                .config-card, .instructions-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 20px;
+                }
+                .config-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 12px 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }
+                .config-row:last-child {
+                    border-bottom: none;
+                }
+                .config-row .label {
+                    color: #9e9e9e;
+                    font-weight: 500;
+                }
+                .config-row .value {
+                    color: #e0e0e0;
+                    font-weight: 400;
+                }
+                pre {
+                    background: rgba(0, 0, 0, 0.3);
+                    padding: 15px;
+                    border-radius: 4px;
+                    overflow-x: auto;
+                    color: #e0e0e0;
+                    line-height: 1.6;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                }
+            </style>
+        `;
+
+            return this.generateHtmlWrapper( 'Personality Configuration', content );
+        } catch ( error ) {
+            logger.error( `Error generating personality page: ${ error.message }` );
+            return this.generateHtmlWrapper( 'Error', '<p>Failed to generate personality page</p>' );
+        }
+    }
+
+    /**
+     * Generate database statistics page
+     * @returns {Promise<string>} HTML page
+     */
+    async generateStatsPage () {
+        try {
+            const databaseService = this.services.databaseService;
+            
+            if ( !databaseService || !databaseService.initialized ) {
+                return this.generateHtmlWrapper( 'Statistics', '<p>Database not initialized or not available</p>' );
+            }
+
+            // Get recent songs (last 10)
+            const recentSongs = await databaseService.getRecentSongs( 10 );
+
+            // Get top DJs (if method exists)
+            let topDJs = [];
+            if ( typeof databaseService.getTopDJs === 'function' ) {
+                topDJs = await databaseService.getTopDJs( 10 );
+            }
+
+            // Get conversation count (if method exists)
+            let conversationCount = 0;
+            if ( typeof databaseService.getConversationCount === 'function' ) {
+                conversationCount = await databaseService.getConversationCount();
+            }
+
+            let content = `
+            <div class="stats-container">
+                <div class="intro">
+                    <p>Statistics and insights from the bot's database.</p>
+                    <p>This data is collected and stored locally for analysis and reporting.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${ recentSongs.length }</div>
+                        <div class="stat-label">Recent Songs Tracked</div>
+                    </div>
+                    ${ topDJs.length > 0 ? `
+                    <div class="stat-card">
+                        <div class="stat-number">${ topDJs.length }</div>
+                        <div class="stat-label">Active DJs</div>
+                    </div>
+                    ` : '' }
+                    ${ conversationCount > 0 ? `
+                    <div class="stat-card">
+                        <div class="stat-number">${ conversationCount }</div>
+                        <div class="stat-label">Conversations Logged</div>
+                    </div>
+                    ` : '' }
+                </div>
+
+                <div class="stats-section">
+                    <h2>🎵 Recent Songs</h2>
+                    ${ recentSongs.length > 0 ? `
+                    <div class="songs-list">
+                        ${ recentSongs.map( song => `
+                        <div class="song-card">
+                            <div class="song-info">
+                                <div class="song-title">${ this.escapeHtml( song.trackName ) }</div>
+                                <div class="song-artist">by ${ this.escapeHtml( song.artistName ) }</div>
+                            </div>
+                            <div class="song-meta">
+                                <div class="dj-name">DJ: ${ this.escapeHtml( song.djNickname ) }</div>
+                                <div class="song-votes">
+                                    <span style="color: #4caf50;">👍 ${ song.likes || 0 }</span>
+                                    <span style="color: #f44336;">👎 ${ song.dislikes || 0 }</span>
+                                    <span style="color: #ffeb3b;">⭐ ${ song.stars || 0 }</span>
+                                </div>
+                            </div>
+                        </div>
+                        ` ).join( '' ) }
+                    </div>
+                    ` : '<p class="empty-state">No songs tracked yet</p>' }
+                </div>
+
+                ${ topDJs.length > 0 ? `
+                <div class="stats-section">
+                    <h2>👑 Top DJs</h2>
+                    <div class="djs-list">
+                        ${ topDJs.map( ( dj, index ) => `
+                        <div class="dj-card">
+                            <div class="dj-rank">#${ index + 1 }</div>
+                            <div class="dj-info">
+                                <div class="dj-nickname">${ this.escapeHtml( dj.djNickname ) }</div>
+                                <div class="dj-stats">${ dj.playCount } songs played</div>
+                            </div>
+                        </div>
+                        ` ).join( '' ) }
+                    </div>
+                </div>
+                ` : '' }
+            </div>
+
+            <style>
+                .stats-container {
+                    max-width: 1200px;
+                }
+                .intro {
+                    background: rgba(100, 181, 246, 0.1);
+                    border-left: 4px solid #64b5f6;
+                    padding: 15px 20px;
+                    margin-bottom: 30px;
+                    border-radius: 4px;
+                }
+                .intro p {
+                    margin: 5px 0;
+                }
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 40px;
+                }
+                .stat-card {
+                    background: rgba(100, 181, 246, 0.1);
+                    border: 1px solid rgba(100, 181, 246, 0.3);
+                    border-radius: 8px;
+                    padding: 30px 20px;
+                    text-align: center;
+                }
+                .stat-number {
+                    font-size: 3em;
+                    font-weight: bold;
+                    color: #64b5f6;
+                    line-height: 1;
+                }
+                .stat-label {
+                    color: #9e9e9e;
+                    font-size: 0.9em;
+                    margin-top: 10px;
+                }
+                .stats-section {
+                    margin-bottom: 40px;
+                }
+                .stats-section h2 {
+                    color: #64b5f6;
+                    margin-bottom: 20px;
+                    font-size: 1.5em;
+                }
+                .songs-list, .djs-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .song-card, .dj-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 15px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .song-info {
+                    flex: 1;
+                }
+                .song-title {
+                    font-weight: bold;
+                    color: #e0e0e0;
+                    font-size: 1.1em;
+                }
+                .song-artist {
+                    color: #9e9e9e;
+                    font-size: 0.9em;
+                    margin-top: 4px;
+                }
+                .song-meta {
+                    text-align: right;
+                }
+                .dj-name {
+                    color: #64b5f6;
+                    font-size: 0.9em;
+                    margin-bottom: 4px;
+                }
+                .song-votes {
+                    font-size: 0.9em;
+                }
+                .song-votes span {
+                    margin-left: 10px;
+                }
+                .dj-card {
+                    display: flex;
+                    align-items: center;
+                    gap: 20px;
+                }
+                .dj-rank {
+                    font-size: 2em;
+                    font-weight: bold;
+                    color: #64b5f6;
+                    min-width: 60px;
+                    text-align: center;
+                }
+                .dj-info {
+                    flex: 1;
+                }
+                .dj-nickname {
+                    font-weight: bold;
+                    color: #e0e0e0;
+                    font-size: 1.1em;
+                }
+                .dj-stats {
+                    color: #9e9e9e;
+                    font-size: 0.9em;
+                    margin-top: 4px;
+                }
+                .empty-state {
+                    color: #808080;
+                    font-style: italic;
+                    padding: 40px 20px;
+                    text-align: center;
+                }
+            </style>
+        `;
+
+            return this.generateHtmlWrapper( 'Statistics', content );
+        } catch ( error ) {
+            logger.error( `Error generating stats page: ${ error.message }` );
+            return this.generateHtmlWrapper( 'Error', '<p>Failed to generate statistics page</p>' );
+        }
     }
 }
 

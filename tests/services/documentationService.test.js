@@ -52,7 +52,19 @@ describe( 'DocumentationService', () => {
         };
 
         mockServices = {
-            stateService: mockStateService
+            stateService: mockStateService,
+            getState: jest.fn().mockReturnValue( 'TestBot' ),
+            tokenService: {
+                getTokenList: jest.fn().mockResolvedValue( [] )
+            },
+            dataService: {
+                getValue: jest.fn().mockReturnValue( undefined ),
+                loadData: jest.fn().mockResolvedValue()
+            },
+            databaseService: {
+                initialized: false,
+                getRecentSongs: jest.fn().mockResolvedValue( [] )
+            }
         };
 
         documentationService = new DocumentationService( {
@@ -656,6 +668,219 @@ describe( 'DocumentationService', () => {
             const result = await documentationService.rebuildCommandsDocumentation();
 
             expect( result.success ).toBe( true );
+        } );
+    } );
+
+    describe( 'generateStatusPage', () => {
+        it( 'should generate status page with bot information', async () => {
+            mockServices.stateService.getHangoutName.mockReturnValue( 'Test Hangout' );
+            mockServices.stateService._getCurrentState.mockReturnValue( {
+                allUserData: {
+                    'user1': { userProfile: { nickname: 'User1' } },
+                    'user2': { userProfile: { nickname: 'User2' } }
+                },
+                djs: [],
+                currentSong: {},
+                voteCounts: { likes: 0, dislikes: 0, stars: 0 }
+            } );
+            mockServices.getState.mockReturnValue( 'TestBot' );
+
+            const html = await documentationService.generateStatusPage();
+
+            expect( html ).toContain( 'Bot Status' );
+            expect( html ).toContain( 'TestBot' );
+            expect( html ).toContain( 'Test Hangout' );
+            expect( html ).toContain( 'Bot Information' );
+            expect( html ).toContain( 'Hangout Information' );
+        } );
+
+        it( 'should handle disconnected state', async () => {
+            mockServices.stateService.getHangoutName.mockReturnValue( 'Not connected' );
+            mockServices.stateService._getCurrentState.mockReturnValue( {
+                allUserData: {},
+                djs: [],
+                currentSong: {},
+                voteCounts: { likes: 0, dislikes: 0, stars: 0 }
+            } );
+
+            const html = await documentationService.generateStatusPage();
+
+            expect( html ).toContain( 'Disconnected' );
+        } );
+
+        it( 'should display current song information', async () => {
+            mockServices.stateService.getHangoutName.mockReturnValue( 'Test Hangout' );
+            mockServices.stateService._getCurrentState.mockReturnValue( {
+                allUserData: {
+                    'dj1': { userProfile: { nickname: 'DJ Cool' } }
+                },
+                djs: [],
+                currentSong: {
+                    djUuid: 'dj1',
+                    metadata: {
+                        trackName: 'Test Song',
+                        artistName: 'Test Artist'
+                    }
+                },
+                voteCounts: { likes: 5, dislikes: 1, stars: 2 }
+            } );
+
+            const html = await documentationService.generateStatusPage();
+
+            expect( html ).toContain( 'Test Song' );
+            expect( html ).toContain( 'Test Artist' );
+            expect( html ).toContain( 'DJ Cool' );
+        } );
+
+        it( 'should handle errors gracefully', async () => {
+            mockServices.stateService.getHangoutName.mockImplementation( () => {
+                throw new Error( 'State error' );
+            } );
+
+            const html = await documentationService.generateStatusPage();
+
+            expect( html ).toContain( 'Failed to generate status page' );
+        } );
+    } );
+
+    describe( 'generateTokensPage', () => {
+        it( 'should generate tokens page with built-in tokens', async () => {
+            mockServices.tokenService.getTokenList.mockResolvedValue( [
+                { name: '{hangoutName}', type: 'built-in', description: 'Name of the hangout' },
+                { name: '{botName}', type: 'built-in', description: 'Bot nickname' }
+            ] );
+
+            const html = await documentationService.generateTokensPage();
+
+            expect( html ).toContain( 'Token Reference' );
+            expect( html ).toContain( 'Built-in Tokens' );
+            expect( html ).toContain( '{hangoutName}' );
+            expect( html ).toContain( '{botName}' );
+        } );
+
+        it( 'should display custom tokens', async () => {
+            mockServices.tokenService.getTokenList.mockResolvedValue( [
+                { name: '{hangoutName}', type: 'built-in', description: 'Name of the hangout' },
+                { name: '{custom}', type: 'custom', description: 'Custom token', createdAt: '2023-01-01' }
+            ] );
+
+            const html = await documentationService.generateTokensPage();
+
+            expect( html ).toContain( 'Custom Tokens' );
+            expect( html ).toContain( '{custom}' );
+            expect( html ).toContain( 'Custom token' );
+        } );
+
+        it( 'should show empty state when no custom tokens', async () => {
+            mockServices.tokenService.getTokenList.mockResolvedValue( [
+                { name: '{hangoutName}', type: 'built-in', description: 'Name of the hangout' }
+            ] );
+
+            const html = await documentationService.generateTokensPage();
+
+            expect( html ).toContain( 'No custom tokens defined yet' );
+        } );
+
+        it( 'should handle missing tokenService', async () => {
+            const serviceWithoutToken = { ...mockServices };
+            delete serviceWithoutToken.tokenService;
+            
+            const docService = new DocumentationService( { 
+                versionService: mockVersionService,
+                services: serviceWithoutToken
+            } );
+
+            const html = await docService.generateTokensPage();
+
+            expect( html ).toContain( 'Token service not available' );
+        } );
+    } );
+
+    describe( 'generatePersonalityPage', () => {
+        it( 'should generate personality page with configuration', async () => {
+            mockServices.dataService.getValue.mockImplementation( key => {
+                if ( key === 'Instructions' ) return 'Test AI instructions';
+                if ( key === 'configuration' ) return { timezone: 'Europe/London', locale: 'en-GB' };
+                return undefined;
+            } );
+            mockServices.getState.mockReturnValue( 'TestBot' );
+
+            const html = await documentationService.generatePersonalityPage();
+
+            expect( html ).toContain( 'Personality Configuration' );
+            expect( html ).toContain( 'TestBot' );
+            expect( html ).toContain( 'Test AI instructions' );
+            expect( html ).toContain( 'Europe/London' );
+        } );
+
+        it( 'should handle missing instructions', async () => {
+            mockServices.dataService.getValue.mockReturnValue( undefined );
+
+            const html = await documentationService.generatePersonalityPage();
+
+            expect( html ).toContain( 'No personality instructions configured' );
+        } );
+
+        it( 'should escape HTML in instructions', async () => {
+            mockServices.dataService.getValue.mockImplementation( key => {
+                if ( key === 'Instructions' ) return '<script>alert("xss")</script>';
+                return {};
+            } );
+
+            const html = await documentationService.generatePersonalityPage();
+
+            expect( html ).not.toContain( '<script>' );
+            expect( html ).toContain( '&lt;script&gt;' );
+        } );
+    } );
+
+    describe( 'generateStatsPage', () => {
+        it( 'should generate stats page with recent songs', async () => {
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getRecentSongs.mockResolvedValue( [
+                { trackName: 'Song 1', artistName: 'Artist 1', djNickname: 'DJ 1', likes: 5, dislikes: 1, stars: 2 },
+                { trackName: 'Song 2', artistName: 'Artist 2', djNickname: 'DJ 2', likes: 3, dislikes: 0, stars: 1 }
+            ] );
+
+            const html = await documentationService.generateStatsPage();
+
+            expect( html ).toContain( 'Statistics' );
+            expect( html ).toContain( 'Recent Songs' );
+            expect( html ).toContain( 'Song 1' );
+            expect( html ).toContain( 'Artist 1' );
+            expect( html ).toContain( 'DJ 1' );
+        } );
+
+        it( 'should handle no songs', async () => {
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getRecentSongs.mockResolvedValue( [] );
+
+            const html = await documentationService.generateStatsPage();
+
+            expect( html ).toContain( 'No songs tracked yet' );
+        } );
+
+        it( 'should handle database not initialized', async () => {
+            mockServices.databaseService.initialized = false;
+
+            const html = await documentationService.generateStatsPage();
+
+            expect( html ).toContain( 'Database not initialized or not available' );
+        } );
+
+        it( 'should display top DJs when available', async () => {
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getRecentSongs.mockResolvedValue( [] );
+            mockServices.databaseService.getTopDJs = jest.fn().mockResolvedValue( [
+                { djNickname: 'DJ Cool', playCount: 10 },
+                { djNickname: 'DJ Awesome', playCount: 8 }
+            ] );
+
+            const html = await documentationService.generateStatsPage();
+
+            expect( html ).toContain( 'Top DJs' );
+            expect( html ).toContain( 'DJ Cool' );
+            expect( html ).toContain( '10 songs played' );
         } );
     } );
 } );
