@@ -538,6 +538,409 @@ class DocumentationService {
             </tr>
         `;
     }
+
+    /**
+     * Check if a command is disabled in botConfig.json
+     * @private
+     * @param {string} commandName - The command name to check
+     * @returns {boolean} True if command is disabled, false if enabled
+     */
+    _isCommandDisabled ( commandName ) {
+        try {
+            const dataPath = path.join( __dirname, '../../data/botConfig.json' );
+            const data = JSON.parse( fs.readFileSync( dataPath, 'utf8' ) );
+            return Array.isArray( data.disabledCommands ) && data.disabledCommands.includes( commandName );
+        } catch ( error ) {
+            return false; // Default to enabled if we can't read the file
+        }
+    }
+
+    /**
+     * Discover all commands from file system with their metadata
+     * @private
+     * @returns {Object} Commands organized by folder/category
+     */
+    _discoverCommands () {
+        const commandsByFolder = {};
+        const baseDir = path.join( __dirname, '../commands' );
+
+        // Define static folder structure (matching help command)
+        const folders = [
+            { path: 'Bot Commands', name: 'Bot Commands' },
+            { path: 'Debug Commands', name: 'Debug Commands' },
+            { path: 'Edit Commands', name: 'Edit Commands' },
+            { path: 'General Commands', name: 'General Commands' },
+            { path: 'ML Commands', name: 'ML Commands' },
+            { path: 'Moderator Commands', name: 'Moderator Commands' },
+            { path: 'System Admin', name: 'System Admin' }
+        ];
+
+        // Helper function to load commands from a directory
+        const loadFromDirectory = ( dirPath, folderName ) => {
+            let items;
+            try {
+                items = fs.readdirSync( dirPath );
+            } catch ( error ) {
+                return; // Skip directories that can't be accessed
+            }
+
+            items.forEach( item => {
+                if ( item.endsWith( '.js' ) ) {
+                    // Extract command name from filename: handleStateCommand.js -> state
+                    const match = item.match( /^handle(.*)Command\.js$/ );
+                    if ( match && match[ 1 ] ) {
+                        const commandName = match[ 1 ].toLowerCase();
+
+                        try {
+                            const commandModule = require( path.join( dirPath, item ) );
+
+                            // Include all commands with metadata (even hidden ones for documentation)
+                            // but mark them as hidden
+                            if ( commandModule.requiredRole && commandModule.description ) {
+                                const isDisabled = this._isCommandDisabled( commandName );
+                                const isHidden = commandModule.hidden || false;
+
+                                if ( !commandsByFolder[ folderName ] ) {
+                                    commandsByFolder[ folderName ] = [];
+                                }
+
+                                commandsByFolder[ folderName ].push( {
+                                    name: commandName,
+                                    role: commandModule.requiredRole,
+                                    description: commandModule.description,
+                                    example: commandModule.example || commandName,
+                                    hidden: isHidden,
+                                    disabled: isDisabled
+                                } );
+                            }
+                        } catch ( error ) {
+                            logger.warn( `Failed to load command ${ commandName }: ${ error.message }` );
+                        }
+                    }
+                }
+            } );
+        };
+
+        // Load commands from each folder
+        folders.forEach( folder => {
+            const folderPath = path.join( baseDir, folder.path );
+            loadFromDirectory( folderPath, folder.name );
+        } );
+
+        // Load commands from root directory
+        loadFromDirectory( baseDir, 'Other Commands' );
+
+        // Sort commands within each folder alphabetically
+        Object.keys( commandsByFolder ).forEach( folder => {
+            commandsByFolder[ folder ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
+        } );
+
+        return commandsByFolder;
+    }
+
+    /**
+     * Generate commands reference documentation HTML and write to file
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async rebuildCommandsDocumentation () {
+        try {
+            const outputPath = path.join( __dirname, '../../html/commands.html' );
+
+            // Ensure html directory exists
+            const htmlDir = path.dirname( outputPath );
+            if ( !fs.existsSync( htmlDir ) ) {
+                fs.mkdirSync( htmlDir, { recursive: true } );
+            }
+
+            // Discover all commands
+            const commandsByFolder = this._discoverCommands();
+
+            // Count total commands
+            let totalCommands = 0;
+            Object.values( commandsByFolder ).forEach( commands => {
+                totalCommands += commands.length;
+            } );
+
+            // Generate HTML
+            const html = this._generateCommandsHTML( commandsByFolder, totalCommands );
+
+            // Write to file
+            fs.writeFileSync( outputPath, html, 'utf8' );
+
+            logger.info( `✅ Rebuilt commands documentation: ${ totalCommands } commands written to ${ outputPath }` );
+
+            return {
+                success: true,
+                message: `Generated documentation for ${ totalCommands } commands`
+            };
+        } catch ( error ) {
+            logger.error( `❌ Failed to rebuild commands documentation: ${ error.message }` );
+            return {
+                success: false,
+                message: `Failed to rebuild documentation: ${ error.message }`
+            };
+        }
+    }
+
+    /**
+     * Generate HTML for commands reference page
+     * @private
+     * @param {Object} commandsByFolder - Commands organized by folder
+     * @param {number} totalCommands - Total number of commands
+     * @returns {string} Complete HTML page
+     */
+    _generateCommandsHTML ( commandsByFolder, totalCommands ) {
+        // Generate category sections
+        let categorySections = '';
+        const sortedFolders = Object.keys( commandsByFolder ).sort();
+
+        for ( const folder of sortedFolders ) {
+            const commands = commandsByFolder[ folder ];
+            if ( commands.length === 0 ) continue;
+
+            let commandRows = '';
+            for ( const cmd of commands ) {
+                const statusBadges = [];
+                if ( cmd.hidden ) statusBadges.push( '<span class="badge badge-hidden">Hidden</span>' );
+                if ( cmd.disabled ) statusBadges.push( '<span class="badge badge-disabled">Disabled</span>' );
+
+                const roleBadgeClass = {
+                    'USER': 'role-user',
+                    'MODERATOR': 'role-moderator',
+                    'OWNER': 'role-owner'
+                }[ cmd.role ] || 'role-user';
+
+                commandRows += `
+                    <tr data-command="${ this.escapeHtml( cmd.name ) }" data-category="${ this.escapeHtml( folder ) }">
+                        <td><span class="command-name">${ this.escapeHtml( cmd.name ) }</span></td>
+                        <td><span class="role-badge ${ roleBadgeClass }">${ this.escapeHtml( cmd.role ) }</span></td>
+                        <td>${ this.escapeHtml( cmd.description ) }</td>
+                        <td><code class="example">${ this.escapeHtml( cmd.example ) }</code></td>
+                        <td>${ statusBadges.join( ' ' ) }</td>
+                    </tr>
+                `;
+            }
+
+            categorySections += `
+                <div class="category-section">
+                    <h2 class="category-title">${ this.escapeHtml( folder ) } (${ commands.length })</h2>
+                    <table class="commands-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Role</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ commandRows }
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        const content = `
+            <h1>Commands Reference</h1>
+            <p>
+                This page lists all available bot commands with their usage, required permissions, and examples.
+                Use the search box below to filter commands by name, description, or category.
+            </p>
+            <p>
+                <strong>Total Commands:</strong> ${ totalCommands }
+            </p>
+
+            <div class="search-container">
+                <input type="text" id="commandSearch" placeholder="Search commands..." class="search-input">
+                <div id="searchResults" class="search-results"></div>
+            </div>
+
+            <style>
+                .category-section {
+                    margin: 30px 0;
+                }
+                .category-title {
+                    color: #00d9ff;
+                    font-size: 1.5rem;
+                    margin-bottom: 15px;
+                    padding-bottom: 10px;
+                    border-bottom: 2px solid rgba(0, 217, 255, 0.3);
+                }
+                .commands-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .commands-table th {
+                    background: rgba(0, 217, 255, 0.2);
+                    color: #00d9ff;
+                    padding: 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    border-bottom: 2px solid #00d9ff;
+                }
+                .commands-table td {
+                    padding: 10px 12px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .commands-table tr:hover {
+                    background: rgba(0, 217, 255, 0.05);
+                }
+                .commands-table tr.hidden {
+                    display: none;
+                }
+                .command-name {
+                    color: #00d9ff;
+                    font-weight: 600;
+                    font-family: 'Courier New', monospace;
+                }
+                .role-badge {
+                    display: inline-block;
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                }
+                .role-user {
+                    background: rgba(76, 175, 80, 0.3);
+                    color: #4caf50;
+                }
+                .role-moderator {
+                    background: rgba(255, 152, 0, 0.3);
+                    color: #ff9800;
+                }
+                .role-owner {
+                    background: rgba(244, 67, 54, 0.3);
+                    color: #f44336;
+                }
+                .example {
+                    background: rgba(0, 0, 0, 0.4);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-family: 'Courier New', monospace;
+                    color: #00ff00;
+                }
+                .badge {
+                    display: inline-block;
+                    padding: 3px 8px;
+                    border-radius: 3px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    margin-left: 5px;
+                }
+                .badge-hidden {
+                    background: rgba(158, 158, 158, 0.3);
+                    color: #9e9e9e;
+                }
+                .badge-disabled {
+                    background: rgba(244, 67, 54, 0.3);
+                    color: #f44336;
+                }
+                .search-container {
+                    margin: 20px 0;
+                }
+                .search-input {
+                    width: 100%;
+                    max-width: 600px;
+                    padding: 12px 20px;
+                    font-size: 1rem;
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 2px solid rgba(0, 217, 255, 0.3);
+                    border-radius: 8px;
+                    color: #e0e0e0;
+                    outline: none;
+                    transition: all 0.3s;
+                }
+                .search-input:focus {
+                    border-color: #00d9ff;
+                    box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+                }
+                .search-results {
+                    margin-top: 10px;
+                    font-size: 0.9rem;
+                    color: #b0b0b0;
+                }
+                @media (max-width: 768px) {
+                    .commands-table {
+                        font-size: 0.85rem;
+                    }
+                    .commands-table th,
+                    .commands-table td {
+                        padding: 8px;
+                    }
+                    .category-title {
+                        font-size: 1.2rem;
+                    }
+                }
+            </style>
+
+            ${ categorySections }
+
+            <script>
+                const searchInput = document.getElementById('commandSearch');
+                const searchResults = document.getElementById('searchResults');
+                const allRows = document.querySelectorAll('.commands-table tr[data-command]');
+                const allCategories = document.querySelectorAll('.category-section');
+
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase().trim();
+                    
+                    if (searchTerm === '') {
+                        // Show all commands and categories
+                        allRows.forEach(row => row.classList.remove('hidden'));
+                        allCategories.forEach(cat => cat.style.display = 'block');
+                        searchResults.textContent = '';
+                        return;
+                    }
+
+                    let visibleCount = 0;
+                    const visibleCategories = new Set();
+
+                    // Filter rows
+                    allRows.forEach(row => {
+                        const commandName = row.dataset.command;
+                        const category = row.dataset.category;
+                        const description = row.textContent.toLowerCase();
+
+                        if (commandName.includes(searchTerm) || 
+                            description.includes(searchTerm) ||
+                            category.toLowerCase().includes(searchTerm)) {
+                            row.classList.remove('hidden');
+                            visibleCategories.add(category);
+                            visibleCount++;
+                        } else {
+                            row.classList.add('hidden');
+                        }
+                    });
+
+                    // Show/hide categories based on visible commands
+                    allCategories.forEach(cat => {
+                        const categoryTitle = cat.querySelector('.category-title').textContent;
+                        const hasVisibleCommands = Array.from(visibleCategories).some(
+                            vc => categoryTitle.includes(vc)
+                        );
+                        cat.style.display = hasVisibleCommands ? 'block' : 'none';
+                    });
+
+                    // Update results message
+                    if (visibleCount === 0) {
+                        searchResults.textContent = 'No commands found matching "' + searchTerm + '"';
+                        searchResults.style.color = '#f44336';
+                    } else {
+                        searchResults.textContent = 'Found ' + visibleCount + ' command(s) matching "' + searchTerm + '"';
+                        searchResults.style.color = '#4caf50';
+                    }
+                });
+            </script>
+        `;
+
+        return this.generateHtmlWrapper( 'Commands Reference', content );
+    }
 }
 
 module.exports = DocumentationService;

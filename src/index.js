@@ -68,6 +68,22 @@ const healthServer = http.createServer( async ( req, res ) => {
       res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
       res.end( 'Internal Server Error' );
     }
+  } else if ( url.pathname === '/commands' ) {
+    try {
+      const htmlPath = path.join( __dirname, '../html/commands.html' );
+      if ( fs.existsSync( htmlPath ) ) {
+        const html = fs.readFileSync( htmlPath, 'utf8' );
+        res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8', ...rateLimitHeaders } );
+        res.end( html );
+      } else {
+        res.writeHead( 404, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+        res.end( 'Commands documentation not yet generated' );
+      }
+    } catch ( error ) {
+      services.logger.error( `Error serving commands: ${ error.message }` );
+      res.writeHead( 500, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
+      res.end( 'Internal Server Error' );
+    }
   } else {
     // Return 404 for all other paths (including file access attempts)
     res.writeHead( 404, { 'Content-Type': 'text/plain', ...rateLimitHeaders } );
@@ -227,6 +243,20 @@ services.logger.info( '======================================= Application Start
       }
     } catch ( docError ) {
       services.logger.error( `❌ Error rebuilding chat documentation: ${ docError.message }` );
+      // Don't throw - this is not critical for bot operation
+    }
+
+    // Rebuild commands documentation on startup
+    services.logger.debug( '📚 Rebuilding commands documentation...' );
+    try {
+      const result = await services.documentationService.rebuildCommandsDocumentation();
+      if ( result.success ) {
+        services.logger.info( `✅ Commands documentation rebuilt: ${ result.message }` );
+      } else {
+        services.logger.warn( `⚠️ Commands documentation rebuild failed: ${ result.message }` );
+      }
+    } catch ( docError ) {
+      services.logger.error( `❌ Error rebuilding commands documentation: ${ docError.message }` );
       // Don't throw - this is not critical for bot operation
     }
 

@@ -13,7 +13,8 @@ jest.mock( 'fs', () => ( {
     existsSync: jest.fn(),
     readFileSync: jest.fn(),
     writeFileSync: jest.fn(),
-    mkdirSync: jest.fn()
+    mkdirSync: jest.fn(),
+    readdirSync: jest.fn()
 } ) );
 
 const fs = require( 'fs' );
@@ -501,6 +502,160 @@ describe( 'DocumentationService', () => {
             expect( htmlContent ).toContain( 'propos' );
             expect( htmlContent ).toContain( 'porps' );
             expect( htmlContent ).toContain( 'banger' );
+        } );
+    } );
+
+    describe( 'rebuildCommandsDocumentation', () => {
+        beforeEach( () => {
+            // Reset mocks
+            fs.existsSync.mockReset();
+            fs.mkdirSync.mockReset();
+            fs.writeFileSync.mockReset();
+            fs.readFileSync.mockReset();
+            fs.readdirSync.mockReset();
+
+            // Default mock for botConfig.json
+            fs.readFileSync.mockReturnValue( JSON.stringify( { disabledCommands: [] } ) );
+        } );
+
+        it( 'should generate documentation file successfully', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] ); // No commands in test directories
+
+            const result = await documentationService.rebuildCommandsDocumentation();
+
+            expect( result.success ).toBe( true );
+            expect( fs.writeFileSync ).toHaveBeenCalled();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const outputPath = writeCall[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( outputPath ).toContain( 'html/commands.html' );
+            expect( htmlContent ).toContain( 'Commands Reference' );
+            expect( htmlContent ).toContain( 'Total Commands' );
+        } );
+
+        it( 'should create html directory if it does not exist', async () => {
+            fs.existsSync.mockImplementation( path => {
+                if ( path.includes( 'html' ) ) return false;
+                return true;
+            } );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            expect( fs.mkdirSync ).toHaveBeenCalledWith(
+                expect.stringContaining( 'html' ),
+                { recursive: true }
+            );
+        } );
+
+        it( 'should include search functionality in HTML', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'id="commandSearch"' );
+            expect( htmlContent ).toContain( 'Search commands' );
+            expect( htmlContent ).toContain( 'addEventListener' );
+            expect( htmlContent ).toContain( 'search-input' );
+        } );
+
+        it( 'should include CSS styling for commands table', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( '.commands-table' );
+            expect( htmlContent ).toContain( '.role-badge' );
+            expect( htmlContent ).toContain( '.category-section' );
+            expect( htmlContent ).toContain( '.command-name' );
+        } );
+
+        it( 'should include role badge styles', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'role-user' );
+            expect( htmlContent ).toContain( 'role-moderator' );
+            expect( htmlContent ).toContain( 'role-owner' );
+        } );
+
+        it( 'should include status badge styles', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( 'badge-hidden' );
+            expect( htmlContent ).toContain( 'badge-disabled' );
+        } );
+
+        it( 'should include example code styling', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+
+            await documentationService.rebuildCommandsDocumentation();
+
+            const writeCall = fs.writeFileSync.mock.calls[ 0 ];
+            const htmlContent = writeCall[ 1 ];
+
+            expect( htmlContent ).toContain( '.example' );
+            expect( htmlContent ).toContain( 'Courier New' );
+        } );
+
+        it( 'should handle errors gracefully', async () => {
+            fs.existsSync.mockImplementation( () => {
+                throw new Error( 'Permission denied' );
+            } );
+
+            const result = await documentationService.rebuildCommandsDocumentation();
+
+            expect( result.success ).toBe( false );
+            expect( result.message ).toContain( 'Failed to rebuild documentation' );
+        } );
+
+        it( 'should handle file write errors', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+            fs.writeFileSync.mockImplementation( () => {
+                throw new Error( 'Write failed' );
+            } );
+
+            const result = await documentationService.rebuildCommandsDocumentation();
+
+            expect( result.success ).toBe( false );
+            expect( result.message ).toContain( 'Failed to rebuild documentation' );
+        } );
+
+        it( 'should handle missing botConfig.json gracefully', async () => {
+            fs.existsSync.mockReturnValue( true );
+            fs.readdirSync.mockReturnValue( [] );
+            fs.readFileSync.mockImplementation( () => {
+                throw new Error( 'File not found' );
+            } );
+
+            // Should not throw, should use default (no disabled commands)
+            const result = await documentationService.rebuildCommandsDocumentation();
+
+            expect( result.success ).toBe( true );
         } );
     } );
 } );
