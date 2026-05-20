@@ -4,7 +4,7 @@
 **Target Version:** `v1.2.0`  
 **Development Tag:** `v1.2.0-development` (hyphen for semver compliance)  
 **Created:** 2026-05-18  
-**Status:** Phase 5 Complete - Status Pages  
+**Status:** Phase 5 Complete - All Status Pages Implemented  
 **Current Phase:** Phase 6 - Routing & Integration
 
 ## Version Notes
@@ -348,18 +348,23 @@ This design ensures efficient documentation regeneration without unnecessary reb
 4. ✅ Group commands by category
 5. ✅ Add search/filter functionality (client-side JavaScript)
 
-### Phase 5: Status Pages
-1. Implement live status page:
-   - Bot version (from VERSION file)
-   - Git tag (e.g., v1.1.3)
-   - Build date and commit SHA
-   - Bot uptime
-   - Bot state (connected, hangout name)
-   - Current DJ and song
-   - User count
-2. Add token reference page (built-in + custom tokens)
-3. Create personality configuration viewer
-4. Add database statistics page
+### Phase 5: Status Pages ✅ COMPLETE
+1. ✅ Implement live status page:
+   - ✅ Bot version (from VERSION file via versionService.getVersion())
+   - ✅ Git tag (e.g., v1.1.3)
+   - ✅ Build date and commit SHA
+   - ✅ Bot uptime (process.uptime())
+   - ✅ Bot state (connected, hangout name from stateService)
+   - ✅ Current DJ and song (state.nowPlaying.song, state.djs[0])
+   - ✅ User count (from stateService._getCurrentState())
+2. ✅ Add token reference page (built-in + custom tokens from tokenService.getTokenList())
+3. ✅ Create personality configuration viewer (MLPersonality, MLInstructions, saved personalities sidebar)
+4. ✅ Add database statistics page (recent songs with snake_case fields: track_name, artist_name, nickname)
+5. ✅ Updated landing page with links to all 4 new pages
+6. ✅ Added 4 HTTP routes (/status, /tokens, /personality, /stats)
+7. ✅ Fixed bugs: nowPlaying structure, personality object display, database field names
+8. ✅ Updated startup message with clickable documentation link
+9. ✅ 15 new tests written (54 total tests passing)
 
 ### Phase 6: Routing & Integration
 1. Update `src/index.js` with routing logic
@@ -541,15 +546,19 @@ This design ensures efficient documentation regeneration without unnecessary reb
 - [x] Web server accessible from browser at `http://193.123.182.235:8080`
 - [x] Security implemented: only whitelisted endpoints accessible
 - [x] Sensitive files (.env, data.json) properly blocked with 404
-- [ ] All planned routes return valid HTML or appropriate responses
-- [ ] /chatcommands displays commands with messages and images using pug templates
-- [ ] /commands documentation is accurate and complete with metadata
-- [ ] Command images are served correctly
-- [ ] Live status reflects current bot state and version info
-- [ ] Token reference includes all available tokens
-- [ ] Pages are mobile-responsive
-- [ ] All tests passing
-- [ ] Documentation updated
+- [x] Landing page (/) returns valid HTML with version and hangout info
+- [x] /chatcommands displays commands with messages and images in HTML table
+- [x] /commands documentation is accurate and complete with metadata
+- [x] /status page displays live bot status with version, uptime, current song
+- [x] /tokens page shows all built-in and custom tokens
+- [x] /personality page shows MLPersonality, MLInstructions, and saved personalities
+- [x] /stats page displays recent song history from database
+- [x] Startup message includes clickable link to documentation
+- [x] Pages are mobile-responsive with dark theme
+- [x] All 54 tests passing (Phase 1-5 complete)
+- [ ] All endpoints integrated and navigation menu added (Phase 6)
+- [ ] Production deployment and testing complete (Phase 7)
+- [ ] Documentation updated (CHANGELOG.md, README.md)
 
 ## Questions to Resolve
 
@@ -609,17 +618,17 @@ This design ensures efficient documentation regeneration without unnecessary reb
 ## Progress Status
 
 ### Completed Phases:
-- ✅ **Phase 1:** Infrastructure Setup
-- ✅ **Phase 2:** Documentation Service  
-- ✅ **Phase 3:** Chat Commands Documentation
-- ✅ **Phase 4:** Commands Reference Documentation
-- ✅ **Phase 5:** Status Pages (/status, /tokens, /personality, /stats)
+- ✅ **Phase 1:** Infrastructure Setup (Docker, GitHub Actions, Oracle deployment, security)
+- ✅ **Phase 2:** Documentation Service (versionService, documentationService, landing page)
+- ✅ **Phase 3:** Chat Commands Documentation (/chatcommands with static HTML generation)
+- ✅ **Phase 4:** Commands Reference Documentation (/commands with metadata discovery)
+- ✅ **Phase 5:** Status Pages (/status, /tokens, /personality, /stats - all 4 pages complete)
 
 ### Current Phase:
-- 🔄 **Phase 6:** Routing & Integration
+- 🔄 **Phase 6:** Routing & Integration (update navigation, finalize integration)
 
 ### Remaining Phases:
-- ⏳ **Phase 7:** Testing & Deployment
+- ⏳ **Phase 7:** Testing & Deployment (production testing, documentation updates)
 
 ## Notes
 
