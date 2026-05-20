@@ -784,8 +784,8 @@ describe( 'DocumentationService', () => {
         it( 'should handle missing tokenService', async () => {
             const serviceWithoutToken = { ...mockServices };
             delete serviceWithoutToken.tokenService;
-            
-            const docService = new DocumentationService( { 
+
+            const docService = new DocumentationService( {
                 versionService: mockVersionService,
                 services: serviceWithoutToken
             } );

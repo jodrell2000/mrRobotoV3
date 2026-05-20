@@ -965,7 +965,7 @@ class DocumentationService {
             const state = this.services.stateService?._getCurrentState?.() || {};
             const hangoutName = this.services.stateService?.getHangoutName?.() || 'Not connected';
             const botNickname = this.services.getState?.( 'botNickname' ) || 'Unknown';
-            
+
             // Get user count
             const allUsers = state.allUserData || {};
             const userCount = Object.keys( allUsers ).length;
@@ -984,7 +984,7 @@ class DocumentationService {
             const songDisplay = currentSong.metadata?.trackName
                 ? `<strong>${ this.escapeHtml( currentSong.metadata.trackName ) }</strong> by ${ this.escapeHtml( currentSong.metadata.artistName ) }`
                 : 'No song currently playing';
-            
+
             const djNickname = currentSong.djUuid && allUsers[ currentSong.djUuid ]?.userProfile?.nickname
                 ? this.escapeHtml( allUsers[ currentSong.djUuid ].userProfile.nickname )
                 : 'N/A';
@@ -994,8 +994,8 @@ class DocumentationService {
 
             // Connection status
             const isConnected = hangoutName !== 'Not connected';
-            const connectionStatus = isConnected 
-                ? '<span style="color: #4caf50;">● Connected</span>' 
+            const connectionStatus = isConnected
+                ? '<span style="color: #4caf50;">● Connected</span>'
                 : '<span style="color: #f44336;">● Disconnected</span>';
 
             const content = `
@@ -1134,13 +1134,13 @@ class DocumentationService {
     async generateTokensPage () {
         try {
             const tokenService = this.services.tokenService;
-            
+
             if ( !tokenService ) {
                 return this.generateHtmlWrapper( 'Tokens', '<p>Token service not available</p>' );
             }
 
             const tokenList = await tokenService.getTokenList();
-            
+
             const builtInTokens = tokenList.filter( t => t.type === 'built-in' );
             const customTokens = tokenList.filter( t => t.type === 'custom' );
 
@@ -1339,7 +1339,7 @@ class DocumentationService {
     async generatePersonalityPage () {
         try {
             const dataService = this.services.dataService;
-            
+
             if ( !dataService ) {
                 return this.generateHtmlWrapper( 'Personality', '<p>Data service not available</p>' );
             }
@@ -1470,7 +1470,7 @@ class DocumentationService {
     async generateStatsPage () {
         try {
             const databaseService = this.services.databaseService;
-            
+
             if ( !databaseService || !databaseService.initialized ) {
                 return this.generateHtmlWrapper( 'Statistics', '<p>Database not initialized or not available</p>' );
             }
