@@ -699,7 +699,7 @@ describe( 'DocumentationService', () => {
             mockServices.stateService._getCurrentState.mockReturnValue( {
                 allUserData: {},
                 djs: [],
-                currentSong: {},
+                nowPlaying: {},
                 voteCounts: { likes: 0, dislikes: 0, stars: 0 }
             } );
 
@@ -714,10 +714,9 @@ describe( 'DocumentationService', () => {
                 allUserData: {
                     'dj1': { userProfile: { nickname: 'DJ Cool' } }
                 },
-                djs: [],
-                currentSong: {
-                    djUuid: 'dj1',
-                    metadata: {
+                djs: [ { uuid: 'dj1' } ],
+                nowPlaying: {
+                    song: {
                         trackName: 'Test Song',
                         artistName: 'Test Artist'
                     }

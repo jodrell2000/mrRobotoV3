@@ -979,14 +979,17 @@ class DocumentationService {
                 } ).join( ', ' )
                 : 'No DJs currently spinning';
 
-            // Get current song
-            const currentSong = state.currentSong || {};
-            const songDisplay = currentSong.metadata?.trackName
-                ? `<strong>${ this.escapeHtml( currentSong.metadata.trackName ) }</strong> by ${ this.escapeHtml( currentSong.metadata.artistName ) }`
+            // Get current song from nowPlaying
+            const nowPlaying = state.nowPlaying || {};
+            const currentSong = nowPlaying.song || {};
+            const songDisplay = currentSong.trackName
+                ? `<strong>${ this.escapeHtml( currentSong.trackName ) }</strong> by ${ this.escapeHtml( currentSong.artistName || 'Unknown Artist' ) }`
                 : 'No song currently playing';
 
-            const djNickname = currentSong.djUuid && allUsers[ currentSong.djUuid ]?.userProfile?.nickname
-                ? this.escapeHtml( allUsers[ currentSong.djUuid ].userProfile.nickname )
+            // Current DJ is the first DJ in the djs array
+            const currentDj = djs.length > 0 ? djs[ 0 ] : null;
+            const djNickname = currentDj && allUsers[ currentDj.uuid ]?.userProfile?.nickname
+                ? this.escapeHtml( allUsers[ currentDj.uuid ].userProfile.nickname )
                 : 'N/A';
 
             // Get vote counts
