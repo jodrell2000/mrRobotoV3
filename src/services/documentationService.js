@@ -1342,6 +1342,7 @@ class DocumentationService {
     async generatePersonalityPage () {
         try {
             const dataService = this.services.dataService;
+            const databaseService = this.services.databaseService;
 
             if ( !dataService ) {
                 return this.generateHtmlWrapper( 'Personality', '<p>Data service not available</p>' );
@@ -1349,61 +1350,176 @@ class DocumentationService {
 
             await dataService.loadData();
 
-            const instructions = dataService.getValue( 'Instructions' ) || 'No personality instructions configured';
+            const instructions = dataService.getValue( 'Instructions' ) || {};
+            const mlPersonality = instructions.MLPersonality || 'No personality configured';
+            const mlInstructions = instructions.MLInstructions || 'No instructions configured';
             const configuration = dataService.getValue( 'configuration' ) || {};
             const botNickname = this.services.getState?.( 'botNickname' ) || 'Unknown';
+            const activePersonality = dataService.getValue( 'activePersonality' ) || null;
+
+            // Get available personalities from database
+            let personalitiesHTML = '<p style="color: #888;">Database not available</p>';
+            if ( databaseService && databaseService.initialized ) {
+                try {
+                    const personalities = await databaseService.getAllPersonalities();
+                    if ( personalities.length > 0 ) {
+                        personalitiesHTML = personalities.map( p => {
+                            const isActive = activePersonality && p.name.toLowerCase() === activePersonality.toLowerCase();
+                            const badge = isActive ? '<span class="active-badge">ACTIVE</span>' : '';
+                            const date = new Date( p.created_at ).toLocaleDateString( 'en-GB' );
+                            return `
+                                <div class="personality-item ${ isActive ? 'active-personality' : '' }">
+                                    <div class="personality-header">
+                                        <strong>${ this.escapeHtml( p.name ) }</strong>
+                                        ${ badge }
+                                    </div>
+                                    <div class="personality-desc">${ this.escapeHtml( p.description ) }</div>
+                                    <div class="personality-date">Created: ${ date }</div>
+                                </div>
+                            `;
+                        } ).join( '' );
+                    } else {
+                        personalitiesHTML = '<p style="color: #888;">No saved personalities yet</p>';
+                    }
+                } catch ( error ) {
+                    personalitiesHTML = '<p style="color: #f44336;">Error loading personalities</p>';
+                }
+            }
 
             const content = `
-            <div class="personality-container">
-                <div class="intro">
-                    <p>This page displays the current AI personality configuration for the bot.</p>
-                    <p>These settings control how the bot behaves and responds to users.</p>
-                </div>
+            <div class="personality-layout">
+                <div class="personality-main">
+                    <div class="intro">
+                        <p>This page displays the current AI personality configuration for the bot.</p>
+                        <p>These settings control how the bot behaves and responds to users.</p>
+                    </div>
 
-                <div class="personality-section">
-                    <h2>🤖 Bot Identity</h2>
-                    <div class="config-card">
-                        <div class="config-row">
-                            <span class="label">Bot Name:</span>
-                            <span class="value">${ this.escapeHtml( botNickname ) }</span>
+                    <div class="personality-section">
+                        <h2>🤖 Bot Identity</h2>
+                        <div class="config-card">
+                            <div class="config-row">
+                                <span class="label">Bot Name:</span>
+                                <span class="value">${ this.escapeHtml( botNickname ) }</span>
+                            </div>
+                            ${ activePersonality ? `
+                            <div class="config-row">
+                                <span class="label">Active Personality:</span>
+                                <span class="value">${ this.escapeHtml( activePersonality ) }</span>
+                            </div>
+                            ` : '' }
+                            <div class="config-row">
+                                <span class="label">Timezone:</span>
+                                <span class="value">${ this.escapeHtml( configuration.timezone || 'Europe/London' ) }</span>
+                            </div>
+                            <div class="config-row">
+                                <span class="label">Locale:</span>
+                                <span class="value">${ this.escapeHtml( configuration.locale || 'en-GB' ) }</span>
+                            </div>
+                            <div class="config-row">
+                                <span class="label">Date Format:</span>
+                                <span class="value">${ this.escapeHtml( configuration.dateFormat || 'DD/MM/YYYY' ) }</span>
+                            </div>
+                            <div class="config-row">
+                                <span class="label">Time Format:</span>
+                                <span class="value">${ this.escapeHtml( configuration.timeFormat || '24' ) }-hour</span>
+                            </div>
                         </div>
-                        <div class="config-row">
-                            <span class="label">Timezone:</span>
-                            <span class="value">${ this.escapeHtml( configuration.timezone || 'Europe/London' ) }</span>
+                    </div>
+
+                    <div class="personality-section">
+                        <h2>💭 AI Personality</h2>
+                        <div class="instructions-card">
+                            <pre>${ this.escapeHtml( mlPersonality ) }</pre>
                         </div>
-                        <div class="config-row">
-                            <span class="label">Locale:</span>
-                            <span class="value">${ this.escapeHtml( configuration.locale || 'en-GB' ) }</span>
-                        </div>
-                        <div class="config-row">
-                            <span class="label">Date Format:</span>
-                            <span class="value">${ this.escapeHtml( configuration.dateFormat || 'DD/MM/YYYY' ) }</span>
-                        </div>
-                        <div class="config-row">
-                            <span class="label">Time Format:</span>
-                            <span class="value">${ this.escapeHtml( configuration.timeFormat || '24' ) }-hour</span>
+                    </div>
+
+                    <div class="personality-section">
+                        <h2>📋 DJ Logic & Instructions</h2>
+                        <div class="instructions-card">
+                            <pre>${ this.escapeHtml( mlInstructions ) }</pre>
                         </div>
                     </div>
                 </div>
 
-                <div class="personality-section">
-                    <h2>💭 AI Instructions</h2>
-                    <div class="instructions-card">
-                        <pre>${ this.escapeHtml( instructions ) }</pre>
-                    </div>
-                </div>
-
-                <div class="personality-section">
-                    <h2>⚙️ Configuration</h2>
-                    <div class="config-card">
-                        <pre>${ this.escapeHtml( JSON.stringify( configuration, null, 2 ) ) }</pre>
+                <div class="personality-sidebar">
+                    <h2>💾 Saved Personalities</h2>
+                    <div class="personalities-list">
+                        ${ personalitiesHTML }
                     </div>
                 </div>
             </div>
 
             <style>
-                .personality-container {
-                    max-width: 1000px;
+                .personality-layout {
+                    display: grid;
+                    grid-template-columns: 1fr 350px;
+                    gap: 30px;
+                    max-width: 1400px;
+                }
+                .personality-main {
+                    min-width: 0;
+                }
+                .personality-sidebar {
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 20px;
+                    max-height: 800px;
+                    overflow-y: auto;
+                }
+                .personality-sidebar h2 {
+                    color: #64b5f6;
+                    margin-top: 0;
+                    margin-bottom: 20px;
+                    font-size: 1.3em;
+                }
+                .personalities-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }
+                .personality-item {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 6px;
+                    padding: 12px;
+                    transition: all 0.2s;
+                }
+                .personality-item:hover {
+                    background: rgba(255, 255, 255, 0.08);
+                    border-color: rgba(100, 181, 246, 0.3);
+                }
+                .personality-item.active-personality {
+                    border-color: #4caf50;
+                    background: rgba(76, 175, 80, 0.1);
+                }
+                .personality-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 6px;
+                }
+                .personality-header strong {
+                    color: #e0e0e0;
+                    font-size: 1.05em;
+                }
+                .active-badge {
+                    background: #4caf50;
+                    color: white;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    font-size: 0.7em;
+                    font-weight: bold;
+                }
+                .personality-desc {
+                    color: #b0b0b0;
+                    font-size: 0.9em;
+                    line-height: 1.4;
+                    margin-bottom: 4px;
+                }
+                .personality-date {
+                    color: #666;
+                    font-size: 0.75em;
                 }
                 .intro {
                     background: rgba(100, 181, 246, 0.1);
@@ -1455,6 +1571,15 @@ class DocumentationService {
                     line-height: 1.6;
                     white-space: pre-wrap;
                     word-wrap: break-word;
+                }
+                @media (max-width: 1024px) {
+                    .personality-layout {
+                        grid-template-columns: 1fr;
+                    }
+                    .personality-sidebar {
+                        order: -1;
+                        max-height: 400px;
+                    }
                 }
             </style>
         `;

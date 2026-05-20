@@ -63,7 +63,8 @@ describe( 'DocumentationService', () => {
             },
             databaseService: {
                 initialized: false,
-                getRecentSongs: jest.fn().mockResolvedValue( [] )
+                getRecentSongs: jest.fn().mockResolvedValue( [] ),
+                getAllPersonalities: jest.fn().mockResolvedValue( [] )
             }
         };
 
@@ -798,33 +799,56 @@ describe( 'DocumentationService', () => {
     describe( 'generatePersonalityPage', () => {
         it( 'should generate personality page with configuration', async () => {
             mockServices.dataService.getValue.mockImplementation( key => {
-                if ( key === 'Instructions' ) return 'Test AI instructions';
+                if ( key === 'Instructions' ) {
+                    return {
+                        MLPersonality: 'Test AI personality',
+                        MLInstructions: 'Test AI instructions'
+                    };
+                }
                 if ( key === 'configuration' ) return { timezone: 'Europe/London', locale: 'en-GB' };
+                if ( key === 'activePersonality' ) return 'Test Personality';
                 return undefined;
             } );
             mockServices.getState.mockReturnValue( 'TestBot' );
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getAllPersonalities = jest.fn().mockResolvedValue( [
+                { name: 'Test Personality', description: 'A test personality', created_at: '2026-05-20' },
+                { name: 'Another Personality', description: 'Another test', created_at: '2026-05-19' }
+            ] );
 
             const html = await documentationService.generatePersonalityPage();
 
             expect( html ).toContain( 'Personality Configuration' );
             expect( html ).toContain( 'TestBot' );
+            expect( html ).toContain( 'Test AI personality' );
             expect( html ).toContain( 'Test AI instructions' );
             expect( html ).toContain( 'Europe/London' );
+            expect( html ).toContain( 'Test Personality' );
+            expect( html ).toContain( 'A test personality' );
         } );
 
         it( 'should handle missing instructions', async () => {
             mockServices.dataService.getValue.mockReturnValue( undefined );
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getAllPersonalities = jest.fn().mockResolvedValue( [] );
 
             const html = await documentationService.generatePersonalityPage();
 
-            expect( html ).toContain( 'No personality instructions configured' );
+            expect( html ).toContain( 'No personality configured' );
         } );
 
         it( 'should escape HTML in instructions', async () => {
             mockServices.dataService.getValue.mockImplementation( key => {
-                if ( key === 'Instructions' ) return '<script>alert("xss")</script>';
+                if ( key === 'Instructions' ) {
+                    return {
+                        MLPersonality: '<script>alert("xss")</script>',
+                        MLInstructions: 'Safe instructions'
+                    };
+                }
                 return {};
             } );
+            mockServices.databaseService.initialized = true;
+            mockServices.databaseService.getAllPersonalities = jest.fn().mockResolvedValue( [] );
 
             const html = await documentationService.generatePersonalityPage();
 
