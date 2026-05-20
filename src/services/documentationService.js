@@ -1651,11 +1651,11 @@ class DocumentationService {
                         ${ recentSongs.map( song => `
                         <div class="song-card">
                             <div class="song-info">
-                                <div class="song-title">${ this.escapeHtml( song.trackName ) }</div>
-                                <div class="song-artist">by ${ this.escapeHtml( song.artistName ) }</div>
+                                <div class="song-title">${ this.escapeHtml( song.track_name || 'Unknown Track' ) }</div>
+                                <div class="song-artist">by ${ this.escapeHtml( song.artist_name || 'Unknown Artist' ) }</div>
                             </div>
                             <div class="song-meta">
-                                <div class="dj-name">DJ: ${ this.escapeHtml( song.djNickname ) }</div>
+                                <div class="dj-name">DJ: ${ this.escapeHtml( song.nickname || 'Unknown DJ' ) }</div>
                                 <div class="song-votes">
                                     <span style="color: #4caf50;">👍 ${ song.likes || 0 }</span>
                                     <span style="color: #f44336;">👎 ${ song.dislikes || 0 }</span>
@@ -1676,8 +1676,8 @@ class DocumentationService {
                         <div class="dj-card">
                             <div class="dj-rank">#${ index + 1 }</div>
                             <div class="dj-info">
-                                <div class="dj-nickname">${ this.escapeHtml( dj.djNickname ) }</div>
-                                <div class="dj-stats">${ dj.playCount } songs played</div>
+                                <div class="dj-nickname">${ this.escapeHtml( dj.nickname || 'Unknown DJ' ) }</div>
+                                <div class="dj-stats">${ dj.playCount || 0 } songs played</div>
                             </div>
                         </div>
                         ` ).join( '' ) }

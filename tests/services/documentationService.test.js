@@ -861,8 +861,8 @@ describe( 'DocumentationService', () => {
         it( 'should generate stats page with recent songs', async () => {
             mockServices.databaseService.initialized = true;
             mockServices.databaseService.getRecentSongs.mockResolvedValue( [
-                { trackName: 'Song 1', artistName: 'Artist 1', djNickname: 'DJ 1', likes: 5, dislikes: 1, stars: 2 },
-                { trackName: 'Song 2', artistName: 'Artist 2', djNickname: 'DJ 2', likes: 3, dislikes: 0, stars: 1 }
+                { track_name: 'Song 1', artist_name: 'Artist 1', nickname: 'DJ 1', likes: 5, dislikes: 1, stars: 2 },
+                { track_name: 'Song 2', artist_name: 'Artist 2', nickname: 'DJ 2', likes: 3, dislikes: 0, stars: 1 }
             ] );
 
             const html = await documentationService.generateStatsPage();
@@ -895,8 +895,8 @@ describe( 'DocumentationService', () => {
             mockServices.databaseService.initialized = true;
             mockServices.databaseService.getRecentSongs.mockResolvedValue( [] );
             mockServices.databaseService.getTopDJs = jest.fn().mockResolvedValue( [
-                { djNickname: 'DJ Cool', playCount: 10 },
-                { djNickname: 'DJ Awesome', playCount: 8 }
+                { nickname: 'DJ Cool', playCount: 10 },
+                { nickname: 'DJ Awesome', playCount: 8 }
             ] );
 
             const html = await documentationService.generateStatsPage();
