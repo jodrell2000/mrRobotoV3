@@ -340,7 +340,7 @@ services.logger.info( '======================================= Application Start
       // Use configured WEB_DOCS_URL (set by deployment script)
       const docsUrl = services.config.WEB_DOCS_URL || `http://localhost:${ services.config.PORT }`;
 
-      await services.messageService.sendGroupMessage( `${ botMention } is online. [Click here for help, information and available commands.](${ docsUrl })`, { services } );
+      await services.messageService.sendGroupMessage( `${ botMention } is online. Click here for help, information and available commands: ${ docsUrl }`, { services } );
 
       services.logger.info( "✅ Startup message sent to group" );
     } catch ( error ) {

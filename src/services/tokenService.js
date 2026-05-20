@@ -25,7 +25,8 @@ class TokenService {
             '{timezone}': () => this.getConfigValue( 'timezone', 'Europe/London' ),
             '{locale}': () => this.getConfigValue( 'locale', 'en-GB' ),
             '{dateFormat}': () => this.getConfigValue( 'dateFormat', 'DD/MM/YYYY' ),
-            '{timeFormat}': () => this.getConfigValue( 'timeFormat', '24' )
+            '{timeFormat}': () => this.getConfigValue( 'timeFormat', '24' ),
+            '{documentation}': () => this.services.config?.WEB_DOCS_URL || 'http://localhost:8080'
         };
     }
 

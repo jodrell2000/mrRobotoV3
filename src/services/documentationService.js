@@ -152,7 +152,7 @@ class DocumentationService {
         </nav>
         ${ content }
         <div class="footer">
-            <p>Mr. Roboto V3 - hang.fm Music Bot</p>
+            <p>Mr. Roboto V3 - a Management Bot for hang.fm Hangouts</p>
         </div>
     </div>
 </body>
@@ -248,11 +248,10 @@ class DocumentationService {
                     It connects to hang.fm rooms via WebSocket and provides various features including:
                 </p>
                 <ul>
-                    <li>Automated DJ rotation and queue management</li>
+                    <li>Song introductions and announcements using customisable "AI" Personalities</li>
                     <li>Chat commands for users, moderators, and owners</li>
                     <li>Song history tracking and statistics</li>
-                    <li>Customizable bot personality</li>
-                    <li>Welcome messages and image posting</li>
+                    <li>Personalised user welcome messages and image posting</li>
                 </ul>
                 <p>
                     <strong>Source Code:</strong> <a href="https://github.com/jodrell2000/mrRobotoV3" target="_blank">github.com/jodrell2000/mrRobotoV3</a>
@@ -635,8 +634,8 @@ class DocumentationService {
             loadFromDirectory( folderPath, folder.name );
         } );
 
-        // Load commands from root directory
-        loadFromDirectory( baseDir, 'Other Commands' );
+        // Note: Root directory commands (handleChatCommand.js, handleUnknownCommand.js) are
+        // internal handlers and should not appear in documentation
 
         // Sort commands within each folder alphabetically
         Object.keys( commandsByFolder ).forEach( folder => {
@@ -736,7 +735,7 @@ class DocumentationService {
                         <thead>
                             <tr>
                                 <th>Command</th>
-                                <th>Role</th>
+                                <th>Permission Required</th>
                                 <th>Description</th>
                                 <th>Example</th>
                                 <th>Status</th>
