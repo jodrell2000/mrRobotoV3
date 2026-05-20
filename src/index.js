@@ -337,10 +337,13 @@ services.logger.info( '======================================= Application Start
       const botMention = services.messageService.formatMention( services.config.BOT_UID );
       services.logger.debug( `📤 Sending startup message with bot mention: ${ botMention }` );
 
-      await services.messageService.sendGroupMessage( `${ botMention } is online...use ${ services.config.COMMAND_SWITCH }help to see some of what I can do`, { services } );
+      // Use configured WEB_DOCS_URL (set by deployment script)
+      const docsUrl = services.config.WEB_DOCS_URL || `http://localhost:${ services.config.PORT }`;
+
+      await services.messageService.sendGroupMessage( `${ botMention } is online. Visit ${ docsUrl } for help, information and available commands.`, { services } );
 
       // await services.messageService.sendGroupPictureMessage(
-      //   `${ botMention } is online...user ${ services.config.COMMAND_SWITCH }help to see some of what I can do`,
+      //   `${ botMention } is online. Visit ${ docsUrl } for help and information about available commands.`,
       //   "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmprZG5yMDY1aDVndGo3cDI4eWN2cTJ1cHNrODlkcTgzbDhzc25obSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Cmr1OMJ2FN0B2/giphy.gif",
       //   { services }
       // );
