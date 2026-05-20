@@ -342,12 +342,6 @@ services.logger.info( '======================================= Application Start
 
       await services.messageService.sendGroupMessage( `${ botMention } is online. [Click here for help, information and available commands.](${ docsUrl })`, { services } );
 
-      // await services.messageService.sendGroupPictureMessage(
-      //   `${ botMention } is online. [Click here for help, information and available commands.](${ docsUrl })`,
-      //   "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmprZG5yMDY1aDVndGo3cDI4eWN2cTJ1cHNrODlkcTgzbDhzc25obSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Cmr1OMJ2FN0B2/giphy.gif",
-      //   { services }
-      // );
-
       services.logger.info( "✅ Startup message sent to group" );
     } catch ( error ) {
       services.logger.error( `❌ Failed to send startup message: ${ error?.message || error?.toString() || 'Unknown error' }` );

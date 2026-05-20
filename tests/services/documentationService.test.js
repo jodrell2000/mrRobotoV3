@@ -106,8 +106,10 @@ describe( 'DocumentationService', () => {
             const html = documentationService.generateHtmlWrapper( 'Test', 'content' );
 
             expect( html ).toContain( '<a href="/">Home</a>' );
-            expect( html ).toContain( '<a href="/health">Health</a>' );
             expect( html ).toContain( '<a href="/status">Status</a>' );
+            expect( html ).toContain( '<a href="/commands">Commands</a>' );
+            expect( html ).toContain( '<a href="/chatcommands">Chat Commands</a>' );
+            expect( html ).toContain( '<a href="/stats">Statistics</a>' );
         } );
 
         it( 'should include CSS styling', () => {

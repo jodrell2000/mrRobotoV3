@@ -145,8 +145,10 @@ class DocumentationService {
     <div class="container">
         <nav class="nav">
             <a href="/">Home</a>
-            <a href="/health">Health</a>
             <a href="/status">Status</a>
+            <a href="/commands">Commands</a>
+            <a href="/chatcommands">Chat Commands</a>
+            <a href="/stats">Statistics</a>
         </nav>
         ${ content }
         <div class="footer">
@@ -252,6 +254,9 @@ class DocumentationService {
                     <li>Customizable bot personality</li>
                     <li>Welcome messages and image posting</li>
                 </ul>
+                <p>
+                    <strong>Source Code:</strong> <a href="https://github.com/jodrell2000/mrRobotoV3" target="_blank">github.com/jodrell2000/mrRobotoV3</a>
+                </p>
             `;
 
             return this.generateHtmlWrapper( 'Home', content );
