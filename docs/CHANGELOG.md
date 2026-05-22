@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[1.2.0](changelog/1.2.0.md)** | 2026-05-22 | 🌐 Dynamic Web Documentation Server | Web-based documentation accessible via browser on port 8080. Includes landing page, chat commands with images, technical command reference, live bot status, token reference, personality configuration, and song statistics. Requires Oracle Cloud firewall configuration for external access. |
 | **[1.1.3](changelog/1.1.3.md)** | 2026-05-14 | 🔄 Personality Selective Merging | Personality activation now preserves existing settings when not explicitly set in personality. Allows switching personalities while retaining themes, triggers, tokens, etc. |
 | **[1.1.2](changelog/1.1.2.md)** | 2026-05-12 | 🐛 Configuration Token Fix | Fixed `!token add` to properly update configuration values for built-in tokens (`{timezone}`, `{locale}`, etc.). Fixed personality activation to merge configuration instead of overwriting. |
 | **[1.1.1](changelog/1.1.1.md)** | 2026-05-12 | 🐛 Timezone Support Fix | Fixed Docker image timezone handling by adding `tzdata` package. Token `{currentTime}` now correctly displays time in configured timezone. |

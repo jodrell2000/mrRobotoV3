@@ -376,7 +376,7 @@ This design ensures efficient documentation regeneration without unnecessary reb
 1. ✅ Write unit tests for documentationService (54 tests passing)
 2. ✅ Test all endpoints in production (deploying v1.2.0-development)
 3. ⏳ Update CHANGELOG.md (pending)
-4. ⏳ Create release notes in docs/changelog/1.2.0.md (pending)
+4. ✅ Create release notes in docs/changelog/1.2.0.md
 5. ✅ Deploy to production and configure firewall (Oracle ingress configured)
 
 ## Technical Decisions

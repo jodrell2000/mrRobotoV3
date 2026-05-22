@@ -4,6 +4,8 @@
 
 This guide provides step-by-step instructions for deploying Mr. Roboto V3 to Oracle Cloud Infrastructure (OCI) using the **Always Free tier** — giving you **24/7 bot availability at zero cost, forever**.
 
+This guide looks like a lot of work...it's really not that bad, I've just tried to be as detailed as possible in the setup steps so that hopefully non-technical users can follow it too
+
 ---
 
 ## Table of Contents
@@ -16,9 +18,10 @@ This guide provides step-by-step instructions for deploying Mr. Roboto V3 to Ora
 - [Step 2a (Optional): Share Account Access with Others](#step-2a-optional-share-account-access-with-others-5-minutes)
 - [Step 3: Create Virtual Cloud Network](#step-3-create-virtual-cloud-network-5-minutes)
 - [Step 4: Create a Compute Instance](#step-4-create-a-compute-instance-10-minutes)
-- [Step 5: Connect via SSH](#step-5-connect-via-ssh-5-minutes)
-- [Step 6: Install Docker](#step-6-install-docker-5-minutes)
-- [Step 7: Deploy the Bot](#step-7-deploy-the-bot-automated-method)
+- [Step 5: Configure Firewall for Web Documentation](#step-5-configure-firewall-for-web-documentation-5-minutes)
+- [Step 6: Connect via SSH](#step-6-connect-via-ssh-5-minutes)
+- [Step 7: Install Docker](#step-7-install-docker-5-minutes)
+- [Step 8: Deploy the Bot](#step-8-deploy-the-bot-automated-method)
 - [Managing Your Bot](#managing-your-bot)
 - [Data Synchronization](#data-synchronization)
 - [Frequently Asked Questions](#frequently-asked-questions)
@@ -34,8 +37,8 @@ This guide provides step-by-step instructions for deploying Mr. Roboto V3 to Ora
 |---------|-------------|--------------------------|
 | **24/7 availability** | Only when PC is on | ✅ Always online |
 | **Monthly cost** | $0 (electricity) | ✅ $0 forever |
-| **Setup time** | 5 minutes | 45-60 minutes (one-time) |
-| **Maintenance** | Manual updates | Manual updates via SSH |
+| **Setup time** | 20 minutes | 45-60 minutes (one-time) |
+| **Maintenance** | Manual updates | Automatic updates pulled with a single local command |
 | **Expiration** | Never | ✅ Never |
 
 **What you get for free (forever):**
@@ -68,20 +71,21 @@ You do **not** need:
 
 The deployment process has three phases:
 
-**Phase 1: Oracle Cloud Account Setup** (~30 minutes)
+**Phase 1: Oracle Cloud Account Setup** (~35 minutes)
 1. Create Oracle Cloud account with credit card verification
 2. Access Oracle Cloud Console
 3. Create Virtual Cloud Network (VCN)
 4. Create compute instance (VM)
+5. Configure firewall for web documentation (port 8080)
 
 **Phase 2: VM Preparation** (~15 minutes)
-5. Connect to VM via SSH
-6. Install Docker
+6. Connect to VM via SSH
+7. Install Docker
 
 **Phase 3: Bot Deployment** (~5 minutes)
-7. Deploy bot using automated script (or manual method)
+8. Deploy bot using automated script (or manual method)
 
-**Total time:** 45-60 minutes (one-time setup)
+**Total time:** 50-65 minutes (one-time setup)
 
 ---
 
@@ -430,13 +434,95 @@ Now create the virtual machine that will run your bot 24/7.
 
 ---
 
-## Step 5: Connect via SSH (5 minutes)
+## Step 5: Configure Firewall for Web Documentation (5 minutes)
+
+> **⚠️ REQUIRED for v1.2.0+:** This step is mandatory to access the bot's web documentation server on port 8080.
+
+Starting with v1.2.0, the bot includes a web documentation server that serves:
+- Landing page with bot overview
+- Chat commands with messages and images  
+- Technical command reference
+- Live bot status and version information
+- Token reference guide
+- Personality configuration viewer
+- Song statistics and history
+
+**Without this firewall configuration, port 8080 will be blocked** and you won't be able to access the documentation from your browser.
+
+### Configure Oracle Cloud Firewall
+
+1. **Navigate to Your Instance**
+   - In Oracle Cloud Console, click the **≡** menu
+   - Go to **Compute** → **Instances**
+   - Click on your instance name (**mrroboto-bot**)
+
+2. **Find the Subnet**
+   - Click the **Networking** tab on the left
+   - Under **Primary VNIC Information**, find **Subnet**
+   - Click the subnet name (e.g., "Public Subnet-mrroboto-vcn...")
+
+3. **Open Security Lists**
+   - Click the **Security** tab on the left
+   - Under **Security Lists**, click the security list name (e.g., "Default Security List for mrroboto-vcn...")
+
+4. **Add Ingress Rule**
+   - Click the **Security rules** tab
+   - Click the **"Add Ingress Rules"** button
+   - Fill in the following fields:
+     - **Stateless:** Leave **unchecked** (No)
+     - **Source Type:** CIDR
+     - **Source CIDR:** `0.0.0.0/0` (allows all IPs - see security note below)
+     - **IP Protocol:** TCP
+     - **Source Port Range:** (leave empty)
+     - **Destination Port Range:** `8080`
+     - **Description:** `Web documentation server`
+   - Click **"Add Ingress Rules"** at the bottom
+
+5. **Verify the Rule**
+   - Wait 10-30 seconds for the rule to propagate
+   - You should see the new rule in the Ingress Rules list
+   - **Source:** 0.0.0.0/0
+   - **Destination Port Range:** 8080
+   - **IP Protocol:** TCP
+
+6. **Test Access** (after deploying the bot in Step 8)
+   ```bash
+   # From your local machine
+   curl http://YOUR_PUBLIC_IP:8080/health
+   # Should return: ok
+   ```
+   
+   Or open in your browser:
+   ```
+   http://YOUR_PUBLIC_IP:8080
+   ```
+
+### Security Considerations
+
+**Source CIDR Options:**
+- `0.0.0.0/0` - Allows access from any IP address (recommended for public documentation)
+- `YOUR-IP/32` - Restricts access to only your IP address
+- `YOUR-NETWORK/24` - Restricts access to your network range
+
+**Why Public Access is Safe:**
+
+The web server is **read-only** and implements strict security controls:
+- ✅ Only serves whitelisted documentation endpoints
+- ✅ Blocks access to sensitive files (.env, data.json, etc.) with 404 responses
+- ✅ Cannot modify bot configuration or execute commands
+- ✅ All bot control remains exclusively through authenticated chat commands
+
+**Recommended:** Use `0.0.0.0/0` for public documentation. The web server is designed to be safely accessible without authentication.
+
+---
+
+## Step 6: Connect via SSH (5 minutes)
 
 Test SSH connectivity to your new VM.
 
 ### macOS / Linux
 
-If you generated a new key pair in Step 4:
+If you generated a new key pair in Step 4 (Create a Compute Instance):
 
 ```bash
 # Set correct permissions on private key
@@ -481,7 +567,7 @@ ssh -i C:\Users\YourName\Downloads\oracle-mrroboto.key ubuntu@YOUR_PUBLIC_IP
 
 ---
 
-## Step 6: Install Docker (5 minutes)
+## Step 7: Install Docker (5 minutes)
 
 Run these commands on the Oracle VM (while connected via SSH):
 
@@ -515,7 +601,7 @@ docker ps
 
 ---
 
-## Step 7: Deploy the Bot
+## Step 8: Deploy the Bot
 
 Deploy the bot using the automated deployment script from your **local machine** (not the VM).
 
@@ -906,7 +992,7 @@ A: **Yes, but you MUST use Git Bash** - PowerShell and CMD will not work with th
 
 1. **Install Git for Windows**: Download from [git-scm.com/download/win](https://git-scm.com/download/win) (includes Git Bash)
 2. **Open Git Bash**: Right-click your project folder → "Git Bash Here"
-3. **Run deployment commands** as shown in Step 7:
+3. **Run deployment commands** as shown in Step 8:
    ```bash
    # In Git Bash (not PowerShell!)
    ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data
