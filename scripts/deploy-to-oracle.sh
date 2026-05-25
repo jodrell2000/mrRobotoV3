@@ -35,12 +35,12 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# Function to fetch available Docker image tags with digests
+# Function to fetch available Docker image tags
 fetch_available_tags() {
     echo -e "${BLUE}Fetching available image tags...${NC}" >&2
     
     # Get anonymous token for GHCR
-    local TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:jodrell2000/mrrobotov3:pull" 2>/dev/null \
+    local TOKEN=$(curl -s --max-time 10 "https://ghcr.io/token?scope=repository:jodrell2000/mrrobotov3:pull" 2>/dev/null \
         | grep -o '"token":"[^"]*"' \
         | cut -d'"' -f4)
     
@@ -50,10 +50,11 @@ fetch_available_tags() {
     fi
     
     # Fetch tags using token
-    local TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" "https://ghcr.io/v2/jodrell2000/mrrobotov3/tags/list" 2>/dev/null \
+    local TAGS=$(curl -s --max-time 10 -H "Authorization: Bearer $TOKEN" "https://ghcr.io/v2/jodrell2000/mrrobotov3/tags/list" 2>/dev/null \
         | grep -o '"tags":\[[^]]*\]' \
         | sed 's/"tags":\[//; s/\]//; s/"//g' \
         | tr ',' '\n' \
+        | grep -E '^(latest|[0-9]+\.[0-9]+\.[0-9]+.*)$' \
         | sort -Vr)
     
     # If no tags found, provide fallback
@@ -62,30 +63,14 @@ fetch_available_tags() {
         return
     fi
     
-    # Fetch digest for each tag and output as tag:digest
-    while IFS= read -r tag; do
-        # Use HEAD request with OCI manifest accept header to get Docker-Content-Digest
-        local DIGEST=$(curl -s -X HEAD -H "Authorization: Bearer $TOKEN" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            "https://ghcr.io/v2/jodrell2000/mrrobotov3/manifests/$tag" \
-            -D - 2>/dev/null \
-            | grep -i "^docker-content-digest:" \
-            | cut -d: -f2- \
-            | tr -d ' \r\n')
-        
-        if [[ -n "$DIGEST" ]]; then
-            echo "$tag:$DIGEST"
-        else
-            echo "$tag:unknown"
-        fi
-    done <<< "$TAGS"
+    echo "$TAGS"
 }
 
 # Function to select image tag interactively
 select_image_tag() {
-    local TAGS_WITH_DIGESTS=$(fetch_available_tags)
+    local TAGS=$(fetch_available_tags)
     
-    if [[ -z "$TAGS_WITH_DIGESTS" ]]; then
+    if [[ -z "$TAGS" ]]; then
         print_warn "Could not fetch available tags, using 'latest'" >&2
         echo "latest"
         return
@@ -101,84 +86,32 @@ select_image_tag() {
     echo -e "${BLUE}Available Docker image tags:${NC}" >&2
     echo "================================" >&2
     
-    # Parse tags and digests into parallel arrays (bash 3.2 compatible)
-    local TAGS=()
-    local DIGESTS=()
+    # Convert to array and reorder to put 'latest' first
+    local TAG_ARRAY=()
+    local HAS_LATEST=false
     
-    while IFS=: read -r tag digest; do
-        TAGS+=("$tag")
-        DIGESTS+=("$digest")
-    done <<< "$TAGS_WITH_DIGESTS"
-    
-    # Build grouped display (bash 3.2 compatible - no associative arrays)
-    local TAG_GROUPS=()
-    local TAG_FIRST=()
-    local PROCESSED=()
-    
-    # Process tags, grouping by digest
-    for i in "${!TAGS[@]}"; do
-        local tag="${TAGS[$i]}"
-        local digest="${DIGESTS[$i]}"
-        
-        # Skip if already processed
-        local skip=false
-        for processed in "${PROCESSED[@]}"; do
-            if [[ "$processed" == "$i" ]]; then
-                skip=true
-                break
-            fi
-        done
-        
-        if [[ "$skip" == "true" ]]; then
-            continue
+    while IFS= read -r tag; do
+        if [[ "$tag" == "latest" ]]; then
+            HAS_LATEST=true
+        else
+            TAG_ARRAY+=("$tag")
         fi
-        
-        # Find all tags with same digest
-        local group="$tag"
-        PROCESSED+=("$i")
-        
-        for j in "${!TAGS[@]}"; do
-            if [[ "$i" != "$j" && "${DIGESTS[$j]}" == "$digest" ]]; then
-                group="$group, ${TAGS[$j]}"
-                PROCESSED+=("$j")
-            fi
-        done
-        
-        TAG_GROUPS+=("$group")
-        TAG_FIRST+=("$tag")
-    done
+    done <<< "$TAGS"
     
-    # Reorder to put 'latest' first if it exists
-    local FINAL_GROUPS=()
-    local FINAL_FIRST=()
-    local latest_idx=-1
-    
-    for i in "${!TAG_GROUPS[@]}"; do
-        if [[ "${TAG_GROUPS[$i]}" == *"latest"* ]]; then
-            latest_idx=$i
-            break
-        fi
-    done
-    
-    if [[ $latest_idx -ge 0 ]]; then
-        FINAL_GROUPS+=("${TAG_GROUPS[$latest_idx]}")
-        FINAL_FIRST+=("${TAG_FIRST[$latest_idx]}")
+    # Build final array with latest first
+    local FINAL_TAGS=()
+    if [[ "$HAS_LATEST" == "true" ]]; then
+        FINAL_TAGS+=("latest")
     fi
-    
-    for i in "${!TAG_GROUPS[@]}"; do
-        if [[ $i -ne $latest_idx ]]; then
-            FINAL_GROUPS+=("${TAG_GROUPS[$i]}")
-            FINAL_FIRST+=("${TAG_FIRST[$i]}")
-        fi
-    done
+    FINAL_TAGS+=("${TAG_ARRAY[@]}")
     
     # Display with numbers
     local i=1
-    for tag_group in "${FINAL_GROUPS[@]}"; do
-        if [[ "$tag_group" == *"latest"* ]]; then
-            echo -e "  ${GREEN}$i)${NC} $tag_group ${YELLOW}(default)${NC}" >&2
+    for tag in "${FINAL_TAGS[@]}"; do
+        if [[ "$tag" == "latest" ]]; then
+            echo -e "  ${GREEN}$i)${NC} $tag ${YELLOW}(default)${NC}" >&2
         else
-            echo "  $i) $tag_group" >&2
+            echo "  $i) $tag" >&2
         fi
         i=$((i + 1))
     done
@@ -187,23 +120,20 @@ select_image_tag() {
     echo -e "Enter selection number [${GREEN}1${NC}]: " >&2
     read -r selection
     
-    # Use default if empty (always 1 for 'latest' now)
+    # Use default if empty (always 1 for 'latest')
     if [[ -z "$selection" ]]; then
         selection=1
     fi
     
     # Validate selection
-    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt "${#FINAL_FIRST[@]}" ]]; then
+    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt "${#FINAL_TAGS[@]}" ]]; then
         print_warn "Invalid selection, using 'latest'" >&2
         echo "latest"
         return
     fi
     
-    # Return first tag from selected group (arrays are 0-indexed)
-    local selected_tag="${FINAL_FIRST[$((selection-1))]}"
-    # Trim any whitespace
-    selected_tag="${selected_tag## }"
-    selected_tag="${selected_tag%% }"
+    # Return selected tag (arrays are 0-indexed)
+    local selected_tag="${FINAL_TAGS[$((selection-1))]}"
     echo "$selected_tag"
 }
 
