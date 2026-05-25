@@ -214,6 +214,12 @@ Usage: $0 [OPTIONS]
 
 Deploy Mr. Roboto V3 to Oracle Cloud VM
 
+The script is interactive by default and will prompt you for:
+  - Whether to upload your local .env file (default: Yes)
+  - Whether to upload your local data directory (default: No)
+
+You can skip prompts by using the flags below.
+
 Required Environment:
   ORACLE_IP         Public IP address of your Oracle VM
 
@@ -222,20 +228,23 @@ Optional Environment:
   IMAGE_TAG         Docker image tag to deploy (prompts with menu if not set, defaults to latest)
 
 Options:
-  --upload-data     Upload local data directory before deployment
-  --skip-env        Skip .env file upload (use existing on VM)
+  --upload-data     Force upload of local data directory (skips prompt)
+  --skip-env        Skip .env file upload, use existing on VM (skips prompt)
   --logs            Show logs after deployment
   -h, --help        Show this help message
 
 Examples:
-  # Deploy with interactive tag selection (defaults to latest)
+  # Interactive deployment - will prompt for .env and data upload options
+  ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
+
+  # Deploy with specific options (no prompts)
+  ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env
+
+  # Deploy and upload data (no prompts)
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data
 
-  # Deploy specific version directly
-  IMAGE_TAG=1.0.0 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
-
-  # Deploy without data upload (faster, keeps VM data)
-  ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
+  # Deploy keeping both .env and data on VM (no prompts)
+  ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env
 
   # Deploy and watch logs
   ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --logs
@@ -251,15 +260,19 @@ EOF
 UPLOAD_DATA=false
 SKIP_ENV=false
 SHOW_LOGS=false
+UPLOAD_DATA_FLAG_SET=false
+SKIP_ENV_FLAG_SET=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --upload-data)
             UPLOAD_DATA=true
+            UPLOAD_DATA_FLAG_SET=true
             shift
             ;;
         --skip-env)
             SKIP_ENV=true
+            SKIP_ENV_FLAG_SET=true
             shift
             ;;
         --logs)
@@ -343,6 +356,46 @@ fi
 echo "Image: ${IMAGE_NAME}"
 echo ""
 
+# Interactive prompts for deployment options (if flags not set)
+if [[ -t 0 ]]; then
+    # Only prompt if running interactively
+    
+    if [[ "$SKIP_ENV_FLAG_SET" == "false" ]]; then
+        echo -e "${BLUE}Upload .env file?${NC}"
+        echo "  This will replace the .env file on the VM with your local .env file."
+        echo "  Choose 'No' if you want to keep the VM's existing configuration."
+        echo -e "  Upload .env? [${GREEN}Y${NC}/n]: "
+        read -r upload_env_response
+        
+        if [[ "$upload_env_response" =~ ^[Nn] ]]; then
+            SKIP_ENV=true
+            echo -e "${YELLOW}⚠${NC} Will use existing .env on VM"
+        else
+            SKIP_ENV=false
+            echo -e "${GREEN}✓${NC} Will upload local .env file"
+        fi
+        echo ""
+    fi
+    
+    if [[ "$UPLOAD_DATA_FLAG_SET" == "false" ]]; then
+        echo -e "${BLUE}Upload data directory?${NC}"
+        echo "  This will replace the data/ directory on the VM with your local data/"
+        echo "  (aliases.json, botConfig.json, chat.json, themes.json, etc.)"
+        echo "  Choose 'No' if you want to keep the VM's existing data."
+        echo -e "  Upload data? [y/${GREEN}N${NC}]: "
+        read -r upload_data_response
+        
+        if [[ "$upload_data_response" =~ ^[Yy] ]]; then
+            UPLOAD_DATA=true
+            echo -e "${GREEN}✓${NC} Will upload local data directory"
+        else
+            UPLOAD_DATA=false
+            echo -e "${YELLOW}⚠${NC} Will keep existing data on VM"
+        fi
+        echo ""
+    fi
+fi
+
 # Step 1: Test SSH connection
 print_info "Testing SSH connection..."
 if ! ssh_exec "echo 'Connection successful'" > /dev/null 2>&1; then
@@ -371,7 +424,14 @@ if [[ "$SKIP_ENV" == "false" ]]; then
     # Create temp .env without GCS_BUCKET_NAME and strip quotes from values
     # Docker's --env-file doesn't strip quotes, so we need to do it manually
     TEMP_ENV=$(mktemp)
-    grep -v "^GCS_BUCKET_NAME=" .env | sed -E 's/^([^=]+)="(.*)"/\1=\2/' | sed -E "s/^([^=]+)='(.*)'/\1=\2/" > "$TEMP_ENV" || true
+    grep -v "^GCS_BUCKET_NAME=" .env | sed -E 's/^([^=]+)="(.*)"/\1=\2/' | sed -E "s/^([^=]+)='(.*)'/\1=\2/" > "$TEMP_ENV"
+    
+    # Verify temp file has content
+    if [[ ! -s "$TEMP_ENV" ]]; then
+        print_error "Local .env file is empty or failed to process"
+        rm "$TEMP_ENV"
+        exit 1
+    fi
     
     scp_copy "$TEMP_ENV" "${ORACLE_USER}@${ORACLE_IP}:${REMOTE_DIR}/.env"
     rm "$TEMP_ENV"
@@ -382,8 +442,20 @@ fi
 
 # Step 3.5: Inject WEB_DOCS_URL based on ORACLE_IP
 print_info "Configuring WEB_DOCS_URL for web documentation..."
-ssh_exec "sed -i.bak '/^WEB_DOCS_URL=/d' ${REMOTE_DIR}/.env && echo 'WEB_DOCS_URL=http://${ORACLE_IP}:8080' >> ${REMOTE_DIR}/.env"
-print_info "WEB_DOCS_URL set to http://${ORACLE_IP}:8080"
+if ! ssh_exec "sed -i.bak '/^WEB_DOCS_URL=/d' ${REMOTE_DIR}/.env && echo 'WEB_DOCS_URL=http://${ORACLE_IP}:8080' >> ${REMOTE_DIR}/.env"; then
+    print_error "Failed to inject WEB_DOCS_URL into .env file"
+    exit 1
+fi
+
+# Verify WEB_DOCS_URL was actually set
+WEB_DOCS_VERIFY=$(ssh_exec "grep '^WEB_DOCS_URL=' ${REMOTE_DIR}/.env" || echo "")
+if [[ -z "$WEB_DOCS_VERIFY" ]]; then
+    print_error "WEB_DOCS_URL not found in .env file after injection"
+    print_info "Checking .env file contents on VM:"
+    ssh_exec "head -20 ${REMOTE_DIR}/.env"
+    exit 1
+fi
+print_info "WEB_DOCS_URL set to http://${ORACLE_IP}:8080 (verified)"
 
 # Step 4: Upload data directory (optional)
 if [[ "$UPLOAD_DATA" == "true" ]]; then
@@ -412,7 +484,7 @@ print_info "Starting new container..."
 ssh_exec "cd ${REMOTE_DIR} && docker run -d \
   --name ${CONTAINER_NAME} \
   --restart unless-stopped \
-  --env-file .env \
+  --env-file ${REMOTE_DIR}/.env \
   -p 8080:8080 \
   -v ${REMOTE_DIR}/data:/usr/src/app/data \
   ${IMAGE_NAME}"

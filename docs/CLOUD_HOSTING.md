@@ -617,36 +617,53 @@ Deploy the bot using the automated deployment script from your **local machine**
 # Navigate to your project directory, eg.
 cd ~/Documents/Git/mrRobotoV3
 
-# First-time deployment with data upload
-ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --upload-data --logs
+# Interactive deployment - script will prompt for options
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --logs
 ```
 
-Replace `YOUR_PUBLIC_IP` with your instance's public IP from Step 4.
+**⚠️ IMPORTANT:** Replace `YOUR_PUBLIC_IP` with your instance's actual public IP address from Step 4 (e.g., `144.24.123.45`). The script **requires** `ORACLE_IP=` to be set for proper configuration. Without it, your bot's documentation URL will default to `localhost:8080` instead of your public IP.
 
-**What the script does:**
+### Interactive Prompts
+
+The deployment script will ask you two questions:
+
+1. **Upload .env file?** (Default: Yes)
+   - **Yes**: Uploads your local `.env` file to the VM (overwrites existing)
+   - **No**: Keeps the VM's existing `.env` file (recommended for updates)
+
+2. **Upload data directory?** (Default: No)
+   - **Yes**: Uploads your local data/ directory (aliases, bot config, chat history, etc.)
+   - **No**: Keeps the VM's existing data (recommended for updates)
+
+**For first-time deployment:** Answer **Yes** to both questions to set up the VM with your configuration and data.
+
+**For updates:** Answer **No** to both questions to keep the VM's existing configuration and data, and just update the bot code.
+
+### What the script does
+
 1. ✅ Tests SSH connection
 2. ✅ Creates `~/mrroboto` directory on VM
-3. ✅ Uploads `.env` file (automatically strips quotes and removes `GCS_BUCKET_NAME`)
-4. ✅ Uploads `data/` directory (excludes `*_example` files)
-5. ✅ Pulls Docker image from GitHub Container Registry
-6. ✅ Stops old container (if exists)
-7. ✅ Starts new container with correct configuration
-8. ✅ Shows logs (if `--logs` flag used)
+3. ✅ Uploads `.env` file (if you choose Yes - automatically strips quotes and removes `GCS_BUCKET_NAME`)
+4. ✅ **Injects `WEB_DOCS_URL=http://YOUR_IP:8080`** into `.env` for web documentation
+5. ✅ Uploads `data/` directory (if you choose Yes - excludes `*_example` files)
+6. ✅ Pulls Docker image from GitHub Container Registry
+7. ✅ Stops old container (if exists)
+8. ✅ Starts new container with correct configuration
+9. ✅ Shows logs (if `--logs` flag used)
 
-**Script Options:**
+### Non-Interactive Deployment
+
+You can skip prompts by using flags:
 
 ```bash
-# Deploy with data upload and show logs
+# First-time deployment: Upload both .env and data
 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data --logs
 
-# Update bot (keeps existing data on VM)
-ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
-
-# Deploy without uploading .env (use existing VM .env)
-ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env
-
-# Just watch logs without redeploying
+# Update deployment: Keep VM's .env and data (just update code)
 ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env --logs
+
+# Update only code, keeping VM configuration
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --skip-env
 ```
 
 **SSH Authentication:**
@@ -764,10 +781,22 @@ ssh ubuntu@YOUR_PUBLIC_IP 'docker stats --no-stream mrroboto'
 When a new bot version is released:
 
 **Option 1: Using deployment script (recommended)**
+
+The script will prompt you interactively. For updates, answer **No** to both prompts to keep your VM's existing configuration and data:
+
 ```bash
-# From local machine
-ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh
+# From local machine - interactive mode
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --logs
 ```
+
+Or use flags to skip prompts:
+
+```bash
+# Non-interactive: keep VM's .env and data, just update code
+ORACLE_IP=YOUR_PUBLIC_IP ./scripts/deploy-to-oracle.sh --skip-env --logs
+```
+
+Your data persists in the volume mount, so you won't lose any configuration or history.
 
 **Option 2: Manual update**
 ```bash
@@ -1543,6 +1572,63 @@ COMMAND_SWITCH=!
 ```
 
 **Solution:** Use deployment script (auto-fixes) or manually edit `.env` on VM.
+
+---
+
+**Bot shows "localhost:8080" instead of public IP in startup message**
+
+The deployment script automatically injects `WEB_DOCS_URL` with your Oracle VM's public IP. If you see `localhost:8080`, the environment variable wasn't set properly.
+
+**Most common causes:**
+
+1. **ORACLE_IP wasn't set when running the script**
+   - Wrong: `./scripts/deploy-to-oracle.sh`
+   - Correct: `ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh`
+
+2. **Used `--skip-env` but no .env exists on VM**
+   - The script now validates this and will show an error
+   - Solution: Run without `--skip-env` to upload your .env file
+
+3. **Deployment script encountered an error**
+   - Check the script output for error messages
+   - The script now verifies WEB_DOCS_URL was set correctly
+
+**Quick fix if WEB_DOCS_URL is missing:**
+
+```bash
+# SSH into VM
+ssh ubuntu@YOUR_PUBLIC_IP
+
+# Add WEB_DOCS_URL (replace YOUR_PUBLIC_IP with actual IP)
+sed -i.bak '/^WEB_DOCS_URL=/d' ~/mrroboto/.env && echo 'WEB_DOCS_URL=http://YOUR_PUBLIC_IP:8080' >> ~/mrroboto/.env
+
+# Verify it was added
+grep WEB_DOCS_URL ~/mrroboto/.env
+
+# Restart container
+docker restart mrroboto
+
+# Watch logs (press Ctrl+C to exit)
+docker logs -f mrroboto
+```
+
+**Prevent future issues:**
+
+Always include `ORACLE_IP=` when running the deployment script:
+```bash
+# Correct deployment command
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh
+
+# Or for first-time deployment with data
+ORACLE_IP=144.24.xxx.xxx ./scripts/deploy-to-oracle.sh --upload-data --logs
+```
+
+The latest version of the deployment script (as of this documentation update) now:
+- ✅ Validates ORACLE_IP is set before starting
+- ✅ Checks .env exists on VM when using `--skip-env`
+- ✅ Creates .env if it doesn't exist (for recovery scenarios)
+- ✅ Verifies WEB_DOCS_URL was successfully injected
+- ✅ Provides clear error messages if anything fails
 
 ---
 
