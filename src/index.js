@@ -4,7 +4,6 @@ const path = require( 'node:path' );
 const services = require( './services/serviceContainer.js' );
 const { Bot } = require( './lib/bot.js' );
 const { runAfkMonitorTick, TICK_INTERVAL_MS } = require( './tasks/afkMonitorTask.js' );
-const dailyCloudSyncTask = require( './tasks/dailyCloudSyncTask.js' );
 
 // Bind a minimal HTTP server with secure routing
 // The bot is a WebSocket client — there is no real HTTP API here.
@@ -262,12 +261,6 @@ services.logger.info( '======================================= Application Start
     }, TICK_INTERVAL_MS );
 
     services.logger.debug( '✅ AFK monitor background task started' );
-
-    // Start daily cloud sync task
-    const cloudSyncTask = dailyCloudSyncTask.initialize( services );
-    if ( cloudSyncTask.enabled ) {
-      services.logger.info( '✅ Daily cloud sync task initialized' );
-    }
 
     // Initialize validation cache on startup
     services.validationService.loadCache();

@@ -18,7 +18,6 @@ const TokenService = require( './tokenService.js' );
 const RetryService = require( './retryService.js' );
 const AfkService = require( './afkService.js' );
 const validationService = require( './validationService.js' );
-const CloudStorageService = require( './cloudStorageService.js' );
 const VersionService = require( './versionService.js' );
 const DocumentationService = require( './documentationService.js' );
 const RateLimiterService = require( './rateLimiterService.js' );
@@ -77,22 +76,6 @@ const initializeDatabase = async () => {
   }
 };
 
-// Initialize cloud storage service
-const initializeCloudStorage = async () => {
-  try {
-    services.cloudStorageService = new CloudStorageService();
-    if ( services.cloudStorageService.isEnabled() ) {
-      // Load data from cloud on startup (if available)
-      await services.cloudStorageService.loadFromCloudOnStartup();
-      // Reload data service after cloud sync
-      await dataService.loadData();
-      services.data = dataService.getAllData();
-    }
-  } catch ( err ) {
-    logger.error( 'Failed to initialize CloudStorageService:', err );
-  }
-};
-
 const services = {
   // External services
   messageService,
@@ -106,7 +89,6 @@ const services = {
   config,
   dataService,
   databaseService: null, // Will be initialized async
-  cloudStorageService: null, // Will be initialized async
   featuresService,
   retryService,
   afkService,
@@ -173,7 +155,6 @@ const services = {
     }
 
     this.stateService = new StateService( this.hangoutState, this );
-    await initializeCloudStorage();
     this.logger.debug( 'StateService initialized with valid hangout state' );
   }
 };
