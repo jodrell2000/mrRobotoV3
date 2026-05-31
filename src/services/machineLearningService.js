@@ -403,11 +403,11 @@ class MachineLearningService {
         }
       } catch ( error ) {
         // Check if this is a rate limit / quota exceeded error (429)
-        const is429Error = error.status === 429 || 
-                          error.code === 429 || 
-                          error.message?.includes( '429' ) ||
-                          error.message?.toLowerCase().includes( 'quota' ) ||
-                          error.message?.toLowerCase().includes( 'rate limit' );
+        const is429Error = error.status === 429 ||
+          error.code === 429 ||
+          error.message?.includes( '429' ) ||
+          error.message?.toLowerCase().includes( 'quota' ) ||
+          error.message?.toLowerCase().includes( 'rate limit' );
 
         if ( is429Error ) {
           logger.error( `🤖 [MachineLearningService] API quota/rate limit exceeded (429). Resources have been exhausted for this API key. No further models will be attempted.` );
