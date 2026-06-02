@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Chat Service Migration:** Migrated from CometChat to OpenChat (tt.fm's CometChat-compatible endpoint)
+- **New Environment Variable:** Added `OPENCHAT_BASE_URL` configuration (defaults to `https://openchat.prod.tt.fm/`)
+- **Service Architecture:** Created `openchatApi.js` as drop-in replacement for `cometchatApi.js`
+- **Deprecated:** `cometchatApi.js` preserved but commented out for rollback capability
+
+### Removed
+- **Google Cloud Integration:** Removed all Google Cloud Run and Google Cloud Storage code
+  - Deleted `cloudStorageService.js`
+  - Deleted `dailyCloudSyncTask.js`
+  - Removed Google Cloud deployment scripts
+  - Oracle Cloud deployment (OCI) unaffected and remains fully functional
+
+### Fixed
+- All tests updated and passing (124+ tests for OpenChat services)
+
 ## Release History
 
 | Version | Date | Summary | Details |

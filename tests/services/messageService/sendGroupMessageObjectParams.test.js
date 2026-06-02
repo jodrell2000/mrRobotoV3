@@ -9,7 +9,7 @@ jest.mock( '../../../src/lib/logging.js', () => ( {
 } ) );
 
 jest.mock( 'axios' );
-jest.mock( '../../../src/services/cometchatApi', () => ( {
+jest.mock( '../../../src/services/openchatApi', () => ( {
   buildCustomData: jest.fn(),
   buildPayload: jest.fn(),
   sendMessage: jest.fn(),
@@ -24,7 +24,7 @@ jest.mock( '../../../src/services/cometchatApi', () => ( {
 // Now import the modules that use the mocked dependencies
 const axios = require( 'axios' );
 const { messageService } = require( '../../../src/services/messageService.js' );
-const cometchatApi = require( '../../../src/services/cometchatApi' );
+const openchatApi = require( '../../../src/services/openchatApi' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
 describe( 'messageService.sendGroupMessage - Object Parameters', () => {
@@ -34,8 +34,8 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
   beforeEach( () => {
     jest.clearAllMocks();
 
-    // Set up mock implementations for cometchatApi functions
-    cometchatApi.buildCustomData.mockImplementation( async ( message, services, senderUid, senderName, senderAvatarId, senderColor ) => ( {
+    // Set up mock implementations for openchatApi functions
+    openchatApi.buildCustomData.mockImplementation( async ( message, services, senderUid, senderName, senderAvatarId, senderColor ) => ( {
       message: message,
       avatarId: senderAvatarId || services.dataService?.getValue( 'botData.CHAT_AVATAR_ID' ),
       userName: senderName || services.dataService?.getValue( 'botData.CHAT_NAME' ),
@@ -46,7 +46,7 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
       id: 'mock-uuid'
     } ) );
 
-    cometchatApi.buildPayload.mockImplementation( async ( receiver, receiverType, customData, message ) => ( {
+    openchatApi.buildPayload.mockImplementation( async ( receiver, receiverType, customData, message ) => ( {
       receiver: receiver,
       receiverType: receiverType,
       category: 'message',
@@ -59,13 +59,13 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
       }
     } ) );
 
-    cometchatApi.sendMessage.mockResolvedValue( {
+    openchatApi.sendMessage.mockResolvedValue( {
       data: { success: true, id: 'msg-123' }
     } );
 
     // Set up spies for the tests that expect them
-    buildCustomDataSpy = jest.spyOn( cometchatApi, 'buildCustomData' );
-    buildPayloadSpy = jest.spyOn( cometchatApi, 'buildPayload' );
+    buildCustomDataSpy = jest.spyOn( openchatApi, 'buildCustomData' );
+    buildPayloadSpy = jest.spyOn( openchatApi, 'buildPayload' );
 
     // Mock services object for tests
     const mockServices = {
@@ -92,7 +92,7 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
 
   test( 'should handle object-style message with custom room', async () => {
     const mockResponse = { data: { id: 'msg-123', text: 'Test message' } };
-    cometchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
+    openchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
 
     const messageObj = {
       message: 'Test with custom room',
@@ -114,7 +114,7 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
 
   test( 'should handle object-style message with images', async () => {
     const mockResponse = { data: { id: 'msg-456' } };
-    cometchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
+    openchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
 
     const mockCustomDataWithImages = {
       message: "Test with images",
@@ -145,7 +145,7 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
 
   test( 'should handle object-style message with mentions', async () => {
     const mockResponse = { data: { id: 'msg-789' } };
-    cometchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
+    openchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
 
     const messageObj = {
       message: 'Test with mentions',
@@ -167,7 +167,7 @@ describe( 'messageService.sendGroupMessage - Object Parameters', () => {
 
   test( 'should handle string message with options.images', async () => {
     const mockResponse = { data: { id: 'msg-999' } };
-    cometchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
+    openchatApi.sendMessage.mockResolvedValueOnce( mockResponse );
 
     const mockCustomDataWithImages = {
       message: "String message with images",

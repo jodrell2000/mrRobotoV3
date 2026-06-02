@@ -782,6 +782,12 @@ class Bot {
       services: this.services
     } );
 
+    // Debug: Log message fetch results with IDs
+    // if ( allMessages?.length ) {
+    //   this.services.logger.debug( `[_fetchNewMessages] Fetched ${ allMessages.length } messages. IDs: ${ allMessages.map( m => m.id ).join( ', ' ) }` );
+    //   this.services.logger.debug( `[_fetchNewMessages] Last tracked ID: ${ effectiveLastMessageId || 'none' }` );
+    // }
+
     if ( allMessages?.length && this.services.afkService ) {
       for ( const msg of allMessages ) {
         const chatUuid = msg.data?.metadata?.chatMessage?.userUuid || msg.sender;

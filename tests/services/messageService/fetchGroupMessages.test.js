@@ -8,11 +8,11 @@ jest.mock( '../../../src/lib/logging.js', () => ( {
   }
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi' );
+jest.mock( '../../../src/services/openchatApi' );
 
 // Now import the modules that use the mocked dependencies
 const { messageService } = require( '../../../src/services/messageService.js' );
-const cometchatApi = require( '../../../src/services/cometchatApi' );
+const openchatApi = require( '../../../src/services/openchatApi' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
 describe( 'fetchGroupMessages', () => {
@@ -21,7 +21,7 @@ describe( 'fetchGroupMessages', () => {
   beforeEach( () => {
     jest.clearAllMocks();
     mockServices = {
-      cometchatApi
+      openchatApi
     };
   } );
 
@@ -52,7 +52,7 @@ describe( 'fetchGroupMessages', () => {
       }
     ];
 
-    cometchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
+    openchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
 
     const result = await messageService.fetchGroupMessages( null, { services: mockServices } );
 
@@ -85,7 +85,7 @@ describe( 'fetchGroupMessages', () => {
 
   test( 'logs an error when the API call fails', async () => {
     const error = new Error( 'Network failure' );
-    cometchatApi.fetchMessages = jest.fn().mockRejectedValue( error );
+    openchatApi.fetchMessages = jest.fn().mockRejectedValue( error );
 
     await messageService.fetchGroupMessages( null, { services: mockServices } );
 
@@ -95,7 +95,7 @@ describe( 'fetchGroupMessages', () => {
   } );
 
   test( 'returns empty array if no group messages are found', async () => {
-    cometchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: [] } } );
+    openchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: [] } } );
 
     const result = await messageService.fetchGroupMessages( null, { services: mockServices } );
     expect( result ).toEqual( [] );
@@ -111,7 +111,7 @@ describe( 'fetchGroupMessages', () => {
       }
     ];
 
-    cometchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
+    openchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
 
     const result = await messageService.fetchGroupMessages( null, { services: mockServices } );
 
@@ -141,7 +141,7 @@ describe( 'fetchGroupMessages', () => {
       }
     ];
 
-    cometchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
+    openchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
 
     const result = await messageService.fetchGroupMessages( null, { filterCommands: false, services: mockServices } );
 
@@ -190,7 +190,7 @@ describe( 'fetchGroupMessages', () => {
       }
     ];
 
-    cometchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
+    openchatApi.fetchMessages = jest.fn().mockResolvedValue( { data: { data: mockMessages } } );
 
     const result = await messageService.fetchGroupMessages( null, { services: mockServices } );
 

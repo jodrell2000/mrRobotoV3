@@ -6,6 +6,8 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 # Code Generation Guidelines
 
 ## General Guidelines
+- **NEVER make code changes without explicit approval** - Always explain what changes you plan to make and wait for confirmation before implementing them
+- When debugging or investigating issues, explain your findings and proposed solutions, then ask "Should I make these changes?" before proceeding
 - Keep responses concise and focused - when summarizing changes, provide one brief paragraph instead of verbose details
 - When implementing features, confirm understanding before proceeding if requirements are unclear
 

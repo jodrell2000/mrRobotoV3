@@ -1,6 +1,6 @@
 // src/services/privateMessageService.js
 const { v4: uuidv4 } = require( 'uuid' );
-const cometchatApi = require( './cometchatApi.js' );
+const openchatApi = require( './openchatApi.js' );
 const config = require( '../config.js' );
 const { logger } = require( '../lib/logging.js' );
 const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
@@ -14,16 +14,16 @@ const RECEIVER_TYPE = {
 // Helper functions
 // ===============
 
-// buildCustomData and buildPayload are now imported from cometchatApi
+// buildCustomData and buildPayload are now imported from openchatApi
 
 // ===============
 // Private Message Service
 // ===============
 
 const privateMessageService = {
-    // Helper functions (exported for testing) - now from cometchatApi
-    buildCustomData: cometchatApi.buildCustomData,
-    buildPayload: cometchatApi.buildPayload,
+    // Helper functions (exported for testing) - now from openchatApi
+    buildCustomData: openchatApi.buildCustomData,
+    buildPayload: openchatApi.buildPayload,
 
     /**
      * Send a private message to a user
@@ -34,9 +34,9 @@ const privateMessageService = {
      */
     sendPrivateMessage: async function ( theMessage, receiver, services ) {
         try {
-            const customData = await cometchatApi.buildCustomData( theMessage, services );
-            const payload = await cometchatApi.buildPayload( receiver, RECEIVER_TYPE.USER, customData, theMessage );
-            const response = await cometchatApi.sendMessage( payload );
+            const customData = await openchatApi.buildCustomData( theMessage, services );
+            const payload = await openchatApi.buildPayload( receiver, RECEIVER_TYPE.USER, customData, theMessage );
+            const response = await openchatApi.sendMessage( payload );
             // logger.debug( `✅ Private message sent: ${ JSON.stringify( response.data, null, 2 ) }` );
         } catch ( err ) {
             logger.error( `❌ Failed to send private message: ${ err.response?.data || err.message }` );
@@ -50,14 +50,14 @@ const privateMessageService = {
      */
     returnLastUserMessage: async function ( userID ) {
         // logger.debug( `🔍 [returnLastUserMessage] Starting fetch for user: ${userID}` );
-        
+
         try {
             // Use general messages endpoint with sender filtering for private conversations
-            const endpoint = `v3.0/messages?limit=1&receiverType=user&sender=${userID}`;
+            const endpoint = `v3.0/messages?limit=1&receiverType=user&sender=${ userID }`;
             // logger.debug( `🔍 [returnLastUserMessage] Calling endpoint: ${endpoint}` );
 
-            const response = await cometchatApi.fetchMessages( endpoint );
-            
+            const response = await openchatApi.fetchMessages( endpoint );
+
             // logger.debug( `🔍 [returnLastUserMessage] Response received - status: ${response?.status}` );
             // logger.debug( `🔍 [returnLastUserMessage] - Response.data.data length: ${Array.isArray(response?.data?.data) ? response.data.data.length : 'not an array'}` );
 
@@ -89,14 +89,14 @@ const privateMessageService = {
      */
     returnLastUserMessageTracking: async function ( userID ) {
         // logger.debug( `🔍 [returnLastUserMessageTracking] Starting fetch for user: ${userID}` );
-        
+
         try {
             // Use general messages endpoint with sender filtering for private conversations
-            const endpoint = `v3.0/messages?limit=1&receiverType=user&sender=${userID}`;
+            const endpoint = `v3.0/messages?limit=1&receiverType=user&sender=${ userID }`;
             // logger.debug( `🔍 [returnLastUserMessageTracking] Calling endpoint: ${endpoint}` );
 
-            const response = await cometchatApi.fetchMessages( endpoint );
-            
+            const response = await openchatApi.fetchMessages( endpoint );
+
             // logger.debug( `🔍 [returnLastUserMessageTracking] Response received - status: ${response?.status}` );
             // logger.debug( `🔍 [returnLastUserMessageTracking] - Response.data.data length: ${Array.isArray(response?.data?.data) ? response.data.data.length : 'not an array'}` );
 
@@ -153,13 +153,13 @@ const privateMessageService = {
         try {
             if ( lastMessageID ) {
                 // Mark specific message as read
-                const conversationUrl = `${ cometchatApi.BASE_URL }/v3/messages/${ lastMessageID }/interactions`;
-                await cometchatApi.markConversationAsRead( conversationUrl );
+                const conversationUrl = `${ openchatApi.BASE_URL }/v3/messages/${ lastMessageID }/interactions`;
+                await openchatApi.markConversationAsRead( conversationUrl );
                 // logger.debug( `✅ Message marked as read: ${ lastMessageID }` );
             } else {
                 // Mark entire conversation as read
-                const conversationUrl = `${ cometchatApi.BASE_URL }/v3/users/${ config.COMETCHAT_RECEIVER_UID }/conversation/read`;
-                await cometchatApi.markConversationAsRead( conversationUrl );
+                const conversationUrl = `${ openchatApi.BASE_URL }/v3/users/${ config.COMETCHAT_RECEIVER_UID }/conversation/read`;
+                await openchatApi.markConversationAsRead( conversationUrl );
                 // logger.debug( `✅ Conversation marked as read for user: ${ config.COMETCHAT_RECEIVER_UID }` );
             }
         } catch ( err ) {
@@ -180,34 +180,34 @@ const privateMessageService = {
      */
     fetchNewPrivateUserMessages: async function ( userUUID, options = {} ) {
         const { lastMessageId, lastTimestamp, logLastMessage = false, returnData = true } = options;
-        
+
         // logger.debug( `🔍 [fetchNewPrivateUserMessages] Starting fetch for user: ${userUUID}` );
         // logger.debug( `🔍 [fetchNewPrivateUserMessages] Options: ${JSON.stringify(options)}` );
-        
+
         try {
             // Use general messages endpoint with sender filtering for private conversations
             // This approach uses the 'sender' parameter with onBehalfOf header to filter messages 
             // from common conversations between the bot and the specified user
-            let endpoint = `v3.0/messages?limit=100&receiverType=user&sender=${userUUID}`;
+            let endpoint = `v3.0/messages?limit=100&receiverType=user&sender=${ userUUID }`;
             endpoint += `&hideMessagesFromBlockedUsers=0&unread=0&withTags=0&undelivered=0&hideDeleted=0`;
-            
+
             // Use timestamp filtering for more reliable filtering
             if ( lastTimestamp ) {
                 // Convert to seconds if it's in milliseconds and add 1 second to exclude the last message
-                const timestamp = lastTimestamp > 9999999999 ? Math.floor(lastTimestamp / 1000) : lastTimestamp;
+                const timestamp = lastTimestamp > 9999999999 ? Math.floor( lastTimestamp / 1000 ) : lastTimestamp;
                 const filterTimestamp = timestamp + 1;
-                endpoint += `&fromTimestamp=${filterTimestamp}`;
+                endpoint += `&fromTimestamp=${ filterTimestamp }`;
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] Using timestamp filter: ${filterTimestamp} (original: ${timestamp})` );
             }
             // Only use message ID as fallback info for debugging
             if ( lastMessageId ) {
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] Last message ID for reference: ${lastMessageId}` );
             }
-            
+
             // logger.debug( `🔍 [fetchNewPrivateUserMessages] Calling endpoint: ${endpoint}` );
-            
-            const response = await cometchatApi.fetchMessages( endpoint );
-            
+
+            const response = await openchatApi.fetchMessages( endpoint );
+
             // logger.debug( `🔍 [fetchNewPrivateUserMessages] Response received - status: ${response?.status}` );
             // logger.debug( `🔍 [fetchNewPrivateUserMessages] - Response.data.data length: ${Array.isArray(response?.data?.data) ? response.data.data.length : 'not an array'}` );
 
@@ -221,44 +221,44 @@ const privateMessageService = {
 
             const messages = response.data.data;
             // logger.debug( `🔍 [fetchNewPrivateUserMessages] Found ${messages.length} total messages from API` );
-            
+
             // Client-side filtering to ensure we don't process old messages
             let filteredMessages = messages;
-            
+
             if ( lastMessageId ) {
                 // Filter out messages with ID <= lastMessageId
-                filteredMessages = messages.filter( msg => parseInt(msg.id) > parseInt(lastMessageId) );
+                filteredMessages = messages.filter( msg => parseInt( msg.id ) > parseInt( lastMessageId ) );
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] After message ID filtering (>${lastMessageId}): ${filteredMessages.length} messages` );
             }
-            
+
             if ( lastTimestamp && filteredMessages.length > 0 ) {
                 // Further filter by timestamp as additional safety
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] Before timestamp filtering: ${filteredMessages.length} messages` );
                 // filteredMessages.forEach( (msg, idx) => {
                 //     logger.debug( `🔍 [fetchNewPrivateUserMessages] Message ${idx} timestamp: ${msg.sentAt} vs lastTimestamp: ${lastTimestamp}` );
                 // });
-                
+
                 // Normalize timestamps to same precision for comparison
                 // CometChat sometimes returns seconds, sometimes milliseconds
-                const normalizeTimestamp = (ts) => {
+                const normalizeTimestamp = ( ts ) => {
                     // If timestamp looks like seconds (< 10 digits), convert to milliseconds
                     return ts < 9999999999 ? ts * 1000 : ts;
                 };
-                
-                const normalizedLastTimestamp = normalizeTimestamp(lastTimestamp);
+
+                const normalizedLastTimestamp = normalizeTimestamp( lastTimestamp );
                 filteredMessages = filteredMessages.filter( msg => {
-                    const normalizedMsgTimestamp = normalizeTimestamp(msg.sentAt);
+                    const normalizedMsgTimestamp = normalizeTimestamp( msg.sentAt );
                     // logger.debug( `🔍 [fetchNewPrivateUserMessages] Comparing normalized: ${normalizedMsgTimestamp} > ${normalizedLastTimestamp}` );
                     return normalizedMsgTimestamp > normalizedLastTimestamp;
-                });
+                } );
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] After timestamp filtering (>${lastTimestamp}): ${filteredMessages.length} messages` );
             }
-            
+
             // logger.debug( `🔍 [fetchNewPrivateUserMessages] Final filtered message count: ${filteredMessages.length}` );
-            
+
             // Log the last message if requested
             if ( logLastMessage && filteredMessages.length > 0 ) {
-                const lastMessage = filteredMessages[0]; // Messages are typically in reverse chronological order
+                const lastMessage = filteredMessages[ 0 ]; // Messages are typically in reverse chronological order
                 const text = lastMessage.data?.text || '[No Text]';
                 const sender = lastMessage.sender?.uid || lastMessage.sender || 'Unknown';
                 // logger.debug( `📥 New private message from ${ sender }: ${ text }` );
@@ -270,9 +270,9 @@ const privateMessageService = {
                 return [];
             }
 
-            const simplifiedMessages = filteredMessages.map( (msg, index) => {
+            const simplifiedMessages = filteredMessages.map( ( msg, index ) => {
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] Processing message ${index}: ${JSON.stringify(msg, null, 2)}` );
-                
+
                 const customData = msg.data?.metadata?.chatMessage;
 
                 // Extract sender UUID from nested structure (same as groupMessageService)
@@ -288,7 +288,7 @@ const privateMessageService = {
                     sentAt: msg.sentAt,
                     customData: customData || null
                 };
-                
+
                 // logger.debug( `🔍 [fetchNewPrivateUserMessages] Simplified message ${index}: ${JSON.stringify(simplified, null, 2)}` );
                 return simplified;
             } );
@@ -312,18 +312,18 @@ const privateMessageService = {
      */
     fetchAllPrivateUserMessages: async function ( userUUID, options = {} ) {
         const { logLastMessage = false, returnData = true } = options;
-        
+
         // logger.debug( `🔍 [fetchAllPrivateUserMessages] Starting fetch for user: ${userUUID}` );
         // logger.debug( `🔍 [fetchAllPrivateUserMessages] Options: ${JSON.stringify(options)}` );
-        
+
         try {
             // Use the correct CometChat REST API endpoint for fetching messages
             // This fetches messages where the sender is the specified user and receiver type is 'user'
-            const endpoint = `v3/messages?receiverType=user&sender=${userUUID}&limit=100`;
+            const endpoint = `v3/messages?receiverType=user&sender=${ userUUID }&limit=100`;
             // logger.debug( `🔍 [fetchAllPrivateUserMessages] Calling endpoint: ${endpoint}` );
-            
-            const response = await cometchatApi.fetchMessages( endpoint );
-            
+
+            const response = await openchatApi.fetchMessages( endpoint );
+
             // logger.debug( `🔍 [fetchAllPrivateUserMessages] Response received - status: ${response?.status}` );
             // logger.debug( `🔍 [fetchAllPrivateUserMessages] - Response.data type: ${typeof response?.data}` );
             // logger.debug( `🔍 [fetchAllPrivateUserMessages] - Response.data.data length: ${Array.isArray(response?.data?.data) ? response.data.data.length : 'not an array'}` );
@@ -338,11 +338,11 @@ const privateMessageService = {
 
             const messages = response.data.data;
             // logger.debug( `🔍 [fetchAllPrivateUserMessages] Found ${messages.length} messages` );
-            
+
             // Log the last message if requested
             if ( logLastMessage ) {
                 if ( messages.length > 0 ) {
-                    const lastMessage = messages[0]; // Messages are typically in reverse chronological order
+                    const lastMessage = messages[ 0 ]; // Messages are typically in reverse chronological order
                     const text = lastMessage.data?.text || '[No Text]';
                     const sender = lastMessage.sender?.uid || lastMessage.sender || 'Unknown';
                     // logger.debug( `📥 Private message from ${ sender }: ${ text }` );
@@ -357,9 +357,9 @@ const privateMessageService = {
                 return [];
             }
 
-            const simplifiedMessages = messages.map( (msg, index) => {
+            const simplifiedMessages = messages.map( ( msg, index ) => {
                 // logger.debug( `🔍 [fetchAllPrivateUserMessages] Processing message ${index}: ${JSON.stringify(msg, null, 2)}` );
-                
+
                 const customData = msg.data?.metadata?.chatMessage;
 
                 // Extract sender UUID from nested structure (same as groupMessageService)
@@ -375,7 +375,7 @@ const privateMessageService = {
                     sentAt: msg.sentAt,
                     customData: customData || null
                 };
-                
+
                 // logger.debug( `🔍 [fetchAllPrivateUserMessages] Simplified message ${index}: ${JSON.stringify(simplified, null, 2)}` );
                 return simplified;
             } );

@@ -16,6 +16,7 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 3: Registering Your Bot with Hang.fm](#step-3-registering-your-bot-with-hangfm)
    - [Step 4: Getting Bot Tokens](#step-4-getting-bot-tokens)
    - [Step 5: Obtaining a Chat Token](#step-5-obtaining-a-chat-token)
+   - [Step 5a: Configure OpenChat Base URL (Optional)](#step-5a-configure-openchat-base-url-optional)
    - [Step 6: Getting the Bot UUID](#step-6-getting-the-bot-uuid)
    - [Step 7: Tell the bot which Hangout enter](#step-7-tell-the-bot-which-hangout-enter)
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
@@ -147,6 +148,21 @@ Next we're going to use the Bot token to get the COMETCHAT_AUTH_TOKEN to add to 
       }
       ```
    * Copy the value from this response, without the quotes, and paste it into your .env file replacing 'paste-your-comet-chat-auth-token-here'
+
+## Step 5a: Configure OpenChat Base URL (Optional)
+**Time: ~1 minute**
+
+The bot uses OpenChat (tt.fm's CometChat-compatible chat service) for all chat operations. By default, the bot automatically uses the production OpenChat endpoint, so this step is optional.
+
+**Default behavior:** If you don't set `OPENCHAT_BASE_URL`, the bot uses `https://openchat.prod.tt.fm/`
+
+**To explicitly set it (optional):**
+   * Open your .env file
+   * Find the line that says `OPENCHAT_BASE_URL="paste-openchat-base-url-here"`
+   * Replace it with: `OPENCHAT_BASE_URL="https://openchat.prod.tt.fm/"`
+   * Or simply delete this line to use the default
+
+> 💡 **NOTE**: This variable is only needed if you're using a custom or development OpenChat endpoint. Most users can skip this step or delete this line from their .env file.
 
 ## Step 6: Getting the Bot UUID
 **Time: ~2 minutes**

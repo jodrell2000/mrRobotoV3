@@ -13,7 +13,7 @@ jest.mock('../../../src/lib/buildUrl.js', () => ({
   makeRequest: jest.fn()
 }));
 
-jest.mock('../../../src/services/cometchatApi.js', () => ({
+jest.mock('../../../src/services/openchatApi.js', () => ({
   BASE_URL: 'https://test-api.cometchat.com',
   apiClient: {
     get: jest.fn(),
@@ -32,7 +32,7 @@ jest.mock('../../../src/config.js', () => ({
 
 const { messageService } = require('../../../src/services/messageService.js');
 const { buildUrl, makeRequest } = require('../../../src/lib/buildUrl.js');
-const cometchatApi = require('../../../src/services/cometchatApi.js');
+const openchatApi = require('../../../src/services/openchatApi.js');
 const config = require('../../../src/config.js');
 const { logger } = require('../../../src/lib/logging.js');
 

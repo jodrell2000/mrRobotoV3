@@ -8,7 +8,7 @@ jest.mock( '../../../src/lib/logging.js', () => ( {
   }
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi', () => ({
+jest.mock( '../../../src/services/openchatApi', () => ({
   buildCustomData: jest.fn(),
   buildPayload: jest.fn(),
   sendMessage: jest.fn(),
@@ -22,7 +22,7 @@ jest.mock( '../../../src/services/cometchatApi', () => ({
 
 // Now import the modules that use the mocked dependencies
 const { messageService } = require( '../../../src/services/messageService.js' );
-const cometchatApi = require( '../../../src/services/cometchatApi' );
+const openchatApi = require( '../../../src/services/openchatApi' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
 describe( 'messageService', () => {
@@ -31,8 +31,8 @@ describe( 'messageService', () => {
   beforeEach( () => {
     jest.clearAllMocks();
     
-    // Set up mock implementations for cometchatApi functions
-    cometchatApi.buildCustomData.mockImplementation(async (message, services) => ({
+    // Set up mock implementations for openchatApi functions
+    openchatApi.buildCustomData.mockImplementation(async (message, services) => ({
       message: message,
       avatarId: services.dataService?.getValue('botData.CHAT_AVATAR_ID'),
       userName: services.dataService?.getValue('botData.CHAT_NAME'),
@@ -43,7 +43,7 @@ describe( 'messageService', () => {
       id: 'mock-uuid'
     }));
 
-    cometchatApi.buildPayload.mockImplementation(async (receiver, receiverType, customData, message) => ({
+    openchatApi.buildPayload.mockImplementation(async (receiver, receiverType, customData, message) => ({
       receiver: receiver,
       receiverType: receiverType,
       category: 'message',
@@ -74,14 +74,14 @@ describe( 'messageService', () => {
   } );
 
   test( 'sendPrivateMessage sends correct payload with resolved customData', async () => {
-    cometchatApi.sendMessage.mockResolvedValue( {
+    openchatApi.sendMessage.mockResolvedValue( {
       data: { success: true, message: 'Message sent successfully!' }
     } );
 
     await messageService.sendPrivateMessage( 'Hello Test', 'test-receiver', mockServices );
 
-    expect( cometchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
-    const calledPayload = cometchatApi.sendMessage.mock.calls[ 0 ][ 0 ]; // first argument of cometchatApi.sendMessage
+    expect( openchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
+    const calledPayload = openchatApi.sendMessage.mock.calls[ 0 ][ 0 ]; // first argument of openchatApi.sendMessage
 
     // Assert that customData was resolved properly (not a Promise)
     expect( calledPayload ).toHaveProperty( 'data.metadata.chatMessage.message', 'Hello Test' );
@@ -96,11 +96,11 @@ describe( 'messageService', () => {
       message: 'Unauthorized'
     };
 
-    cometchatApi.sendMessage.mockRejectedValue( error );
+    openchatApi.sendMessage.mockRejectedValue( error );
 
     await messageService.sendPrivateMessage( 'Hello Error', 'test-receiver', mockServices );
 
-    expect( cometchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
+    expect( openchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
     expect( logger.error ).toHaveBeenCalledWith(
       expect.stringContaining( '❌ Failed to send private message: Unauthorized' )
     );
@@ -108,7 +108,7 @@ describe( 'messageService', () => {
 
   test( 'sendPrivateMessage logs error message when err.response is undefined', async () => {
     const error = new Error( 'Network failure' );
-    cometchatApi.sendMessage.mockRejectedValue( error );
+    openchatApi.sendMessage.mockRejectedValue( error );
 
     await messageService.sendPrivateMessage( 'Hello Error', 'test-receiver', mockServices );
 
@@ -118,17 +118,17 @@ describe( 'messageService', () => {
   } );
 
   test( 'sendPrivateMessage logs error on cometchat failure with response data', async () => {
-    // Mock cometchatApi.sendMessage to reject with an error object
+    // Mock openchatApi.sendMessage to reject with an error object
     const error = {
       response: {
         data: { message: 'Private message failed' }
       }
     };
-    cometchatApi.sendMessage.mockRejectedValue( error );
+    openchatApi.sendMessage.mockRejectedValue( error );
 
     await messageService.sendPrivateMessage( 'Test private message', 'test-receiver', mockServices );
 
-    expect( cometchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
+    expect( openchatApi.sendMessage ).toHaveBeenCalledTimes( 1 );
     expect( logger.error ).toHaveBeenCalledWith(
       expect.stringContaining( '❌ Failed to send private message:' )
     );

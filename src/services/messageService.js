@@ -3,7 +3,7 @@
 
 const groupMessageService = require( './groupMessageService.js' );
 const privateMessageService = require( './privateMessageService.js' );
-const cometchatApi = require( './cometchatApi.js' );
+const openchatApi = require( './openchatApi.js' );
 const { buildUrl } = require( '../lib/buildUrl.js' );
 const { logger } = require( '../lib/logging.js' );
 
@@ -116,7 +116,7 @@ const messageService = {
     for ( let i = 0; i <= MAX_LOOKBACK_MINUTES; i++ ) {
       const lookbackTimestamp = now - i * 60;
 
-      const url = buildUrl( cometchatApi.BASE_URL, [
+      const url = buildUrl( openchatApi.BASE_URL, [
         'v3.0', 'groups', config.HANGOUT_ID, 'messages'
       ], [
         [ 'per_page', 1 ],
@@ -131,7 +131,7 @@ const messageService = {
 
       // logger.debug( `[messageService] returnLatestGroupMessageId - url: ${ url }` );
       try {
-        const res = await cometchatApi.apiClient.get( url );
+        const res = await openchatApi.apiClient.get( url );
         const messages = res.data?.data;
 
         if ( Array.isArray( messages ) && messages.length > 0 ) {

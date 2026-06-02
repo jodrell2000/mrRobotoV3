@@ -168,9 +168,9 @@ services.documentationService = new DocumentationService( {
   services: services
 } );
 
-// Initialize retry service connection to CometChat API
-const cometchatApi = require( './cometchatApi.js' );
-cometchatApi.setRetryService( retryService );
+// Initialize retry service connection to OpenChat API
+const openchatApi = require( './openchatApi.js' );
+openchatApi.setRetryService( retryService );
 
 // Initialize data asynchronously
 const initializeServices = async () => {

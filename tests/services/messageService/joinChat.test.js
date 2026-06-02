@@ -12,7 +12,7 @@ jest.mock( '../../../src/lib/buildUrl.js', () => ( {
   makeRequest: jest.fn()
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi.js', () => ( {
+jest.mock( '../../../src/services/openchatApi.js', () => ( {
   headers: {
     'Content-Type': 'application/json',
     'apiKey': 'test-api-key'
@@ -31,7 +31,7 @@ jest.mock( '../../../src/config.js', () => ( {
 
 const { messageService } = require( '../../../src/services/messageService.js' );
 const { makeRequest } = require( '../../../src/lib/buildUrl.js' );
-const cometchatApi = require( '../../../src/services/cometchatApi.js' );
+const openchatApi = require( '../../../src/services/openchatApi.js' );
 const config = require( '../../../src/config.js' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
@@ -42,17 +42,17 @@ describe( 'messageService.joinChat', () => {
 
   test( 'should successfully join chat room', async () => {
     const mockResponse = { data: { success: true } };
-    cometchatApi.joinChatGroup.mockResolvedValue( mockResponse );
+    openchatApi.joinChatGroup.mockResolvedValue( mockResponse );
 
     const result = await messageService.joinChat( 'test-room-id' );
 
-    expect( cometchatApi.joinChatGroup ).toHaveBeenCalledWith( 'test-room-id' );
+    expect( openchatApi.joinChatGroup ).toHaveBeenCalledWith( 'test-room-id' );
     expect( result ).toBe( mockResponse );
   } );
 
   test( 'should handle already joined error gracefully', async () => {
     const alreadyJoinedError = new Error( 'ERR_ALREADY_JOINED: User already joined' );
-    cometchatApi.joinChatGroup.mockRejectedValue( alreadyJoinedError );
+    openchatApi.joinChatGroup.mockRejectedValue( alreadyJoinedError );
 
     const result = await messageService.joinChat( 'test-room-id' );
 
@@ -62,7 +62,7 @@ describe( 'messageService.joinChat', () => {
 
   test( 'should handle other errors by throwing', async () => {
     const otherError = new Error( 'Network error' );
-    cometchatApi.joinChatGroup.mockRejectedValue( otherError );
+    openchatApi.joinChatGroup.mockRejectedValue( otherError );
 
     await expect( messageService.joinChat( 'test-room-id' ) ).rejects.toThrow( 'Network error' );
 
@@ -71,7 +71,7 @@ describe( 'messageService.joinChat', () => {
 
   test( 'should handle errors without message property', async () => {
     const errorWithoutMessage = { status: 500 };
-    cometchatApi.joinChatGroup.mockRejectedValue( errorWithoutMessage );
+    openchatApi.joinChatGroup.mockRejectedValue( errorWithoutMessage );
 
     await expect( messageService.joinChat( 'test-room-id' ) ).rejects.toEqual( errorWithoutMessage );
   } );

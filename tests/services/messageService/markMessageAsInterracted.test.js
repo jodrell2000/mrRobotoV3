@@ -13,7 +13,7 @@ jest.mock( 'axios', () => ( {
   post: jest.fn()
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi.js', () => ( {
+jest.mock( '../../../src/services/openchatApi.js', () => ( {
   BASE_URL: 'https://test-api.cometchat.com',
   headers: {
     'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ jest.mock( '../../../src/config.js', () => ( {
 
 const { messageService } = require( '../../../src/services/messageService.js' );
 const axios = require( 'axios' );
-const cometchatApi = require( '../../../src/services/cometchatApi.js' );
+const openchatApi = require( '../../../src/services/openchatApi.js' );
 const config = require( '../../../src/config.js' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
@@ -40,12 +40,12 @@ describe( 'messageService - Mark Conversation Functions', () => {
   describe( 'markMessageAsInterracted (conversation read)', () => {
     test( 'should successfully mark conversation as read', async () => {
       const mockResponse = { data: { success: true }, status: 200, headers: {} };
-      cometchatApi.markConversationAsRead.mockResolvedValue( mockResponse );
+      openchatApi.markConversationAsRead.mockResolvedValue( mockResponse );
 
       await messageService.markMessageAsInterracted();
 
-      expect( cometchatApi.markConversationAsRead ).toHaveBeenCalledWith(
-        `${ cometchatApi.BASE_URL }/v3/users/${ config.COMETCHAT_RECEIVER_UID }/conversation/read`
+      expect( openchatApi.markConversationAsRead ).toHaveBeenCalledWith(
+        `${ openchatApi.BASE_URL }/v3/users/${ config.COMETCHAT_RECEIVER_UID }/conversation/read`
       );
     } );
 
@@ -58,7 +58,7 @@ describe( 'messageService - Mark Conversation Functions', () => {
         },
         message: 'Request failed with status code 404'
       };
-      cometchatApi.markConversationAsRead.mockRejectedValue( error );
+      openchatApi.markConversationAsRead.mockRejectedValue( error );
 
       try {
         await messageService.markMessageAsInterracted();
@@ -73,7 +73,7 @@ describe( 'messageService - Mark Conversation Functions', () => {
 
     test( 'should handle network errors', async () => {
       const error = new Error( 'Connection refused' );
-      cometchatApi.markConversationAsRead.mockRejectedValue( error );
+      openchatApi.markConversationAsRead.mockRejectedValue( error );
 
       try {
         await messageService.markMessageAsInterracted();

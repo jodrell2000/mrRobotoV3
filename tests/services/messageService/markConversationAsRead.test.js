@@ -13,7 +13,7 @@ jest.mock( 'axios', () => ( {
   patch: jest.fn()
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi.js', () => ( {
+jest.mock( '../../../src/services/openchatApi.js', () => ( {
   BASE_URL: 'https://test-api.cometchat.com',
   headers: {
     'Content-Type': 'application/json',
@@ -30,7 +30,7 @@ jest.mock( '../../../src/config.js', () => ( {
 
 const { messageService } = require( '../../../src/services/messageService.js' );
 const axios = require( 'axios' );
-const cometchatApi = require( '../../../src/services/cometchatApi.js' );
+const openchatApi = require( '../../../src/services/openchatApi.js' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
 describe( 'messageService.markMessageAsInterracted (conversation read)', () => {
@@ -44,11 +44,11 @@ describe( 'messageService.markMessageAsInterracted (conversation read)', () => {
       data: { success: true },
       headers: { 'content-type': 'application/json' }
     };
-    cometchatApi.markConversationAsRead.mockResolvedValue( mockResponse );
+    openchatApi.markConversationAsRead.mockResolvedValue( mockResponse );
 
     await messageService.markMessageAsInterracted();
 
-    expect( cometchatApi.markConversationAsRead ).toHaveBeenCalledWith(
+    expect( openchatApi.markConversationAsRead ).toHaveBeenCalledWith(
       'https://test-api.cometchat.com/v3/users/test-receiver-uid/conversation/read'
     );
   } );
@@ -61,7 +61,7 @@ describe( 'messageService.markMessageAsInterracted (conversation read)', () => {
         headers: { 'content-type': 'application/json' }
       }
     };
-    cometchatApi.markConversationAsRead.mockRejectedValue( apiError );
+    openchatApi.markConversationAsRead.mockRejectedValue( apiError );
 
     try {
       await messageService.markMessageAsInterracted();
@@ -76,7 +76,7 @@ describe( 'messageService.markMessageAsInterracted (conversation read)', () => {
 
   test( 'should handle network errors without response', async () => {
     const networkError = new Error( 'Network connection failed' );
-    cometchatApi.markConversationAsRead.mockRejectedValue( networkError );
+    openchatApi.markConversationAsRead.mockRejectedValue( networkError );
 
     try {
       await messageService.markMessageAsInterracted();
@@ -97,7 +97,7 @@ describe( 'messageService.markMessageAsInterracted (conversation read)', () => {
       },
       message: 'Internal server error'
     };
-    cometchatApi.markConversationAsRead.mockRejectedValue( errorWithEmptyResponse );
+    openchatApi.markConversationAsRead.mockRejectedValue( errorWithEmptyResponse );
 
     try {
       await messageService.markMessageAsInterracted();

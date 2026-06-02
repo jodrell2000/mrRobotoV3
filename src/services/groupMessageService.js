@@ -1,6 +1,6 @@
 // src/services/groupMessageService.js
 const { v4: uuidv4 } = require( 'uuid' );
-const cometchatApi = require( './cometchatApi.js' );
+const openchatApi = require( './openchatApi.js' );
 const config = require( '../config.js' );
 const { logger } = require( '../lib/logging.js' );
 const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
@@ -16,7 +16,7 @@ let latestGroupMessageId = null;
 // Helper functions
 // ===============
 
-// buildCustomData and buildPayload are now imported from cometchatApi
+// buildCustomData and buildPayload are now imported from openchatApi
 
 function setLatestGroupMessageId ( id ) {
     latestGroupMessageId = id;
@@ -43,9 +43,9 @@ function filterMessagesForCommands ( messages ) {
 // ===============
 
 const groupMessageService = {
-    // Helper functions (exported for testing) - now from cometchatApi
-    buildCustomData: cometchatApi.buildCustomData,
-    buildPayload: cometchatApi.buildPayload,
+    // Helper functions (exported for testing) - now from openchatApi
+    buildCustomData: openchatApi.buildCustomData,
+    buildPayload: openchatApi.buildPayload,
     getLatestGroupMessageId,
     setLatestGroupMessageId,
     filterMessagesForCommands,
@@ -57,7 +57,7 @@ const groupMessageService = {
      */
     joinChat: async function ( roomId ) {
         try {
-            const response = await cometchatApi.joinChatGroup( roomId );
+            const response = await openchatApi.joinChatGroup( roomId );
             return response;
         } catch ( error ) {
             if ( error.message && error.message.includes( 'ERR_ALREADY_JOINED' ) ) {
@@ -77,7 +77,7 @@ const groupMessageService = {
      */
     leaveChat: async function ( roomId ) {
         try {
-            const response = await cometchatApi.leaveChatGroup( roomId );
+            const response = await openchatApi.leaveChatGroup( roomId );
             return response;
         } catch ( error ) {
             logger.error( `❌ Error leaving chat: ${ error.message }` );
@@ -124,7 +124,7 @@ const groupMessageService = {
                 throw new Error( 'Message content is required' );
             }
 
-            const customData = await cometchatApi.buildCustomData( message, options.services || {}, senderUid, senderName, senderAvatarId, senderColor );
+            const customData = await openchatApi.buildCustomData( message, options.services || {}, senderUid, senderName, senderAvatarId, senderColor );
 
             if ( images ) {
                 customData.imageUrls = images;
@@ -138,9 +138,9 @@ const groupMessageService = {
                 } ) );
             }
 
-            const payload = await cometchatApi.buildPayload( room, receiverType, customData, message );
+            const payload = await openchatApi.buildPayload( room, receiverType, customData, message );
 
-            const response = await cometchatApi.sendMessage( payload );
+            const response = await openchatApi.sendMessage( payload );
 
             return {
                 message: message,
@@ -223,15 +223,18 @@ const groupMessageService = {
             // logger.debug( `[GroupMessage] - resolved messageId: ${ messageId }` );
 
             if ( messageId ) {
-                params.push( [ 'id', messageId ] );
-                // logger.debug( `[GroupMessage] - Added id parameter: ${ messageId }` );
+                // Increment message ID by 1 to get only messages AFTER this ID (exclusive filter)
+                const nextMessageId = parseInt( messageId ) + 1;
+                params.push( [ 'id', nextMessageId ] );
+                // logger.debug( `[GroupMessage] - Added id parameter: ${ nextMessageId } (original: ${ messageId })` );
+                // Don't add updatedAt when we have a message ID - OpenChat prioritizes updatedAt over id
             } else {
                 // logger.debug( `[GroupMessage] - No messageId available, fetching latest messages` );
-            }
-
-            if ( fromTimestamp ) {
-                params.push( [ 'updatedAt', fromTimestamp ] );
-                // logger.debug( `[GroupMessage] - Added updatedAt parameter: ${ fromTimestamp }` );
+                // Only use updatedAt when we don't have a message ID
+                if ( fromTimestamp ) {
+                    params.push( [ 'updatedAt', fromTimestamp ] );
+                    // logger.debug( `[GroupMessage] - Added updatedAt parameter: ${ fromTimestamp }` );
+                }
             }
 
             if ( limit !== 50 ) {
@@ -292,6 +295,7 @@ const groupMessageService = {
 
             // if ( formattedMessages?.length > 0 ) {
             //     logger.debug( `[GroupMessage] - Returning message IDs: ${ formattedMessages.map( m => m.id ).join( ', ' ) }` );
+            //     logger.debug( `[GroupMessage] - Returning message senders: ${ formattedMessages.map( m => m.sender ).join( ', ' ) }` );
             //     logger.debug( `[GroupMessage] - First message timestamp: ${ formattedMessages[ 0 ]?.sentAt }` );
             //     logger.debug( `[GroupMessage] - Last message timestamp: ${ formattedMessages[ formattedMessages.length - 1 ]?.sentAt }` );
             // } else {
@@ -329,8 +333,8 @@ const groupMessageService = {
             const finalParams = [ ...defaultParams, ...params ];
 
 
-            // Use cometchatApi.fetchMessages with the correct endpoint format
-            const response = await cometchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );
+            // Use openchatApi.fetchMessages with the correct endpoint format
+            const response = await openchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );
 
             // Debug: Log the response
             // logger.debug( `[GroupMessageRaw] Response status: ${ response.status }` );

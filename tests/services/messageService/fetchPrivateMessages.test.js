@@ -8,11 +8,11 @@ jest.mock('../../../src/lib/logging.js', () => ({
   }
 }));
 
-jest.mock('../../../src/services/cometchatApi');
+jest.mock('../../../src/services/openchatApi');
 
 // Now import the modules that use the mocked dependencies
 const { messageService } = require('../../../src/services/messageService.js');
-const cometchatApi = require('../../../src/services/cometchatApi');
+const openchatApi = require('../../../src/services/openchatApi');
 const { logger } = require('../../../src/lib/logging.js');
 
 describe('fetchAllPrivateUserMessages with logging options', () => {
@@ -21,7 +21,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
     jest.clearAllMocks();
     
     // Mock the fetchMessages method
-    cometchatApi.fetchMessages = jest.fn();
+    openchatApi.fetchMessages = jest.fn();
   });
 
   afterEach(() => {
@@ -42,7 +42,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
       }
     ];
 
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: mockMessages
       }
@@ -67,7 +67,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
       }
     ];
 
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: mockMessages
       }
@@ -80,7 +80,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
   });
 
   test('handles when no messages exist', async () => {
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: []
       }
@@ -93,7 +93,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
   });
 
   test('logs an error when the API call fails', async () => {
-    cometchatApi.fetchMessages.mockRejectedValue(new Error('Request failed'));
+    openchatApi.fetchMessages.mockRejectedValue(new Error('Request failed'));
 
     await messageService.fetchAllPrivateUserMessages('test-user-uuid', { logLastMessage: true, returnData: false });
 
@@ -115,7 +115,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
       }
     ];
 
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: mockMessages
       }
@@ -138,7 +138,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
       }
     ];
 
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: mockMessages
       }
@@ -169,7 +169,7 @@ describe('fetchAllPrivateUserMessages with logging options', () => {
       }
     ];
 
-    cometchatApi.fetchMessages.mockResolvedValue({
+    openchatApi.fetchMessages.mockResolvedValue({
       data: {
         data: mockMessages
       }

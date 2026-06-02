@@ -1,339 +1,359 @@
-const { logger } = require( '../lib/logging.js' );
-const axios = require( 'axios' );
-const config = require( '../config.js' );
-const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
-const { v4: uuidv4 } = require( 'uuid' );
+// /**
+//  * ⚠️ DEPRECATED - DO NOT USE ⚠️
+//  * 
+//  * This service has been replaced by openchatApi.js as part of the migration
+//  * from CometChat to OpenChat (tt.fm's CometChat-compatible endpoint).
+//  * 
+//  * This file is preserved for reference and rollback capability only.
+//  * The entire implementation is commented out to ensure any remaining references
+//  * to this service fail immediately during testing.
+//  * 
+//  * Migration Date: May 31, 2026
+//  * Replacement: src/services/openchatApi.js
+//  */
 
-// Import retry service - will be injected via function parameters to avoid circular dependencies
-let retryService = null;
 
-/**
- * Set the retry service instance (called from serviceContainer after initialization)
- * @param {RetryService} retryServiceInstance - The retry service instance
- */
-function setRetryService ( retryServiceInstance ) {
-  retryService = retryServiceInstance;
-}
+// const { logger } = require( '../lib/logging.js' );
+// const axios = require( 'axios' );
+// const config = require( '../config.js' );
+// const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
+// const { v4: uuidv4 } = require( 'uuid' );
 
-const BASE_URL = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io`;
+// // Import retry service - will be injected via function parameters to avoid circular dependencies
+// let retryService = null;
 
-const headers = {
-  'Content-Type': 'application/json',
-  authtoken: config.COMETCHAT_AUTH_TOKEN,
-  appid: config.COMETCHAT_API_KEY,
-  dnt: 1,
-  origin: 'https://tt.live',
-  referer: 'https://tt.live/',
-  sdk: 'javascript@3.0.10'
-};
+// /**
+//  * Set the retry service instance (called from serviceContainer after initialization)
+//  * @param {RetryService} retryServiceInstance - The retry service instance
+//  */
+// function setRetryService ( retryServiceInstance ) {
+//   retryService = retryServiceInstance;
+// }
 
-const apiClient = axios.create( {
-  baseURL: BASE_URL,
-  headers
-} );
+// const BASE_URL = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io`;
 
-// ===============
-// Shared Message Utilities
-// ===============
+// const headers = {
+//   'Content-Type': 'application/json',
+//   authtoken: config.COMETCHAT_AUTH_TOKEN,
+//   appid: config.COMETCHAT_API_KEY,
+//   dnt: 1,
+//   origin: 'https://tt.live',
+//   referer: 'https://tt.live/',
+//   sdk: 'javascript@3.0.10'
+// };
 
-/**
- * Build custom data for CometChat messages
- * @param {string} theMessage - The message text
- * @param {Object} services - Services container
- * @param {string} senderUid - Optional UID of the user who triggered this message
- * @param {string} senderName - Optional name of the user who triggered this message (overrides default bot name)
- * @returns {Promise<Object>} Custom data object
- */
-async function buildCustomData ( theMessage, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
-  const dataService = services?.dataService;
+// const apiClient = axios.create( {
+//   baseURL: BASE_URL,
+//   headers
+// } );
 
-  const customData = {
-    message: theMessage,
-    avatarId: senderAvatarId || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || config.CHAT_AVATAR_ID || 'bot-01',
-    userName: senderName || dataService?.getValue( 'botData.CHAT_NAME' ) || config.CHAT_NAME || 'Bot',
-    color: senderColor || `#${ dataService?.getValue( 'botData.CHAT_COLOUR' ) || config.CHAT_COLOUR || 'ff9900' }`,
-    mentions: [],
-    userUuid: config.BOT_UID,
-    badges: [ 'VERIFIED', 'STAFF' ],
-    id: uuidv4()
-  };
+// // ===============
+// // Shared Message Utilities
+// // ===============
 
-  // Store the actual sender if different from bot
-  if ( senderUid && senderUid !== config.BOT_UID ) {
-    customData.triggeredBy = senderUid;
-  }
+// /**
+//  * Build custom data for CometChat messages
+//  * @param {string} theMessage - The message text
+//  * @param {Object} services - Services container
+//  * @param {string} senderUid - Optional UID of the user who triggered this message
+//  * @param {string} senderName - Optional name of the user who triggered this message (overrides default bot name)
+//  * @returns {Promise<Object>} Custom data object
+//  */
+// async function buildCustomData ( theMessage, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
+//   const dataService = services?.dataService;
 
-  return customData;
-}
+//   const customData = {
+//     message: theMessage,
+//     avatarId: senderAvatarId || dataService?.getValue( 'botData.CHAT_AVATAR_ID' ) || config.CHAT_AVATAR_ID || 'bot-01',
+//     userName: senderName || dataService?.getValue( 'botData.CHAT_NAME' ) || config.CHAT_NAME || 'Bot',
+//     color: senderColor || `#${ dataService?.getValue( 'botData.CHAT_COLOUR' ) || config.CHAT_COLOUR || 'ff9900' }`,
+//     mentions: [],
+//     userUuid: config.BOT_UID,
+//     badges: [ 'VERIFIED', 'STAFF' ],
+//     id: uuidv4()
+//   };
 
-/**
- * Build message payload for CometChat API
- * @param {string} receiver - The receiver ID
- * @param {string} receiverType - The receiver type (user/group)
- * @param {Object} customData - Custom data object
- * @param {string} theMessage - The message text
- * @returns {Promise<Object>} Message payload
- */
-async function buildPayload ( receiver, receiverType, customData, theMessage ) {
-  return {
-    receiver: receiver,
-    receiverType: receiverType,
-    category: 'message',
-    type: 'text',
-    data: {
-      text: theMessage,
-      metadata: {
-        chatMessage: customData
-      }
-    }
-  };
-}
+//   // Store the actual sender if different from bot
+//   if ( senderUid && senderUid !== config.BOT_UID ) {
+//     customData.triggeredBy = senderUid;
+//   }
 
-/**
- * Send a message via CometChat API with retry logic
- * @param {Object} payload - The message payload
- * @returns {Promise<Object>} API response
- */
-async function sendMessage ( payload ) {
-  const executeRequest = async () => {
-    try {
-      const response = await axios.post( `${ BASE_URL }/v3.0/messages`, payload, { headers } );
-      return response;
-    } catch ( error ) {
-      logger.error( `[CometChat API] sendMessage error - Status: ${ error.response?.status }, Data: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
-      throw error;
-    }
-  };
+//   return customData;
+// }
 
-  if ( retryService ) {
-    return await retryService.executeWithRetry(
-      executeRequest,
-      { maxRetries: 3 },
-      'cometchat-sendMessage'
-    );
-  } else {
-    // Fallback to direct request if retry service not available
-    return await executeRequest();
-  }
-}
+// /**
+//  * Build message payload for CometChat API
+//  * @param {string} receiver - The receiver ID
+//  * @param {string} receiverType - The receiver type (user/group)
+//  * @param {Object} customData - Custom data object
+//  * @param {string} theMessage - The message text
+//  * @returns {Promise<Object>} Message payload
+//  */
+// async function buildPayload ( receiver, receiverType, customData, theMessage ) {
+//   return {
+//     receiver: receiver,
+//     receiverType: receiverType,
+//     category: 'message',
+//     type: 'text',
+//     data: {
+//       text: theMessage,
+//       metadata: {
+//         chatMessage: customData
+//       }
+//     }
+//   };
+// }
 
-/**
- * Join a chat group with retry logic
- * @param {string} roomId - The room ID to join
- * @returns {Promise<Object>} API response
- */
-async function joinChatGroup ( roomId ) {
-  const executeRequest = async () => {
-    const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members`;
-    // logger.debug( `[CometChat API] joinChatGroup - URL: ${ url }` );
+// /**
+//  * Send a message via CometChat API with retry logic
+//  * @param {Object} payload - The message payload
+//  * @returns {Promise<Object>} API response
+//  */
+// async function sendMessage ( payload ) {
+//   const executeRequest = async () => {
+//     try {
+//       const response = await axios.post( `${ BASE_URL }/v3.0/messages`, payload, { headers } );
+//       return response;
+//     } catch ( error ) {
+//       logger.error( `[CometChat API] sendMessage error - Status: ${ error.response?.status }, Data: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
+//       throw error;
+//     }
+//   };
 
-    const requestData = {
-      participants: [ config.BOT_UID ],
-      participantType: 'user'
-    };
+//   if ( retryService ) {
+//     return await retryService.executeWithRetry(
+//       executeRequest,
+//       { maxRetries: 3 },
+//       'cometchat-sendMessage'
+//     );
+//   } else {
+//     // Fallback to direct request if retry service not available
+//     return await executeRequest();
+//   }
+// }
 
-    // logger.debug( `[CometChat API] joinChatGroup - Request data: ${ JSON.stringify( requestData ) }` );
+// /**
+//  * Join a chat group with retry logic
+//  * @param {string} roomId - The room ID to join
+//  * @returns {Promise<Object>} API response
+//  */
+// async function joinChatGroup ( roomId ) {
+//   const executeRequest = async () => {
+//     const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members`;
+//     // logger.debug( `[CometChat API] joinChatGroup - URL: ${ url }` );
 
-    try {
-      return await axios.post( url, requestData, { headers } );
-    } catch ( error ) {
-      // Handle "already joined" as a success case
-      if ( error.response?.status === 417 &&
-        error.response?.data?.error?.code === 'ERR_ALREADY_JOINED' ) {
-        logger.info( `✅ [CometChat API] Bot is already a member of group ${ roomId }` );
-        // Return a success response for already joined
-        return {
-          status: 200,
-          data: { message: 'Already joined group', alreadyMember: true }
-        };
-      }
-      // Re-throw other errors for normal retry handling
-      throw error;
-    }
-  };
+//     const requestData = {
+//       participants: [ config.BOT_UID ],
+//       participantType: 'user'
+//     };
 
-  if ( retryService ) {
-    return await retryService.executeWithRetry(
-      executeRequest,
-      { maxRetries: 2 }, // Less aggressive for join operations
-      'cometchat-joinGroup'
-    );
-  } else {
-    // Fallback to direct request if retry service not available
-    return await executeRequest();
-  }
-}
+//     // logger.debug( `[CometChat API] joinChatGroup - Request data: ${ JSON.stringify( requestData ) }` );
 
-/**
- * Leave a chat group
- * @param {string} roomId - The room ID to leave
- * @returns {Promise<Object>} API response
- */
-async function leaveChatGroup ( roomId ) {
-  const executeRequest = async () => {
-    const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members/${ config.BOT_UID }`;
+//     try {
+//       return await axios.post( url, requestData, { headers } );
+//     } catch ( error ) {
+//       // Handle "already joined" as a success case
+//       if ( error.response?.status === 417 &&
+//         error.response?.data?.error?.code === 'ERR_ALREADY_JOINED' ) {
+//         logger.info( `✅ [CometChat API] Bot is already a member of group ${ roomId }` );
+//         // Return a success response for already joined
+//         return {
+//           status: 200,
+//           data: { message: 'Already joined group', alreadyMember: true }
+//         };
+//       }
+//       // Re-throw other errors for normal retry handling
+//       throw error;
+//     }
+//   };
 
-    try {
-      return await axios.delete( url, { headers } );
-    } catch ( error ) {
-      // If already not a member, treat as success
-      if ( error.response?.status === 404 || error.response?.status === 400 ) {
-        logger.info( `✅ [CometChat API] Bot is not a member of group ${ roomId }` );
-        return {
-          status: 200,
-          data: { message: 'Not a member', alreadyLeft: true }
-        };
-      }
-      throw error;
-    }
-  };
+//   if ( retryService ) {
+//     return await retryService.executeWithRetry(
+//       executeRequest,
+//       { maxRetries: 2 }, // Less aggressive for join operations
+//       'cometchat-joinGroup'
+//     );
+//   } else {
+//     // Fallback to direct request if retry service not available
+//     return await executeRequest();
+//   }
+// }
 
-  if ( retryService ) {
-    return await retryService.executeWithRetry(
-      executeRequest,
-      { maxRetries: 2 },
-      'cometchat-leaveGroup'
-    );
-  }
+// /**
+//  * Leave a chat group
+//  * @param {string} roomId - The room ID to leave
+//  * @returns {Promise<Object>} API response
+//  */
+// async function leaveChatGroup ( roomId ) {
+//   const executeRequest = async () => {
+//     const url = `https://${ config.COMETCHAT_API_KEY }.apiclient-us.cometchat.io/v3/groups/${ roomId }/members/${ config.BOT_UID }`;
 
-  return await executeRequest();
-}
+//     try {
+//       return await axios.delete( url, { headers } );
+//     } catch ( error ) {
+//       // If already not a member, treat as success
+//       if ( error.response?.status === 404 || error.response?.status === 400 ) {
+//         logger.info( `✅ [CometChat API] Bot is not a member of group ${ roomId }` );
+//         return {
+//           status: 200,
+//           data: { message: 'Not a member', alreadyLeft: true }
+//         };
+//       }
+//       throw error;
+//     }
+//   };
 
-/**
- * Fetch messages from CometChat API with retry logic
- * @param {string} endpoint - The API endpoint
- * @param {Array} queryParams - Query parameters
- * @returns {Promise<Object>} API response
- */
-async function fetchMessages ( endpoint, queryParams = [] ) {
-  const executeRequest = async () => {
-    let endpointPath = endpoint; // Default to the full endpoint
-    let endpointParams = [];
+//   if ( retryService ) {
+//     return await retryService.executeWithRetry(
+//       executeRequest,
+//       { maxRetries: 2 },
+//       'cometchat-leaveGroup'
+//     );
+//   }
 
-    // Parse endpoint if it contains query parameters
-    if ( endpoint.includes( '?' ) ) {
-      const [ path, queryString ] = endpoint.split( '?' );
-      endpointPath = path;
+//   return await executeRequest();
+// }
 
-      // Parse query parameters from endpoint
-      const urlParams = new URLSearchParams( queryString );
-      endpointParams = Array.from( urlParams.entries() );
+// /**
+//  * Fetch messages from CometChat API with retry logic
+//  * @param {string} endpoint - The API endpoint
+//  * @param {Array} queryParams - Query parameters
+//  * @returns {Promise<Object>} API response
+//  */
+// async function fetchMessages ( endpoint, queryParams = [] ) {
+//   const executeRequest = async () => {
+//     let endpointPath = endpoint; // Default to the full endpoint
+//     let endpointParams = [];
 
-      // logger.debug( `🔍 [CometChat API] fetchMessages - Parsed endpoint path: ${ endpointPath }` );
-      // logger.debug( `🔍 [CometChat API] fetchMessages - Parsed endpoint params: ${JSON.stringify(endpointParams)}` );
-    }
+//     // Parse endpoint if it contains query parameters
+//     if ( endpoint.includes( '?' ) ) {
+//       const [ path, queryString ] = endpoint.split( '?' );
+//       endpointPath = path;
 
-    // Combine endpoint params with additional params
-    const allParams = [ ...endpointParams, ...queryParams ];
-    // logger.debug( `🔍 [CometChat API] fetchMessages - All combined params: ${JSON.stringify(allParams)}` );
+//       // Parse query parameters from endpoint
+//       const urlParams = new URLSearchParams( queryString );
+//       endpointParams = Array.from( urlParams.entries() );
 
-    const url = buildUrl( BASE_URL, [ endpointPath ], allParams );
+//       // logger.debug( `🔍 [CometChat API] fetchMessages - Parsed endpoint path: ${ endpointPath }` );
+//       // logger.debug( `🔍 [CometChat API] fetchMessages - Parsed endpoint params: ${JSON.stringify(endpointParams)}` );
+//     }
 
-    // logger.debug( `🔍 [CometChat API] fetchMessages - Final URL: ${ url }` );
-    // logger.debug( `🔍 [CometChat API] fetchMessages - Headers: ${JSON.stringify(headers, null, 2)}` );
+//     // Combine endpoint params with additional params
+//     const allParams = [ ...endpointParams, ...queryParams ];
+//     // logger.debug( `🔍 [CometChat API] fetchMessages - All combined params: ${JSON.stringify(allParams)}` );
 
-    const response = await apiClient.get( url );
+//     const url = buildUrl( BASE_URL, [ endpointPath ], allParams );
 
-    // logger.debug( `🔍 [CometChat API] fetchMessages - Response status: ${ response.status }` );
-    // logger.debug( `🔍 [CometChat API] fetchMessages - Response data count: ${ response.data?.data?.length || 0 }` );
+//     // logger.debug( `🔍 [CometChat API] fetchMessages - Final URL: ${ url }` );
+//     // logger.debug( `🔍 [CometChat API] fetchMessages - Headers: ${JSON.stringify(headers, null, 2)}` );
 
-    // if ( response.data?.data?.length > 0 ) {
-    //   const messages = response.data.data;
-    //   logger.debug( `🔍 [CometChat API] fetchMessages - First message ID: ${ messages[ 0 ]?.id }` );
-    //   logger.debug( `🔍 [CometChat API] fetchMessages - Last message ID: ${ messages[ messages.length - 1 ]?.id }` );
-    // } else {
-    //   logger.debug( `🔍 [CometChat API] fetchMessages - No messages returned` );
-    // }
+//     const response = await apiClient.get( url );
 
-    return response;
-  };
+//     // logger.debug( `🔍 [CometChat API] fetchMessages - Response status: ${ response.status }` );
+//     // logger.debug( `🔍 [CometChat API] fetchMessages - Response data count: ${ response.data?.data?.length || 0 }` );
 
-  if ( retryService ) {
-    try {
-      // Check if circuit breaker is open before attempting request
-      if ( retryService.isCircuitOpen && retryService.isCircuitOpen( 'cometchat-fetchMessages' ) ) {
-        logger.error( '❌ [CometChat API] fetchMessages - Circuit breaker is OPEN, skipping request' );
-        const error = new Error( 'Circuit breaker is OPEN for cometchat-fetchMessages' );
-        error.code = 'CIRCUIT_BREAKER_OPEN';
-        throw error;
-      }
+//     // if ( response.data?.data?.length > 0 ) {
+//     //   const messages = response.data.data;
+//     //   logger.debug( `🔍 [CometChat API] fetchMessages - First message ID: ${ messages[ 0 ]?.id }` );
+//     //   logger.debug( `🔍 [CometChat API] fetchMessages - Last message ID: ${ messages[ messages.length - 1 ]?.id }` );
+//     // } else {
+//     //   logger.debug( `🔍 [CometChat API] fetchMessages - No messages returned` );
+//     // }
 
-      return await retryService.executeWithRetry(
-        executeRequest,
-        { maxRetries: 3 },
-        'cometchat-fetchMessages'
-      );
-    } catch ( error ) {
-      logger.error( `❌ [CometChat API] fetchMessages - Error: ${ error.message }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
+//     return response;
+//   };
 
-      // Check if this is an authorization error (user not in group)
-      const errorCode = error.response?.data?.error?.code;
-      const status = error.response?.status;
-      if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
-        logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
-        error.shouldReconnect = true;
-      }
+//   if ( retryService ) {
+//     try {
+//       // Check if circuit breaker is open before attempting request
+//       if ( retryService.isCircuitOpen && retryService.isCircuitOpen( 'cometchat-fetchMessages' ) ) {
+//         logger.error( '❌ [CometChat API] fetchMessages - Circuit breaker is OPEN, skipping request' );
+//         const error = new Error( 'Circuit breaker is OPEN for cometchat-fetchMessages' );
+//         error.code = 'CIRCUIT_BREAKER_OPEN';
+//         throw error;
+//       }
 
-      throw error;
-    }
-  } else {
-    // Fallback to direct request if retry service not available
-    try {
-      return await executeRequest();
-    } catch ( error ) {
-      logger.error( `❌ [CometChat API] fetchMessages - Error: ${ error.message }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
-      logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
+//       return await retryService.executeWithRetry(
+//         executeRequest,
+//         { maxRetries: 3 },
+//         'cometchat-fetchMessages'
+//       );
+//     } catch ( error ) {
+//       logger.error( `❌ [CometChat API] fetchMessages - Error: ${ error.message }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
 
-      // Check if this is an authorization error (user not in group)
-      const errorCode = error.response?.data?.error?.code;
-      const status = error.response?.status;
-      if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
-        logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
-        error.shouldReconnect = true;
-      }
+//       // Check if this is an authorization error (user not in group)
+//       const errorCode = error.response?.data?.error?.code;
+//       const status = error.response?.status;
+//       if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
+//         logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
+//         error.shouldReconnect = true;
+//       }
 
-      throw error;
-    }
-  }
-}
+//       throw error;
+//     }
+//   } else {
+//     // Fallback to direct request if retry service not available
+//     try {
+//       return await executeRequest();
+//     } catch ( error ) {
+//       logger.error( `❌ [CometChat API] fetchMessages - Error: ${ error.message }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error status: ${ error.response?.status }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error response: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
+//       logger.error( `❌ [CometChat API] fetchMessages - Error stack: ${ error.stack }` );
 
-/**
- * Mark a conversation as read with retry logic
- * @param {string} conversationUrl - The conversation URL
- * @returns {Promise<Object>} API response
- */
-async function markConversationAsRead ( conversationUrl ) {
-  const executeRequest = async () => {
-    return await axios.post( conversationUrl, {}, { headers } );
-  };
+//       // Check if this is an authorization error (user not in group)
+//       const errorCode = error.response?.data?.error?.code;
+//       const status = error.response?.status;
+//       if ( status === 401 && errorCode === 'ERR_GROUP_NOT_JOINED' ) {
+//         logger.warn( '⚠️ [CometChat API] Bot is no longer a member of the group - triggering reconnect' );
+//         error.shouldReconnect = true;
+//       }
 
-  if ( retryService ) {
-    return await retryService.executeWithRetry(
-      executeRequest,
-      { maxRetries: 2 }, // Less critical operation
-      'cometchat-markAsRead'
-    );
-  } else {
-    // Fallback to direct request if retry service not available
-    return await executeRequest();
-  }
-}
+//       throw error;
+//     }
+//   }
+// }
 
-module.exports = {
-  BASE_URL,
-  headers,
-  apiClient,
-  buildCustomData,
-  buildPayload,
-  sendMessage,
-  joinChatGroup,
-  leaveChatGroup,
-  fetchMessages,
-  markConversationAsRead,
-  setRetryService
-};
+// /**
+//  * Mark a conversation as read with retry logic
+//  * @param {string} conversationUrl - The conversation URL
+//  * @returns {Promise<Object>} API response
+//  */
+// async function markConversationAsRead ( conversationUrl ) {
+//   const executeRequest = async () => {
+//     return await axios.post( conversationUrl, {}, { headers } );
+//   };
+
+//   if ( retryService ) {
+//     return await retryService.executeWithRetry(
+//       executeRequest,
+//       { maxRetries: 2 }, // Less critical operation
+//       'cometchat-markAsRead'
+//     );
+//   } else {
+//     // Fallback to direct request if retry service not available
+//     return await executeRequest();
+//   }
+// }
+
+// module.exports = {
+//   BASE_URL,
+//   headers,
+//   apiClient,
+//   buildCustomData,
+//   buildPayload,
+//   sendMessage,
+//   joinChatGroup,
+//   leaveChatGroup,
+//   fetchMessages,
+//   markConversationAsRead,
+//   setRetryService
+// };
+
+// // This service is deprecated and should not be used
+// // Any attempt to require this module will result in an error during testing
+// module.exports = {};
+

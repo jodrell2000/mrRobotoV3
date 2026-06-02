@@ -14,7 +14,7 @@ jest.mock( '../../src/config.js', () => ( {
   COMMAND_SWITCH: '!'
 } ) );
 
-jest.mock( '../../src/services/cometchatApi.js', () => ( {
+jest.mock( '../../src/services/openchatApi.js', () => ( {
   buildCustomData: jest.fn(),
   buildPayload: jest.fn(),
   sendMessage: jest.fn(),
@@ -30,7 +30,7 @@ jest.mock( 'uuid', () => ( {
 } ) );
 
 const groupMessageService = require( '../../src/services/groupMessageService.js' );
-const cometchatApi = require( '../../src/services/cometchatApi.js' );
+const openchatApi = require( '../../src/services/openchatApi.js' );
 const { logger } = require( '../../src/lib/logging.js' );
 const config = require( '../../src/config.js' );
 
@@ -42,8 +42,8 @@ describe( 'groupMessageService', () => {
     // Reset the latest message ID
     groupMessageService.setLatestGroupMessageId( null );
 
-    // Set up mock implementations for cometchatApi functions
-    cometchatApi.buildCustomData.mockImplementation( async ( message, services ) => {
+    // Set up mock implementations for openchatApi functions
+    openchatApi.buildCustomData.mockImplementation( async ( message, services ) => {
       // Call the actual dataService methods to match test expectations
       if ( services.dataService ) {
         if ( services.dataService.getAllData ) {
@@ -63,7 +63,7 @@ describe( 'groupMessageService', () => {
       };
     } );
 
-    cometchatApi.buildPayload.mockImplementation( async ( receiver, receiverType, customData, message ) => ( {
+    openchatApi.buildPayload.mockImplementation( async ( receiver, receiverType, customData, message ) => ( {
       receiver: receiver,
       receiverType: receiverType,
       category: 'message',
@@ -76,7 +76,7 @@ describe( 'groupMessageService', () => {
       }
     } ) );
 
-    cometchatApi.sendMessage.mockResolvedValue( {
+    openchatApi.sendMessage.mockResolvedValue( {
       data: { success: true, id: 'msg-123' }
     } );
 
@@ -228,17 +228,17 @@ describe( 'groupMessageService', () => {
   describe( 'joinChat', () => {
     test( 'should successfully join chat group', async () => {
       const mockResponse = { success: true, data: { joined: true } };
-      cometchatApi.joinChatGroup.mockResolvedValue( mockResponse );
+      openchatApi.joinChatGroup.mockResolvedValue( mockResponse );
 
       const result = await groupMessageService.joinChat( 'room-123' );
 
       expect( result ).toBe( mockResponse );
-      expect( cometchatApi.joinChatGroup ).toHaveBeenCalledWith( 'room-123' );
+      expect( openchatApi.joinChatGroup ).toHaveBeenCalledWith( 'room-123' );
     } );
 
     test( 'should handle already joined error gracefully', async () => {
       const error = new Error( 'ERR_ALREADY_JOINED: User already joined' );
-      cometchatApi.joinChatGroup.mockRejectedValue( error );
+      openchatApi.joinChatGroup.mockRejectedValue( error );
 
       const result = await groupMessageService.joinChat( 'room-123' );
 
@@ -248,7 +248,7 @@ describe( 'groupMessageService', () => {
 
     test( 'should throw other errors', async () => {
       const error = new Error( 'Network error' );
-      cometchatApi.joinChatGroup.mockRejectedValue( error );
+      openchatApi.joinChatGroup.mockRejectedValue( error );
 
       await expect( groupMessageService.joinChat( 'room-123' ) ).rejects.toThrow( 'Network error' );
       expect( logger.error ).toHaveBeenCalledWith( '❌ Error joining chat: Network error' );
@@ -256,7 +256,7 @@ describe( 'groupMessageService', () => {
   } );
 
   describe( 'fetchGroupMessagesRaw', () => {
-    test( 'should call cometchatApi.fetchMessages with correct parameters', async () => {
+    test( 'should call openchatApi.fetchMessages with correct parameters', async () => {
       const mockResponse = {
         status: 200,
         data: {
@@ -266,13 +266,13 @@ describe( 'groupMessageService', () => {
           ]
         }
       };
-      cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+      openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
       const customParams = [ [ 'id', 'last-msg-123' ], [ 'per_page', 25 ] ];
       const result = await groupMessageService.fetchGroupMessagesRaw( 'room-123', customParams, mockServices );
 
       // Verify the endpoint format
-      expect( cometchatApi.fetchMessages ).toHaveBeenCalledWith(
+      expect( openchatApi.fetchMessages ).toHaveBeenCalledWith(
         'v3.0/groups/room-123/messages',
         [
           [ 'per_page', 50 ], // default params first
@@ -297,7 +297,7 @@ describe( 'groupMessageService', () => {
       const error = new Error( 'API Error' );
       error.response = { status: 500, data: 'Server Error' };
       error.config = { url: 'test-url' };
-      cometchatApi.fetchMessages.mockRejectedValue( error );
+      openchatApi.fetchMessages.mockRejectedValue( error );
 
       const result = await groupMessageService.fetchGroupMessagesRaw( 'room-123', [], mockServices );
 
@@ -309,7 +309,7 @@ describe( 'groupMessageService', () => {
 
     test( 'should handle empty response data gracefully', async () => {
       const mockResponse = { status: 200, data: {} };
-      cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+      openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
       const result = await groupMessageService.fetchGroupMessagesRaw( 'room-123', [], mockServices );
 
@@ -629,7 +629,7 @@ describe( 'groupMessageService', () => {
 
   describe( 'sendGroupMessage', () => {
     beforeEach( () => {
-      cometchatApi.sendMessage.mockResolvedValue( {
+      openchatApi.sendMessage.mockResolvedValue( {
         data: { data: { id: 'sent-msg-123' } }
       } );
     } );
@@ -648,7 +648,7 @@ describe( 'groupMessageService', () => {
       const result = await groupMessageService.sendGroupMessage( 'Hello world' );
 
       expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Hello world', {}, null, null, null, null );
-      expect( cometchatApi.sendMessage ).toHaveBeenCalledWith( {
+      expect( openchatApi.sendMessage ).toHaveBeenCalledWith( {
         receiver: 'test-hangout-123', // default HANGOUT_ID
         receiverType: 'group',
         category: 'message',
@@ -689,7 +689,7 @@ describe( 'groupMessageService', () => {
       expect( buildCustomDataSpy ).toHaveBeenCalledWith( 'Test message', {}, null, null, null, null );
 
       // Check that images and mentions were added to customData
-      const sentPayload = cometchatApi.sendMessage.mock.calls[ 0 ][ 0 ];
+      const sentPayload = openchatApi.sendMessage.mock.calls[ 0 ][ 0 ];
       expect( sentPayload.receiver ).toBe( 'custom-room-456' );
       expect( sentPayload.data.metadata.chatMessage.imageUrls ).toEqual( [ 'image1.jpg', 'image2.jpg' ] );
       expect( sentPayload.data.metadata.chatMessage.mentions ).toEqual( [
@@ -721,7 +721,7 @@ describe( 'groupMessageService', () => {
         status: 500,
         data: 'Server error'
       };
-      cometchatApi.sendMessage.mockRejectedValue( apiError );
+      openchatApi.sendMessage.mockRejectedValue( apiError );
 
       const result = await groupMessageService.sendGroupMessage( 'Test message' );
 

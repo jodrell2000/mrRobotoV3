@@ -4,6 +4,7 @@ dotenv.config();
 module.exports = {
   COMETCHAT_API_KEY: process.env.COMETCHAT_API_KEY,
   COMETCHAT_AUTH_TOKEN: process.env.COMETCHAT_AUTH_TOKEN,
+  OPENCHAT_BASE_URL: process.env.OPENCHAT_BASE_URL || 'https://openchat.prod.tt.fm/',
   LOG_LEVEL: process.env.LOG_LEVEL,
   SOCKET_MESSAGE_LOG_LEVEL: process.env.SOCKET_MESSAGE_LOG_LEVEL || 'OFF',
   BOT_UID: process.env.BOT_UID,

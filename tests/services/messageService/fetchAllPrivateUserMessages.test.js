@@ -12,7 +12,7 @@ jest.mock( '../../../src/lib/buildUrl.js', () => ( {
   buildUrl: jest.fn()
 } ) );
 
-jest.mock( '../../../src/services/cometchatApi.js', () => ( {
+jest.mock( '../../../src/services/openchatApi.js', () => ( {
   BASE_URL: 'https://test-api.cometchat.com',
   apiClient: {
     get: jest.fn()
@@ -26,7 +26,7 @@ jest.mock( '../../../src/config.js', () => ( {
 
 const { messageService } = require( '../../../src/services/messageService.js' );
 const { buildUrl } = require( '../../../src/lib/buildUrl.js' );
-const cometchatApi = require( '../../../src/services/cometchatApi.js' );
+const openchatApi = require( '../../../src/services/openchatApi.js' );
 const config = require( '../../../src/config.js' );
 const { logger } = require( '../../../src/lib/logging.js' );
 
@@ -62,11 +62,11 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
         ]
       }
     };
-    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+    openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
-    expect( cometchatApi.fetchMessages ).toHaveBeenCalledWith(
+    expect( openchatApi.fetchMessages ).toHaveBeenCalledWith(
       'v3/messages?receiverType=user&sender=test-user&limit=100'
     );
     expect( result ).toEqual( [
@@ -100,7 +100,7 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
         ]
       }
     };
-    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+    openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
@@ -119,7 +119,7 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
     const mockResponse = {
       data: []
     };
-    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+    openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
@@ -128,7 +128,7 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
 
   test( 'should return empty array when response data is missing', async () => {
     const mockResponse = { data: null };
-    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+    openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
@@ -139,7 +139,7 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
     const mockResponse = {
       data: 'not-an-array'
     };
-    cometchatApi.fetchMessages.mockResolvedValue( mockResponse );
+    openchatApi.fetchMessages.mockResolvedValue( mockResponse );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 
@@ -148,7 +148,7 @@ describe( 'messageService.fetchAllPrivateUserMessages', () => {
 
   test( 'should handle API errors gracefully', async () => {
     const error = new Error( 'Network error' );
-    cometchatApi.fetchMessages.mockRejectedValue( error );
+    openchatApi.fetchMessages.mockRejectedValue( error );
 
     const result = await messageService.fetchAllPrivateUserMessages( 'test-user' );
 

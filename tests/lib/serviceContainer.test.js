@@ -19,7 +19,7 @@ jest.mock( '../../src/services/retryService', () => {
 } );
 
 // Mock the CometChatApi module
-jest.mock( '../../src/services/cometchatApi', () => ( {
+jest.mock( '../../src/services/openchatApi', () => ( {
     setRetryService: jest.fn(),
     // Add any methods that CometChatApi uses
 } ) );
