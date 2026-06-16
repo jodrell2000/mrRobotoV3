@@ -5,38 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- **Dynamic CometChat Token Fetching:** Bot automatically fetches authentication token from Gateway API on startup
-- **Automatic Token Configuration:** Eliminates manual `COMETCHAT_AUTH_TOKEN` setup step
-- **Lazy Token Initialization:** OpenChat API supports runtime token configuration via `setAuthToken()`
-- **Token Validation:** Message sending requires valid auth token, preventing silent failures
-
-### Changed
-- **Chat Service Migration:** Migrated from CometChat to OpenChat (tt.fm's CometChat-compatible endpoint)
-- **New Environment Variable:** Added `OPENCHAT_BASE_URL` configuration (defaults to `https://openchat.prod.tt.fm/`)
-- **Service Architecture:** Created `openchatApi.js` as drop-in replacement for `cometchatApi.js`
-- **Deprecated:** `cometchatApi.js` preserved but commented out for rollback capability
-- **COMETCHAT_AUTH_TOKEN:** No longer required in `.env` file - fetched automatically using `BOT_USER_TOKEN`
-- **Token Configuration:** Token is fetched automatically using `BOT_USER_TOKEN` during startup
-- **Startup Behavior:** Bot will exit with code 1 and clear error message if token cannot be fetched
-
-### Removed
-- **Manual COMETCHAT_AUTH_TOKEN Configuration:** No longer required for new deployments
-- **Google Cloud Integration:** Removed all Google Cloud Run and Google Cloud Storage code
-  - Deleted `cloudStorageService.js`
-  - Deleted `dailyCloudSyncTask.js`
-  - Removed Google Cloud deployment scripts
-  - Oracle Cloud deployment (OCI) unaffected and remains fully functional
-
-### Fixed
-- All tests updated and passing (124+ tests for OpenChat services)
-
 ## Release History
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
+| **[1.3.0](changelog/1.3.0.md)** | 2026-06-16 | 🚀 Per-User Private Message Backoff | Refactored private message fetching to parallel execution with per-user dynamic backoff (1s→10s). Fixed timeout detection and removed overall batch timeout to allow backoff escalation. Reduces fetch time from 6.5s+ to 1-2s. |
 | **[1.2.2](changelog/1.2.2.md)** | 2026-05-31 | 🚦 ML Service 429 Error Handling | Optimized API quota handling - stops model fallback chain immediately on rate limit errors to prevent wasting API calls. |
 | **[1.2.1](changelog/1.2.1.md)** | 2026-05-25 | 🔧 Oracle Deployment Script Fix | Critical fix for Oracle Cloud deployment script preventing empty .env files from being uploaded. Added validation, error checking, and interactive prompts for improved deployment experience. |
 | **[1.2.0](changelog/1.2.0.md)** | 2026-05-22 | 🌐 Dynamic Web Documentation Server | Web-based documentation accessible via browser on port 8080. Includes landing page, chat commands with images, technical command reference, live bot status, token reference, personality configuration, and song statistics. Requires Oracle Cloud firewall configuration for external access. |
