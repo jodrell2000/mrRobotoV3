@@ -1,174 +1,174 @@
 // Mock logger to keep test output clean
-jest.mock('../../src/lib/logging.js', () => ({
+jest.mock( '../../src/lib/logging.js', () => ( {
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn()
   }
-}));
+} ) );
 
 // Mock config to provide gateway base URL and token
-jest.mock('../../src/config.js', () => ({
+jest.mock( '../../src/config.js', () => ( {
   BOT_USER_TOKEN: 'TEST_BOT_TOKEN',
   TTFM_GATEWAY_BASE_URL: 'https://gateway.prod.tt.fm'
-}));
+} ) );
 
 // Mock makeRequest used by hangUserService
-jest.mock('../../src/lib/buildUrl.js', () => ({
+jest.mock( '../../src/lib/buildUrl.js', () => ( {
   makeRequest: jest.fn()
-}));
+} ) );
 
-const { makeRequest } = require('../../src/lib/buildUrl.js');
-const { getUserNicknameByUuid, getAllPresentUsers } = require('../../src/services/hangUserService.js');
+const { makeRequest } = require( '../../src/lib/buildUrl.js' );
+const { getUserNicknameByUuid, getAllPresentUsers, getCometChatToken } = require( '../../src/services/hangUserService.js' );
 
-describe('hangUserService.getUserNicknameByUuid', () => {
-  beforeEach(() => {
+describe( 'hangUserService.getUserNicknameByUuid', () => {
+  beforeEach( () => {
     jest.clearAllMocks();
-  });
+  } );
 
-  test('returns nickname when response contains top-level nickname', async () => {
-    makeRequest.mockResolvedValueOnce({ nickname: 'Alice' });
+  test( 'returns nickname when response contains top-level nickname', async () => {
+    makeRequest.mockResolvedValueOnce( { nickname: 'Alice' } );
 
     const uuid = 'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc';
-    const nickname = await getUserNicknameByUuid(uuid);
+    const nickname = await getUserNicknameByUuid( uuid );
 
-    expect(nickname).toBe('Alice');
-    expect(makeRequest).toHaveBeenCalledWith(
-      `https://gateway.prod.tt.fm/api/user-service/profile/${encodeURIComponent(uuid)}`,
+    expect( nickname ).toBe( 'Alice' );
+    expect( makeRequest ).toHaveBeenCalledWith(
+      `https://gateway.prod.tt.fm/api/user-service/profile/${ encodeURIComponent( uuid ) }`,
       { method: 'GET' },
       { Authorization: 'Bearer TEST_BOT_TOKEN' }
     );
-  });
+  } );
 
-  test('returns nickname when response contains nested data.nickname', async () => {
-    makeRequest.mockResolvedValueOnce({ data: { nickname: 'Bob' } });
+  test( 'returns nickname when response contains nested data.nickname', async () => {
+    makeRequest.mockResolvedValueOnce( { data: { nickname: 'Bob' } } );
 
-    const nickname = await getUserNicknameByUuid('abc');
-    expect(nickname).toBe('Bob');
-  });
+    const nickname = await getUserNicknameByUuid( 'abc' );
+    expect( nickname ).toBe( 'Bob' );
+  } );
 
-  test('encodes UUID in URL correctly', async () => {
-    makeRequest.mockResolvedValueOnce({ nickname: 'EncodedUser' });
+  test( 'encodes UUID in URL correctly', async () => {
+    makeRequest.mockResolvedValueOnce( { nickname: 'EncodedUser' } );
 
     const uuid = 'id with spaces+plus';
-    await getUserNicknameByUuid(uuid);
+    await getUserNicknameByUuid( uuid );
 
-    expect(makeRequest).toHaveBeenCalledWith(
-      `https://gateway.prod.tt.fm/api/user-service/profile/${encodeURIComponent(uuid)}`,
+    expect( makeRequest ).toHaveBeenCalledWith(
+      `https://gateway.prod.tt.fm/api/user-service/profile/${ encodeURIComponent( uuid ) }`,
       { method: 'GET' },
       { Authorization: 'Bearer TEST_BOT_TOKEN' }
     );
-  });
+  } );
 
-  test('throws with clear message when nickname is missing', async () => {
-    makeRequest.mockResolvedValueOnce({});
+  test( 'throws with clear message when nickname is missing', async () => {
+    makeRequest.mockResolvedValueOnce( {} );
     const uuid = 'no-nickname';
 
-    await expect(getUserNicknameByUuid(uuid))
+    await expect( getUserNicknameByUuid( uuid ) )
       .rejects
-      .toThrow(`Unable to resolve nickname for UUID ${uuid}: Nickname not found in response`);
-  });
+      .toThrow( `Unable to resolve nickname for UUID ${ uuid }: Nickname not found in response` );
+  } );
 
-  test('throws for invalid UUID (empty string) and does not call makeRequest', async () => {
-    await expect(getUserNicknameByUuid(''))
+  test( 'throws for invalid UUID (empty string) and does not call makeRequest', async () => {
+    await expect( getUserNicknameByUuid( '' ) )
       .rejects
-      .toThrow('Unable to resolve nickname for UUID : userUuid must be a non-empty string');
-    expect(makeRequest).not.toHaveBeenCalled();
-  });
+      .toThrow( 'Unable to resolve nickname for UUID : userUuid must be a non-empty string' );
+    expect( makeRequest ).not.toHaveBeenCalled();
+  } );
 
-  test('throws for invalid UUID (non-string) and does not call makeRequest', async () => {
-    await expect(getUserNicknameByUuid(null))
+  test( 'throws for invalid UUID (non-string) and does not call makeRequest', async () => {
+    await expect( getUserNicknameByUuid( null ) )
       .rejects
-      .toThrow('Unable to resolve nickname for UUID null: userUuid must be a non-empty string');
-    expect(makeRequest).not.toHaveBeenCalled();
-  });
-});
+      .toThrow( 'Unable to resolve nickname for UUID null: userUuid must be a non-empty string' );
+    expect( makeRequest ).not.toHaveBeenCalled();
+  } );
+} );
 
-describe('hangUserService.getAllPresentUsers', () => {
-  beforeEach(() => {
+describe( 'hangUserService.getAllPresentUsers', () => {
+  beforeEach( () => {
     jest.clearAllMocks();
-  });
+  } );
 
-  test('returns array of UUIDs when allUsers contains valid users', () => {
+  test( 'returns array of UUIDs when allUsers contains valid users', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue({
+        getCurrentState: jest.fn().mockReturnValue( {
           allUsers: [
             { uuid: 'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc', tokenRole: 'globalModerator' },
             { uuid: 'f3efc54f-1090-4a83-b5e4-73328eb649d1', tokenRole: 'bot' }
           ]
-        })
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([
+    expect( result ).toEqual( [
       'f813b9cc-28c4-4ec6-a9eb-2cdfacbcafbc',
       'f3efc54f-1090-4a83-b5e4-73328eb649d1'
-    ]);
-    expect(mockServices.hangoutState.getCurrentState).toHaveBeenCalledTimes(1);
-  });
+    ] );
+    expect( mockServices.hangoutState.getCurrentState ).toHaveBeenCalledTimes( 1 );
+  } );
 
-  test('returns empty array when services is null or undefined', () => {
-    expect(getAllPresentUsers(null)).toEqual([]);
-    expect(getAllPresentUsers(undefined)).toEqual([]);
-  });
+  test( 'returns empty array when services is null or undefined', () => {
+    expect( getAllPresentUsers( null ) ).toEqual( [] );
+    expect( getAllPresentUsers( undefined ) ).toEqual( [] );
+  } );
 
-  test('returns empty array when hangoutState service is missing', () => {
+  test( 'returns empty array when hangoutState service is missing', () => {
     const mockServices = {};
-    
-    const result = getAllPresentUsers(mockServices);
-    
-    expect(result).toEqual([]);
-  });
 
-  test('returns empty array when current state is null', () => {
+    const result = getAllPresentUsers( mockServices );
+
+    expect( result ).toEqual( [] );
+  } );
+
+  test( 'returns empty array when current state is null', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue(null)
+        getCurrentState: jest.fn().mockReturnValue( null )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('returns empty array when allUsers is missing from state', () => {
+  test( 'returns empty array when allUsers is missing from state', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue({
+        getCurrentState: jest.fn().mockReturnValue( {
           settings: { name: 'Test Room' }
           // allUsers is missing
-        })
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('returns empty array when allUsers is not an array', () => {
+  test( 'returns empty array when allUsers is not an array', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue({
+        getCurrentState: jest.fn().mockReturnValue( {
           allUsers: "not-an-array"
-        })
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('filters out users with missing or invalid UUIDs', () => {
+  test( 'filters out users with missing or invalid UUIDs', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue({
+        getCurrentState: jest.fn().mockReturnValue( {
           allUsers: [
             { uuid: 'valid-uuid-1', tokenRole: 'user' },
             { uuid: '', tokenRole: 'user' }, // empty string
@@ -177,42 +177,134 @@ describe('hangUserService.getAllPresentUsers', () => {
             { uuid: 'valid-uuid-2', tokenRole: 'moderator' },
             { uuid: undefined, tokenRole: 'user' } // undefined
           ]
-        })
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual(['valid-uuid-1', 'valid-uuid-2']);
-  });
+    expect( result ).toEqual( [ 'valid-uuid-1', 'valid-uuid-2' ] );
+  } );
 
-  test('returns empty array when allUsers is empty', () => {
+  test( 'returns empty array when allUsers is empty', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockReturnValue({
+        getCurrentState: jest.fn().mockReturnValue( {
           allUsers: []
-        })
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([]);
-  });
+    expect( result ).toEqual( [] );
+  } );
 
-  test('handles errors gracefully and returns empty array', () => {
+  test( 'handles errors gracefully and returns empty array', () => {
     const mockServices = {
       hangoutState: {
-        getCurrentState: jest.fn().mockImplementation(() => {
-          throw new Error('State service error');
-        })
+        getCurrentState: jest.fn().mockImplementation( () => {
+          throw new Error( 'State service error' );
+        } )
       }
     };
 
-    const result = getAllPresentUsers(mockServices);
+    const result = getAllPresentUsers( mockServices );
 
-    expect(result).toEqual([]);
-  });
-});
+    expect( result ).toEqual( [] );
+  } );
+} );
+
+describe( 'hangUserService.getCometChatToken', () => {
+  beforeEach( () => {
+    jest.clearAllMocks();
+  } );
+
+  test( 'should successfully fetch token from Gateway API', async () => {
+    const mockToken = 'auth_test1234567890abcdef';
+    makeRequest.mockResolvedValueOnce( { cometAuthToken: mockToken } );
+
+    const token = await getCometChatToken();
+
+    expect( token ).toBe( mockToken );
+    expect( makeRequest ).toHaveBeenCalledWith(
+      'https://gateway.prod.tt.fm/api/user-service/comet-chat/user-token',
+      { method: 'GET' },
+      {
+        'accept': 'application/json',
+        'Authorization': 'Bearer TEST_BOT_TOKEN'
+      }
+    );
+  } );
+
+  test( 'should throw error if response missing cometAuthToken field', async () => {
+    makeRequest.mockResolvedValueOnce( { someOtherField: 'value' } );
+
+    await expect( getCometChatToken() )
+      .rejects
+      .toThrow( 'CometChat token fetch failed: Invalid response: missing cometAuthToken field' );
+  } );
+
+  test( 'should throw error if response is null', async () => {
+    makeRequest.mockResolvedValueOnce( null );
+
+    await expect( getCometChatToken() )
+      .rejects
+      .toThrow( 'CometChat token fetch failed: Invalid response: missing cometAuthToken field' );
+  } );
+
+  test( 'should throw error if response is undefined', async () => {
+    makeRequest.mockResolvedValueOnce( undefined );
+
+    await expect( getCometChatToken() )
+      .rejects
+      .toThrow( 'CometChat token fetch failed: Invalid response: missing cometAuthToken field' );
+  } );
+
+  test( 'should throw error on network failure', async () => {
+    const networkError = new Error( 'Network request failed' );
+    makeRequest.mockRejectedValueOnce( networkError );
+
+    await expect( getCometChatToken() )
+      .rejects
+      .toThrow( 'CometChat token fetch failed: Network request failed' );
+  } );
+
+  test( 'should use correct Authorization header with BOT_USER_TOKEN', async () => {
+    makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
+
+    await getCometChatToken();
+
+    const callArgs = makeRequest.mock.calls[ 0 ];
+    expect( callArgs[ 2 ].Authorization ).toBe( 'Bearer TEST_BOT_TOKEN' );
+  } );
+
+  test( 'should use correct endpoint URL', async () => {
+    makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
+
+    await getCometChatToken();
+
+    const callArgs = makeRequest.mock.calls[ 0 ];
+    expect( callArgs[ 0 ] ).toBe( 'https://gateway.prod.tt.fm/api/user-service/comet-chat/user-token' );
+  } );
+
+  test( 'should use GET method', async () => {
+    makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
+
+    await getCometChatToken();
+
+    const callArgs = makeRequest.mock.calls[ 0 ];
+    expect( callArgs[ 1 ].method ).toBe( 'GET' );
+  } );
+
+  test( 'should include accept header for JSON', async () => {
+    makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
+
+    await getCometChatToken();
+
+    const callArgs = makeRequest.mock.calls[ 0 ];
+    expect( callArgs[ 2 ].accept ).toBe( 'application/json' );
+  } );
+} );
 
 

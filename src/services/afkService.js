@@ -50,7 +50,7 @@ class AfkService {
         entry.mostRecent = now;
         entry.warningLevel = 0;
         this.pendingRemovalUuids.delete( uuid );
-        logger.debug( `[afkService] activity recorded: ${ entry.nickname || uuid } (${ uuid }) — ${ activityType } at ${ now.toISOString() }` );
+        // logger.debug( `[afkService] activity recorded: ${ entry.nickname || uuid } (${ uuid }) — ${ activityType } at ${ now.toISOString() }` );
     }
 
     getInactiveUsers ( thresholdMs ) {

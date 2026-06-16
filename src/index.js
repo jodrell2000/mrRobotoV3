@@ -160,6 +160,20 @@ services.logger.info( '======================================= Application Start
       services.logger.info( '✅ Database service initialized successfully' );
     }
 
+    // Fetch and configure CometChat token from Gateway API (CRITICAL - must happen before bot operations)
+    try {
+      const dynamicToken = await services.hangUserService.getCometChatToken();
+      services.openchatApi.setAuthToken( dynamicToken );
+      services.logger.info( '✅ CometChat auth token successfully configured' );
+    } catch ( tokenError ) {
+      // HARD FAIL - authentication is critical for bot operation
+      services.logger.error( `❌ Failed to fetch CometChat token: ${ tokenError.message }` );
+      services.logger.error( '❌ Cannot start bot without valid authentication' );
+
+      // Exit with error code
+      process.exit( 1 );
+    }
+
     // Fetch bot's nickname using BOT_UID and hangUserService
     services.logger.debug( '🔍 About to fetch bot nickname' );
     try {
@@ -220,25 +234,36 @@ services.logger.info( '======================================= Application Start
       services.logger.warn( '⚠️ Continuing without group membership - some features may not work' );
     }
 
-    const checkInterval = 1000 * 1; // 1 second
+    // Dynamic message processing with backoff support
+    // Public messages use dynamic interval (1s-10s) with backoff
+    // Private messages run at fixed 1s interval
+    services.logger.debug( `Starting message processing with dynamic intervals` );
 
-    // Start message processing with setInterval
-    services.logger.debug( `Starting message processing with ${ checkInterval }ms interval` );
-    setInterval( async () => {
+    // Self-adjusting public message processor
+    const processPublicMessages = async () => {
       try {
         await roomBot.processNewPublicMessages();
       } catch ( error ) {
         services.logger.error( `Error in processNewPublicMessages: ${ error?.message || error?.toString() || 'Unknown error' }` );
       }
 
+      // Schedule next run based on current interval (with backoff)
+      setTimeout( processPublicMessages, roomBot.publicMessageInterval );
+    };
+
+    // Start public message processing
+    setTimeout( processPublicMessages, 1000 );
+
+    // Private message processing at fixed 1 second interval
+    setInterval( async () => {
       try {
         await roomBot.processNewPrivateMessages();
       } catch ( error ) {
         services.logger.error( `Error in processNewPrivateMessages: ${ error?.message || error?.toString() || 'Unknown error' }` );
       }
-    }, checkInterval );
+    }, 1000 );
 
-    services.logger.debug( `Started message processing with ${ checkInterval }ms interval` );
+    services.logger.debug( `Started message processing with dynamic backoff (public: 1s-10s, private: 1s + 500ms/user delay)` );
 
     // Start image validation background task (1 image per second when validation is active)
     setInterval( async () => {

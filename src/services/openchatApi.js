@@ -15,11 +15,37 @@ function setRetryService ( retryServiceInstance ) {
     retryService = retryServiceInstance;
 }
 
+/**
+ * Update the auth token used for OpenChat API requests
+ * Must be called before sending any messages if token wasn't in .env
+ * @param {string} newToken - The new auth token
+ * @throws {Error} If token is invalid
+ */
+function setAuthToken ( newToken ) {
+    if ( !newToken || typeof newToken !== 'string' || newToken.length === 0 ) {
+        throw new Error( 'Invalid auth token: must be a non-empty string' );
+    }
+
+    headers.authtoken = newToken;
+    apiClient.defaults.headers.authtoken = newToken;
+    logger.info( '✅ OpenChat API auth token configured' );
+}
+
+/**
+ * Check if auth token is configured
+ * @returns {boolean} True if token is set and valid
+ */
+function hasAuthToken () {
+    return headers.authtoken && headers.authtoken.length > 0;
+}
+
 const BASE_URL = config.OPENCHAT_BASE_URL || 'https://openchat.prod.tt.fm/';
 
+// NOTE: authtoken is now fetched dynamically during startup from Gateway API
+// Allow empty initial value for lazy initialization
 const headers = {
     'Content-Type': 'application/json',
-    authtoken: config.COMETCHAT_AUTH_TOKEN,
+    authtoken: config.COMETCHAT_AUTH_TOKEN || '', // Allow empty initially
     appid: config.COMETCHAT_API_KEY,
     dnt: 1,
     origin: 'https://tt.live',
@@ -93,8 +119,13 @@ async function buildPayload ( receiver, receiverType, customData, theMessage ) {
  * Send a message via OpenChat API with retry logic
  * @param {Object} payload - The message payload
  * @returns {Promise<Object>} API response
+ * @throws {Error} If auth token is not configured
  */
 async function sendMessage ( payload ) {
+    if ( !hasAuthToken() ) {
+        throw new Error( 'Cannot send message: OpenChat auth token not configured' );
+    }
+
     const executeRequest = async () => {
         try {
             const response = await axios.post( `${ BASE_URL }/v3.0/messages`, payload, { headers } );
@@ -336,5 +367,7 @@ module.exports = {
     leaveChatGroup,
     fetchMessages,
     markConversationAsRead,
-    setRetryService
+    setRetryService,
+    setAuthToken,
+    hasAuthToken
 };

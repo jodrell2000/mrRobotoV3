@@ -99,6 +99,7 @@ const services = {
   triggerService: null, // Will be initialized after services object is created
   tokenService: null, // Will be initialized after services object is created
   documentationService: null, // Will be initialized after services object is created
+  openchatApi: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -171,6 +172,7 @@ services.documentationService = new DocumentationService( {
 // Initialize retry service connection to OpenChat API
 const openchatApi = require( './openchatApi.js' );
 openchatApi.setRetryService( retryService );
+services.openchatApi = openchatApi;
 
 // Initialize data asynchronously
 const initializeServices = async () => {

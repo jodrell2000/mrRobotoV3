@@ -223,18 +223,15 @@ const groupMessageService = {
             // logger.debug( `[GroupMessage] - resolved messageId: ${ messageId }` );
 
             if ( messageId ) {
-                // Increment message ID by 1 to get only messages AFTER this ID (exclusive filter)
-                const nextMessageId = parseInt( messageId ) + 1;
-                params.push( [ 'id', nextMessageId ] );
-                // logger.debug( `[GroupMessage] - Added id parameter: ${ nextMessageId } (original: ${ messageId })` );
-                // Don't add updatedAt when we have a message ID - OpenChat prioritizes updatedAt over id
+                params.push( [ 'id', messageId ] );
+                // logger.debug( `[GroupMessage] - Added id parameter: ${ messageId }` );
             } else {
                 // logger.debug( `[GroupMessage] - No messageId available, fetching latest messages` );
-                // Only use updatedAt when we don't have a message ID
-                if ( fromTimestamp ) {
-                    params.push( [ 'updatedAt', fromTimestamp ] );
-                    // logger.debug( `[GroupMessage] - Added updatedAt parameter: ${ fromTimestamp }` );
-                }
+            }
+
+            if ( fromTimestamp ) {
+                params.push( [ 'updatedAt', fromTimestamp ] );
+                // logger.debug( `[GroupMessage] - Added updatedAt parameter: ${ fromTimestamp }` );
             }
 
             if ( limit !== 50 ) {
@@ -331,7 +328,6 @@ const groupMessageService = {
 
         try {
             const finalParams = [ ...defaultParams, ...params ];
-
 
             // Use openchatApi.fetchMessages with the correct endpoint format
             const response = await openchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );

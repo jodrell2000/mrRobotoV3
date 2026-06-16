@@ -136,18 +136,26 @@ If the bookmarklet doesn't work, you can get your token manually:
 
    * You should probably have a cup of tea now! ;-)
 
-## Step 5: Obtaining a Chat Token
-**Time: ~2 minutes**
-Next we're going to use the Bot token to get the COMETCHAT_AUTH_TOKEN to add to the .env file
-   * Head to: https://gateway.prod.tt.fm/api/user-service/api/#/CometChat/getUserCometChatAuthToken
-   * as above, click the light gray padlock and authosire yourself, but this time **use the Bot's token** rather than your personal one. If the padlock is already closed, click it and then click 'Logout' on the popup that appears
-   * Click the 'Try it out' button underneath the padlock, and then the blue 'Execute' button. You should see a response returned containing a value for cometAuthToken
-      ```json
-      {
-      "cometAuthToken": "asdaad-asd-45f7-asd-c3756a8c4a84_17186129asdasdasdasdcd717e3646f8b"
-      }
-      ```
-   * Copy the value from this response, without the quotes, and paste it into your .env file replacing 'paste-your-comet-chat-auth-token-here'
+## Step 5: Chat Token Configuration (Automatic)
+**Time: 0 minutes - No action required!**
+
+✨ **Good news!** As of version 1.3.1, the bot automatically fetches the CometChat authentication token during startup using your `BOT_USER_TOKEN`. You no longer need to manually configure `COMETCHAT_AUTH_TOKEN` in your `.env` file.
+
+**What happens automatically:**
+- On startup, the bot calls the Gateway API to fetch your chat token
+- The token is configured internally before any chat operations
+- If token fetching fails, the bot will exit with a clear error message
+
+**Requirements:**
+- Your `BOT_USER_TOKEN` must be valid and have permission to access the Gateway API
+- The Gateway API (`https://gateway.prod.tt.fm`) must be accessible
+
+**Troubleshooting:**
+- If the bot fails to start with an error like "Failed to fetch CometChat token", verify your `BOT_USER_TOKEN` is correct
+- Check the logs for detailed error messages
+- Ensure network connectivity to `gateway.prod.tt.fm`
+
+> 💡 **Note for advanced users:** You can still manually set `COMETCHAT_AUTH_TOKEN` in your `.env` file for debugging purposes, but this is not recommended for normal operation.
 
 ## Step 5a: Configure OpenChat Base URL (Optional)
 **Time: ~1 minute**

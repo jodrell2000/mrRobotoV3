@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Dynamic CometChat Token Fetching:** Bot automatically fetches authentication token from Gateway API on startup
+- **Automatic Token Configuration:** Eliminates manual `COMETCHAT_AUTH_TOKEN` setup step
+- **Lazy Token Initialization:** OpenChat API supports runtime token configuration via `setAuthToken()`
+- **Token Validation:** Message sending requires valid auth token, preventing silent failures
+
 ### Changed
 - **Chat Service Migration:** Migrated from CometChat to OpenChat (tt.fm's CometChat-compatible endpoint)
 - **New Environment Variable:** Added `OPENCHAT_BASE_URL` configuration (defaults to `https://openchat.prod.tt.fm/`)
 - **Service Architecture:** Created `openchatApi.js` as drop-in replacement for `cometchatApi.js`
 - **Deprecated:** `cometchatApi.js` preserved but commented out for rollback capability
+- **COMETCHAT_AUTH_TOKEN:** No longer required in `.env` file - fetched automatically using `BOT_USER_TOKEN`
+- **Token Configuration:** Token is fetched automatically using `BOT_USER_TOKEN` during startup
+- **Startup Behavior:** Bot will exit with code 1 and clear error message if token cannot be fetched
 
 ### Removed
+- **Manual COMETCHAT_AUTH_TOKEN Configuration:** No longer required for new deployments
 - **Google Cloud Integration:** Removed all Google Cloud Run and Google Cloud Storage code
   - Deleted `cloudStorageService.js`
   - Deleted `dailyCloudSyncTask.js`

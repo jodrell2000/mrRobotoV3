@@ -12,6 +12,10 @@ class Bot {
     this.deferredPatches = []; // Store patches that arrive before state is available
     this.isProcessingPublicMessages = false; // Flag to prevent concurrent public message processing
     this.isProcessingPrivateMessages = false; // Flag to prevent concurrent private message processing
+    // Dynamic backoff state for public messages
+    this.publicMessageInterval = 1000; // Start at 1 second
+    this.publicMessageBackoffStep = 1000; // Increase by 1 second each timeout
+    this.publicMessageMaxInterval = 10000; // Max 10 seconds
 
     // Initialize global state for playedSong handler
     if ( !global.previousPlayedSong ) global.previousPlayedSong = null;
@@ -674,16 +678,33 @@ class Bot {
     }
 
     this.isProcessingPublicMessages = true;
+    const startTime = Date.now();
+    let timedOut = false;
 
     try {
-      // Add timeout to prevent hanging (900ms - shorter than polling interval so next poll can retry)
-      // If this times out, the next 1-second interval will make another call with the same lastID
+      // Dynamic timeout based on current interval (90% of interval)
+      const timeout = Math.floor( this.publicMessageInterval * 0.9 );
       const messages = await Promise.race( [
         this._fetchNewMessages(),
         new Promise( ( _, reject ) =>
-          setTimeout( () => reject( new Error( 'Message fetch timeout after 900ms' ) ), 900 )
+          setTimeout( () => {
+            timedOut = true;
+            reject( new Error( `Message fetch timeout after ${ timeout }ms` ) );
+          }, timeout )
         )
       ] );
+
+      const fetchDuration = Date.now() - startTime;
+
+      // Success! Reset interval to 1 second
+      if ( this.publicMessageInterval !== 1000 ) {
+        this.services.logger.info( `✅ [processNewPublicMessages] Fetch successful, resetting interval from ${ this.publicMessageInterval }ms to 1000ms` );
+        this.publicMessageInterval = 1000;
+      }
+
+      if ( fetchDuration > timeout * 0.8 ) {
+        this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
+      }
 
       if ( !messages?.length ) {
         // this.services.logger.debug( `🔄 [processNewPublicMessages] No new public messages found` );
@@ -693,12 +714,23 @@ class Bot {
       // this.services.logger.info( `🔄 [processNewPublicMessages] Processing ${ messages.length } new public messages` );
       await this._processMessageBatch( messages );
     } catch ( error ) {
+      const fetchDuration = Date.now() - startTime;
       // More defensive error handling
       const errorMessage = error && typeof error === 'object'
         ? ( error.message || error.toString() || 'Unknown error object' )
         : ( error || 'Unknown error' );
 
-      this.services.logger.error( `Error in processNewPublicMessages: ${ errorMessage }` );
+      // Check if this was a timeout (backoff logic)
+      if ( timedOut ) {
+        const oldInterval = this.publicMessageInterval;
+        this.publicMessageInterval = Math.min(
+          this.publicMessageInterval + this.publicMessageBackoffStep,
+          this.publicMessageMaxInterval
+        );
+        this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
+      } else {
+        this.services.logger.error( `Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
+      }
 
       // if ( error && error.stack ) {
       //   this.services.logger.error( `Error stack: ${ error.stack }` );
@@ -823,7 +855,8 @@ class Bot {
 
       const allPrivateMessages = [];
 
-      for ( const user of allUsers ) {
+      for ( let i = 0; i < allUsers.length; i++ ) {
+        const user = allUsers[ i ];
         const userUUID = user.uuid;
         // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Processing user: ${userUUID} (${user.nickname || 'No nickname'})` );
 
@@ -836,6 +869,11 @@ class Bot {
         // Silently skip users with invalid/empty UUIDs
         if ( !userUUID || userUUID === '' || typeof userUUID !== 'string' ) {
           continue;
+        }
+
+        // Add 500ms delay between users to avoid API hammering (skip delay for first user)
+        if ( i > 0 ) {
+          await new Promise( resolve => setTimeout( resolve, 500 ) );
         }
 
         try {
