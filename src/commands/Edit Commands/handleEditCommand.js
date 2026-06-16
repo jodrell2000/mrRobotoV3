@@ -295,8 +295,8 @@ async function handleEditCommand ( commandParams ) {
         };
     }
 
-    // Split args into command and parameters
-    const argParts = args.split( ' ' );
+    // Split args into command and parameters, filtering out empty strings from extra whitespace
+    const argParts = args.trim().split( ' ' ).filter( part => part.length > 0 );
     const subCommand = argParts[ 0 ];
 
     // Handle list command

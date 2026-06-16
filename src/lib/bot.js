@@ -17,6 +17,10 @@ class Bot {
     this.publicMessageBackoffStep = 1000; // Increase by 1 second each timeout
     this.publicMessageMaxInterval = 10000; // Max 10 seconds
 
+    // Per-user backoff state for private messages (parallel fetching)
+    // Structure: { [userUUID]: { interval: 1000, backoffStep: 1000, maxInterval: 10000 } }
+    this.privateMessageUserIntervals = {};
+
     // Initialize global state for playedSong handler
     if ( !global.previousPlayedSong ) global.previousPlayedSong = null;
     if ( !global.playedSongTimer ) global.playedSongTimer = null;
@@ -698,12 +702,12 @@ class Bot {
 
       // Success! Reset interval to 1 second
       if ( this.publicMessageInterval !== 1000 ) {
-        this.services.logger.info( `✅ [processNewPublicMessages] Fetch successful, resetting interval from ${ this.publicMessageInterval }ms to 1000ms` );
+        // this.services.logger.info( `✅ [processNewPublicMessages] Fetch successful, resetting interval from ${ this.publicMessageInterval }ms to 1000ms` );
         this.publicMessageInterval = 1000;
       }
 
       if ( fetchDuration > timeout * 0.8 ) {
-        this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
+        // this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
       }
 
       if ( !messages?.length ) {
@@ -727,7 +731,7 @@ class Bot {
           this.publicMessageInterval + this.publicMessageBackoffStep,
           this.publicMessageMaxInterval
         );
-        this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
+        // this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
       } else {
         this.services.logger.error( `Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
       }
@@ -759,39 +763,39 @@ class Bot {
     }
 
     this.isProcessingPrivateMessages = true;
+    const processStartTime = Date.now();
 
     try {
       // this.services.logger.debug( `🔄 [processNewPrivateMessages] Starting private message check...` );
 
-      // Add timeout to prevent hanging. Private messages require longer than public messages
-      // because they fetch from multiple users sequentially. 5 seconds allows for this.
-      // If fetch times out mid-processing, message tracking is already updated (safe),
-      // finally block resets flag, and next poll retries with same lastPrivateMessageTracking
-      const messages = await Promise.race( [
-        this._fetchNewPrivateMessages(),
-        new Promise( ( _, reject ) =>
-          setTimeout( () => reject( new Error( 'Private message fetch timeout after 5 seconds' ) ), 5000 )
-        )
-      ] );
+      // No overall timeout - let individual per-user timeouts handle backoff independently
+      // Each user escalates their interval up to 10 seconds based on their own performance
+      const messages = await this._fetchNewPrivateMessages();
+
+      const processDuration = Date.now() - processStartTime;
 
       if ( !messages?.length ) {
-        // this.services.logger.debug( `🔄 [processNewPrivateMessages] No new private messages found` );
+        // this.services.logger.debug( `🔄 [processNewPrivateMessages] No new private messages found (${ processDuration }ms)` );
         return; // No new messages to process
       }
 
-      // this.services.logger.debug( `🔄 [processNewPrivateMessages] Processing ${messages.length} new private messages` );
+      // this.services.logger.debug( `🔄 [processNewPrivateMessages] Processing ${ messages.length } new private messages (fetch took ${ processDuration }ms)` );
       await this._processMessageBatch( messages );
+
+      const totalDuration = Date.now() - processStartTime;
+      // this.services.logger.debug( `✅ [processNewPrivateMessages] Completed processing in ${ totalDuration }ms` );
     } catch ( error ) {
+      const processDuration = Date.now() - processStartTime;
       // More defensive error handling
       const errorMessage = error && typeof error === 'object'
         ? ( error.message || error.toString() || 'Unknown error object' )
         : ( error || 'Unknown error' );
 
-      this.services.logger.error( `Error in processNewPrivateMessages: ${ errorMessage }` );
+      this.services.logger.error( `Error in processNewPrivateMessages after ${ processDuration }ms: ${ errorMessage }` );
 
-      // if ( error && error.stack ) {
-      //   this.services.logger.error( `Error stack: ${ error.stack }` );
-      // }
+      if ( error && error.stack ) {
+        this.services.logger.error( `Error stack: ${ error.stack }` );
+      }
     } finally {
       this.isProcessingPrivateMessages = false;
     }
@@ -834,131 +838,189 @@ class Bot {
   }
 
   async _fetchNewPrivateMessages () {
+    const fetchStartTime = Date.now();
     try {
-      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Starting private message fetch` );
+      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Starting parallel private message fetch` );
 
       // Get all users currently in the hangout
       const allUsers = this.services.stateService._getAllUsers();
       // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Found ${ allUsers.length } users in hangout` );
-      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Users: ${JSON.stringify(allUsers.map(u => ({ uuid: u.uuid, nickname: u.nickname })), null, 2)}` );
 
-      // Debug: Show current tracking state for all users
-      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Current message tracking state:` );
-      for ( const user of allUsers ) {
+      // Filter valid users and create parallel fetch promises
+      const validUsers = allUsers.filter( user => {
         const userUUID = user.uuid;
-        const userTracking = this.lastPrivateMessageTracking[ userUUID ];
-        const timestampInfo = userTracking?.lastTimestamp
-          ? `${ userTracking.lastTimestamp } (${ userTracking.lastTimestamp.toString().length } digits)`
-          : 'none';
-        // this.services.logger.debug( `   👤 User: ${userUUID} (${user.nickname || 'No nickname'}) -> LastMsgID: ${userTracking?.lastMessageId || 'none'}, LastTimestamp: ${timestampInfo}` );
-      }
-
-      const allPrivateMessages = [];
-
-      for ( let i = 0; i < allUsers.length; i++ ) {
-        const user = allUsers[ i ];
-        const userUUID = user.uuid;
-        // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Processing user: ${userUUID} (${user.nickname || 'No nickname'})` );
-
-        // Skip bot's own messages
         if ( userUUID === this.services.config.BOT_UID ) {
-          // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Skipping bot's own messages (BOT_UID: ${this.services.config.BOT_UID})` );
-          continue;
+          return false; // Skip bot
         }
-
-        // Silently skip users with invalid/empty UUIDs
         if ( !userUUID || userUUID === '' || typeof userUUID !== 'string' ) {
-          continue;
+          return false; // Skip invalid UUIDs
         }
+        return true;
+      } );
 
-        // Add 500ms delay between users to avoid API hammering (skip delay for first user)
-        if ( i > 0 ) {
-          await new Promise( resolve => setTimeout( resolve, 500 ) );
-        }
+      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Fetching from ${ validUsers.length } valid users in parallel` );
 
-        try {
-          // Get the last processed message tracking for this user
-          const userTracking = this.lastPrivateMessageTracking[ userUUID ];
-          // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Last processed message tracking for user ${userUUID}: ${JSON.stringify(userTracking)}` );
-
-          // Build options for fetchNewPrivateUserMessages with filtering
-          const options = {
-            lastMessageId: userTracking?.lastMessageId,
-            lastTimestamp: userTracking?.lastTimestamp,
-            logLastMessage: false,
-            returnData: true
-          };
-          // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Calling fetchNewPrivateUserMessages with options: ${JSON.stringify(options)}` );
-
-          // Use the new API-filtered fetch method
-          const userMessages = await this.services.privateMessageService.fetchNewPrivateUserMessages( userUUID, options );
-          // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] fetchNewPrivateUserMessages returned ${userMessages ? userMessages.length : 'null'} NEW messages for user ${userUUID}` );
-
-          if ( userMessages && userMessages.length > 0 ) {
-            // No additional filtering needed - the API already filtered for us
-            // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Processing ${userMessages.length} new messages from user ${userUUID}` );
-
-            // Transform messages to match the structure expected by _processMessageBatch
-            const transformedMessages = userMessages.map( ( msg, index ) => {
-              const transformed = {
-                id: msg.id,
-                sentAt: msg.sentAt,
-                sender: msg.sender,
-                data: {
-                  metadata: {
-                    chatMessage: {
-                      message: msg.text,
-                      userUuid: msg.sender
-                    }
-                  }
-                },
-                // Add metadata to distinguish private messages
-                isPrivateMessage: true,
-                recipientUUID: userUUID
-              };
-
-              // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Transformed message ${index} from user ${userUUID}: ID=${msg.id}, Text="${msg.text}", SentAt=${msg.sentAt}` );
-              return transformed;
-            } );
-
-            allPrivateMessages.push( ...transformedMessages );
-
-            // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Added ${transformedMessages.length} transformed messages from user ${userUUID}` );
-          } else {
-            // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] No new messages found for user ${userUUID}` );
-          }
-        } catch ( userError ) {
-          this.services.logger.warn( `❌ [_fetchNewPrivateMessages] Failed to fetch private messages for user ${ userUUID }: ${ userError.message }` );
-          this.services.logger.warn( `❌ [_fetchNewPrivateMessages] Error stack: ${ userError.stack }` );
-          // Continue with other users even if one fails
-        }
+      // Show current per-user backoff state
+      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Per-user backoff state:` );
+      for ( const user of validUsers ) {
+        const userUUID = user.uuid;
+        const userState = this.privateMessageUserIntervals[ userUUID ] || { interval: 1000 };
+        // this.services.logger.debug( `   👤 User: ${ userUUID } (${ user.nickname || 'No nickname' }) -> Current interval: ${ userState.interval }ms` );
       }
+
+      // Fetch from all users in PARALLEL with individual timeouts
+      const fetchPromises = validUsers.map( user => this._fetchPrivateMessagesForUser( user ) );
+      const results = await Promise.allSettled( fetchPromises );
+
+      // Collect all successful messages from all users
+      const allPrivateMessages = [];
+      results.forEach( ( result, index ) => {
+        const user = validUsers[ index ];
+        if ( result.status === 'fulfilled' && result.value?.length > 0 ) {
+          allPrivateMessages.push( ...result.value );
+          // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Collected ${ result.value.length } messages from user ${ user.uuid }` );
+        } else if ( result.status === 'rejected' ) {
+          this.services.logger.warn( `⚠️ [_fetchNewPrivateMessages] User ${ user.uuid } fetch failed: ${ result.reason?.message || result.reason }` );
+        }
+      } );
 
       // Sort all messages by sentAt timestamp to process them in chronological order
       allPrivateMessages.sort( ( a, b ) => a.sentAt - b.sentAt );
 
-      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Total new private messages found: ${ allPrivateMessages.length }` );
-      // if ( allPrivateMessages.length > 0 ) {
-      //   this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Message summary: ${allPrivateMessages.map(m => `ID=${m.id} from=${m.sender} to=${m.recipientUUID} at=${m.sentAt}`).join(', ')}` );
-      // }
-
-      // Debug: Show updated tracking state after fetch
-      // this.services.logger.debug( `🔍 [_fetchNewPrivateMessages] Tracking state after fetch (before processing):` );
-      for ( const user of allUsers ) {
-        const userUUID = user.uuid;
-        const userTracking = this.lastPrivateMessageTracking[ userUUID ];
-        const timestampInfo = userTracking?.lastTimestamp
-          ? `${ userTracking.lastTimestamp } (${ userTracking.lastTimestamp.toString().length } digits)`
-          : 'none';
-        // this.services.logger.debug( `   👤 User: ${userUUID} -> LastMsgID: ${userTracking?.lastMessageId || 'none'}, LastTimestamp: ${timestampInfo}` );
-      }
+      const fetchDuration = Date.now() - fetchStartTime;
+      // this.services.logger.debug( `✅ [_fetchNewPrivateMessages] Completed parallel fetch in ${ fetchDuration }ms - Total messages found: ${ allPrivateMessages.length }` );
 
       return allPrivateMessages;
 
     } catch ( error ) {
-      this.services.logger.error( `❌ [_fetchNewPrivateMessages] Error in _fetchNewPrivateMessages: ${ error.message }` );
+      const fetchDuration = Date.now() - fetchStartTime;
+      this.services.logger.error( `❌ [_fetchNewPrivateMessages] Error in _fetchNewPrivateMessages after ${ fetchDuration }ms: ${ error.message }` );
       this.services.logger.error( `❌ [_fetchNewPrivateMessages] Error stack: ${ error.stack }` );
       return [];
+    }
+  }
+
+  /**
+   * Fetch private messages for a single user with per-user timeout and backoff
+   * Each user maintains its own interval state for independent retry logic
+   */
+  async _fetchPrivateMessagesForUser ( user ) {
+    const userUUID = user.uuid;
+    const userStartTime = Date.now();
+
+    try {
+      // Initialize per-user interval tracking if needed
+      if ( !this.privateMessageUserIntervals[ userUUID ] ) {
+        this.privateMessageUserIntervals[ userUUID ] = {
+          interval: 1000,        // Start at 1 second (like public messages)
+          backoffStep: 1000,     // Increase by 1 second per timeout
+          maxInterval: 10000     // Max 10 seconds
+        };
+      }
+
+      const userState = this.privateMessageUserIntervals[ userUUID ];
+      const timeout = Math.floor( userState.interval * 0.9 ); // 90% of interval
+
+      // this.services.logger.debug( `🔍 [_fetchPrivateMessagesForUser] [${ userUUID }] Starting fetch with ${ timeout }ms timeout (interval: ${ userState.interval }ms)` );
+
+      // Fetch messages for this user with per-user timeout
+      let timeoutId;
+      const userMessages = await Promise.race( [
+        this._fetchMessagesBatchForUser( userUUID ),
+        new Promise( ( _, reject ) => {
+          timeoutId = setTimeout( () => {
+            // this.services.logger.warn( `⏰ [_fetchPrivateMessagesForUser] [${ userUUID }] Timeout after ${ timeout }ms` );
+            reject( new Error( `PRIVATE_MESSAGE_TIMEOUT: Fetch timeout after ${ timeout }ms` ) );
+          }, timeout );
+        } )
+      ] );
+
+      // Cancel timeout since fetch won
+      clearTimeout( timeoutId );
+
+      // Success! Reset interval to 1 second
+      if ( userState.interval !== 1000 ) {
+        // this.services.logger.debug( `✅ [_fetchPrivateMessagesForUser] [${ userUUID }] Fetch successful, resetting interval from ${ userState.interval }ms to 1000ms` );
+        userState.interval = 1000;
+      }
+
+      const userDuration = Date.now() - userStartTime;
+      // this.services.logger.debug( `✅ [_fetchPrivateMessagesForUser] [${ userUUID }] Completed in ${ userDuration }ms - Found ${ userMessages ? userMessages.length : 0 } messages` );
+
+      return userMessages || [];
+
+    } catch ( error ) {
+      const userDuration = Date.now() - userStartTime;
+      const userState = this.privateMessageUserIntervals[ userUUID ];
+
+      // this.services.logger.debug( `[DEBUG] Error caught. Message: "${ error.message }", Includes PRIVATE_MESSAGE_TIMEOUT: ${ error.message.includes( 'PRIVATE_MESSAGE_TIMEOUT' ) }` );
+
+      // Timeout - apply backoff to this user's interval
+      if ( error.message.includes( 'PRIVATE_MESSAGE_TIMEOUT' ) ) {
+        const oldInterval = userState.interval;
+        userState.interval = Math.min(
+          userState.interval + userState.backoffStep,
+          userState.maxInterval
+        );
+        this.services.logger.warn( `⏰ [_fetchPrivateMessagesForUser] [${ userUUID }] Timeout after ${ userDuration }ms! Increased interval from ${ oldInterval }ms to ${ userState.interval }ms` );
+      } else {
+        this.services.logger.error( `❌ [_fetchPrivateMessagesForUser] [${ userUUID }] Error after ${ userDuration }ms: ${ error.message }` );
+      }
+
+      return [];
+    }
+  }
+
+  /**
+   * Fetch and transform messages for a single user
+   */
+  async _fetchMessagesBatchForUser ( userUUID ) {
+    try {
+      // Get the last processed message tracking for this user
+      const userTracking = this.lastPrivateMessageTracking[ userUUID ];
+
+      // Build options for fetchNewPrivateUserMessages
+      const options = {
+        lastMessageId: userTracking?.lastMessageId,
+        lastTimestamp: userTracking?.lastTimestamp,
+        logLastMessage: false,
+        returnData: true
+      };
+
+      // Fetch new messages from the API
+      const userMessages = await this.services.privateMessageService.fetchNewPrivateUserMessages( userUUID, options );
+
+      if ( !userMessages || userMessages.length === 0 ) {
+        return [];
+      }
+
+      // Transform messages to match the structure expected by _processMessageBatch
+      const transformedMessages = userMessages.map( ( msg ) => {
+        return {
+          id: msg.id,
+          sentAt: msg.sentAt,
+          sender: msg.sender,
+          data: {
+            metadata: {
+              chatMessage: {
+                message: msg.text,
+                userUuid: msg.sender
+              }
+            }
+          },
+          // Add metadata to distinguish private messages
+          isPrivateMessage: true,
+          recipientUUID: userUUID
+        };
+      } );
+
+      // this.services.logger.debug( `🔍 [_fetchMessagesBatchForUser] [${ userUUID }] Transformed ${ transformedMessages.length } messages` );
+
+      return transformedMessages;
+
+    } catch ( error ) {
+      this.services.logger.error( `❌ [_fetchMessagesBatchForUser] [${ userUUID }] Error: ${ error.message }` );
+      throw error; // Let caller handle the error
     }
   }
 
@@ -1085,7 +1147,7 @@ class Bot {
       // Check if parseCommands exists and is a function
       if ( typeof this.services.parseCommands === 'function' ) {
         const parseResult = await this.services.parseCommands( chatMessage, this.services );
-        this.services.logger.debug( `[_handleMessage] parseCommands result: ${ JSON.stringify( parseResult ) }` );
+        // this.services.logger.debug( `[_handleMessage] parseCommands result: ${ JSON.stringify( parseResult ) }` );
 
         // If it's a command, process it with commandService
         if ( parseResult && parseResult.isCommand ) {
@@ -1159,9 +1221,9 @@ class Bot {
         // Persist the updated tracking state
         this.services.setState( 'lastPrivateMessageTracking', this.lastPrivateMessageTracking );
 
-        this.services.logger.debug( `✅ Removed private message tracking for user: ${ userUUID }` );
+        // this.services.logger.debug( `✅ Removed private message tracking for user: ${ userUUID }` );
       } else {
-        this.services.logger.debug( `No private message tracking found for user: ${ userUUID }` );
+        // this.services.logger.debug( `No private message tracking found for user: ${ userUUID }` );
       }
     } catch ( error ) {
       this.services.logger.error( `Error removing private message tracking for user ${ userUUID }: ${ error.message }` );
@@ -1199,7 +1261,7 @@ class Bot {
     // Save private message tracking state before disconnecting
     if ( this.lastPrivateMessageTracking && Object.keys( this.lastPrivateMessageTracking ).length > 0 ) {
       this.services.setState( 'lastPrivateMessageTracking', this.lastPrivateMessageTracking );
-      this.services.logger.debug( 'Saved private message tracking state' );
+      // this.services.logger.debug( 'Saved private message tracking state' );
     }
 
     if ( this.socket ) {
