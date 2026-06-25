@@ -736,9 +736,9 @@ class Bot {
         this.services.logger.error( `Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
       }
 
-      if ( error && error.stack ) {
-        this.services.logger.error( `Error stack: ${ error.stack }` );
-      }
+      // if ( error && error.stack ) {
+      //   this.services.logger.error( `Error stack: ${ error.stack }` );
+      // }
 
       // Check if this error requires a reconnect (e.g., bot kicked from group)
       if ( error && error.shouldReconnect ) {
