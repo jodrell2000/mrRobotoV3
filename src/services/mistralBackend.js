@@ -156,7 +156,7 @@ class MistralBackend {
         }
 
         const normalizedPrompt = normalizeText( prompt );
-        logger.debug( `🤖 [MistralBackend] Normalized prompt: "${ normalizedPrompt }"` );
+        // logger.debug( `🤖 [MistralBackend] Normalized prompt: "${ normalizedPrompt }"` );
 
         const primaryModel = "mistral-tiny-latest";
         const secondaryModel = "ministral-3b-latest";
@@ -231,6 +231,9 @@ class MistralBackend {
             role: "user",
             content: prompt
         } );
+
+        // Debug: Log the complete prompt being sent
+        logger.debug( `🤖 [MistralBackend] Complete prompt for ${ model }:\n${ JSON.stringify( messages, null, 2 ) }` );
 
         const response = await this.client.chat.complete( {
             model: model,
