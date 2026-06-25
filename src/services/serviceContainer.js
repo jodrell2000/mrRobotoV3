@@ -178,6 +178,13 @@ services.openchatApi = openchatApi;
 const initializeServices = async () => {
   await initializeData();
   await initializeDatabase();
+
+  // Initialize machine learning service backend
+  try {
+    await services.machineLearningService.initialize();
+  } catch ( err ) {
+    logger.error( 'Failed to initialize MachineLearningService:', err );
+  }
 };
 
 // Call initializeServices but don't block module export

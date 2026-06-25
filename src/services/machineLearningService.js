@@ -1,286 +1,213 @@
-const { GoogleGenAI } = require( "@google/genai" );
 const { logger } = require( "../lib/logging" );
-const { normalizeText } = require( "../lib/textUtils" );
+const GemmaBackend = require( "./gemmaBackend" );
+const MistralBackend = require( "./mistralBackend" );
 
 /**
  * Machine Learning Service
- * Provides AI-powered functionality using Google's Generative AI
+ * Orchestrator for AI-powered functionality
+ * Supports multiple backend implementations (Gemma, Mistral, etc.)
  */
 class MachineLearningService {
   constructor ( services ) {
-    this.googleAIKey = process.env.googleAIKey;
-    this.genAI = null;
     this.services = services;
-    this.currentChat = null; // Store the active chat session
-    this.availableModels = []; // Will be populated with text generation models from API
-
-    if ( this.googleAIKey ) {
-      this.genAI = new GoogleGenAI( { apiKey: this.googleAIKey } );
-      // Don't await initialization in constructor - it will happen asynchronously
-      // This keeps tests simple and doesn't block initialization
-      this.initializeAvailableModels().catch( err => {
-        logger.warn( `🤖 [MachineLearningService] Failed to load available models on init: ${ err.message }` );
-      } );
-    }
+    this.activeBackend = null;
+    this.backends = {
+      gemma: new GemmaBackend(),
+      mistral: new MistralBackend()
+    };
+    this.config = {
+      active: "mistral",
+      fallbackOrder: [ "mistral", "gemma" ],
+      gemma: {
+        enabled: true
+      },
+      mistral: {
+        enabled: true
+      }
+    };
   }
 
   /**
-   * Initialize the list of available text generation models from the API
-   * This allows us to build a dynamic fallback chain
+   * Initialize the machine learning service
+   * Loads configuration and initializes the active backend
+   * @returns {Promise<Object>} Initialization result
    */
-  async initializeAvailableModels () {
+  async initialize () {
     try {
-      const models = await this.genAI.models.list();
-
-      // Handle different response formats
-      let modelList = [];
-      if ( Array.isArray( models ) ) {
-        modelList = models;
-      } else if ( models.models ) {
-        modelList = models.models;
-      } else if ( models.pageInternal ) {
-        modelList = models.pageInternal;
+      // Load configuration from data service if available
+      if ( this.services?.dataService ) {
+        await this.services.dataService.loadData();
+        const configData = this.services.dataService.getValue( 'llmBackend' );
+        if ( configData ) {
+          this.config = { ...this.config, ...configData };
+        }
       }
 
-      // Filter for Gemma 4 text generation models that support generateContent
-      this.availableModels = modelList
-        .filter( m => m.supportedActions && m.supportedActions.includes( 'generateContent' ) )
-        .map( m => m.name.replace( 'models/', '' ) )
-        .filter( m => m.includes( 'gemma-4' ) )
-        .sort();
+      // Initialize the active backend
+      const backendName = this.config.active || "gemma";
+      const backend = this.backends[ backendName ];
 
-      logger.debug( `🤖 [MachineLearningService] Available Gemma 4 models loaded: ${ this.availableModels.join( ', ' ) }` );
-      logger.info( `🤖 [MachineLearningService] Loaded ${ this.availableModels.length } available text generation models` );
+      if ( !backend ) {
+        logger.error( `🤖 [MachineLearningService] Unknown backend: ${ backendName }` );
+        return {
+          success: false,
+          error: `Unknown backend: ${ backendName }`
+        };
+      }
+
+      const result = await backend.initialize( this.config[ backendName ] );
+
+      if ( result.success ) {
+        this.activeBackend = backendName;
+        logger.info( `🤖 [MachineLearningService] Initialized with backend: ${ backendName }` );
+      } else {
+        logger.warn( `🤖 [MachineLearningService] Failed to initialize ${ backendName }: ${ result.error }` );
+        // Try fallback
+        return await this.tryFallbackBackend();
+      }
+
+      return result;
     } catch ( error ) {
-      logger.warn( `🤖 [MachineLearningService] Could not load available models: ${ error.message }` );
-      this.availableModels = [];
+      logger.error( `🤖 [MachineLearningService] Initialization error: ${ error.message }` );
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
   /**
-   * Get the next fallback model from the available models list
-   * Skips the provided model and returns the next available one
-   * @param {string} currentModel - The model to skip
-   * @returns {string|null} The next available model or null
+   * Try to initialize a fallback backend
+   * @private
+   * @returns {Promise<Object>} Initialization result
    */
-  getNextFallbackModel ( currentModel ) {
-    const cleanCurrent = currentModel.replace( 'models/', '' );
-    const remaining = this.availableModels.filter( m => m !== cleanCurrent );
-    return remaining.length > 0 ? remaining[ 0 ] : null;
+  async tryFallbackBackend () {
+    const current = this.config.active || "gemma";
+    const fallbackOrder = this.config.fallbackOrder || [ "gemma", "mistral" ];
+
+    for ( const backendName of fallbackOrder ) {
+      if ( backendName === current ) {
+        continue; // Skip the one that already failed
+      }
+
+      const backend = this.backends[ backendName ];
+      if ( !backend ) {
+        continue;
+      }
+
+      logger.warn( `🤖 [MachineLearningService] Attempting fallback to ${ backendName }` );
+
+      const result = await backend.initialize( this.config[ backendName ] );
+      if ( result.success ) {
+        this.activeBackend = backendName;
+        logger.info( `🤖 [MachineLearningService] Switched to fallback backend: ${ backendName }` );
+        return result;
+      }
+    }
+
+    return {
+      success: false,
+      error: "No available backends"
+    };
   }
 
   /**
-   * Remove Gemini turn tokens from response text
-   * Cleans up tokens like <start_of_turn>user, <start_of_turn>model, <end_of_turn> that may be included in the response
-   * @param {string} text - The response text to clean
-   * @returns {string} Cleaned text without Gemini tokens
+   * Get current active backend name
+   * @returns {string} Active backend name
    */
-  cleanGeminiTokens ( text ) {
-    if ( !text || typeof text !== 'string' ) {
-      return text;
+  getActiveBackend () {
+    return this.activeBackend;
+  }
+
+  /**
+   * Switch to a different backend
+   * @param {string} backendName - Name of the backend to switch to
+   * @returns {Promise<Object>} Switch result
+   */
+  async switchBackend ( backendName ) {
+    if ( !this.backends[ backendName ] ) {
+      return {
+        success: false,
+        error: `Unknown backend: ${ backendName }`
+      };
     }
 
-    // Remove Gemini turn tokens with their role designations
-    return text
-      .replace( /<start_of_turn>user\n/g, '' )
-      .replace( /<start_of_turn>model\n/g, '' )
-      .replace( /<start_of_turn>/g, '' )
-      .replace( /<end_of_turn>/g, '' )
-      .trim();
+    const backend = this.backends[ backendName ];
+    const result = await backend.initialize( this.config[ backendName ] );
+
+    if ( result.success ) {
+      this.activeBackend = backendName;
+
+      // Save to data service if available
+      if ( this.services?.dataService ) {
+        try {
+          await this.services.dataService.loadData();
+          await this.services.dataService.setValue( 'llmBackend.active', backendName );
+        } catch ( error ) {
+          logger.warn( `🤖 [MachineLearningService] Could not persist backend switch: ${ error.message }` );
+        }
+      }
+
+      logger.info( `🤖 [MachineLearningService] Switched to backend: ${ backendName }` );
+      return {
+        success: true,
+        message: `Switched to ${ backendName } backend`
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Check health of the active backend
+   * @returns {Promise<Object>} Health status
+   */
+  async healthCheck () {
+    if ( !this.activeBackend || !this.backends[ this.activeBackend ] ) {
+      return {
+        healthy: false,
+        status: "not_initialized",
+        message: "No active backend"
+      };
+    }
+
+    return await this.backends[ this.activeBackend ].healthCheck();
   }
 
   /**
    * Load conversation history from data service
-   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
-   * @returns {Array} Array of conversation entries within the last hour
+   * Currently returns empty array (mlConversationHistory removed)
+   * @deprecated - mlConversationHistory no longer sent with requests
+   * @returns {Array} Empty array
    */
   async loadConversationHistory ( skipDataLoad = false ) {
-    try {
-      if ( !this.services?.dataService ) {
-        return [];
-      }
-
-      if ( !skipDataLoad ) {
-        await this.services.dataService.loadData();
-      }
-      const allHistory = this.services.dataService.getValue( 'conversationHistory' ) || [];
-
-      // Filter to only include entries from the last hour
-      const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
-      const recentHistory = allHistory.filter( entry =>
-        new Date( entry.timestamp ).getTime() > oneHourAgo
-      );
-
-      // Return all entries from the last hour (no limit on count)
-      return recentHistory;
-    } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error loading conversation history: ${ error.message }` );
-      return [];
-    }
+    return [];
   }
 
   /**
-   * Load ML conversation history (structured as pairs with user/model roles)
-   * Returns the last 3 pairs formatted for the chat API
-   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
-   * @returns {Array} Array of conversation entries (last 3 pairs)
+   * Load ML conversation history
+   * Currently returns empty array (mlConversationHistory removed)
+   * @deprecated - mlConversationHistory no longer sent with requests
+   * @returns {Array} Empty array
    */
   async loadMLConversationHistory ( skipDataLoad = false ) {
-    try {
-      if ( !this.services?.dataService ) {
-        return [];
-      }
-
-      if ( !skipDataLoad ) {
-        await this.services.dataService.loadData();
-      }
-
-      const allHistory = this.services.dataService.getValue( 'mlConversationHistory' ) || [];
-
-      // Get the last 3 pairs
-      const last3Pairs = allHistory.slice( -3 );
-
-      // Convert paired structure to flat history format
-      const flatHistory = [];
-      for ( const pairEntry of last3Pairs ) {
-        if ( pairEntry.pair && Array.isArray( pairEntry.pair ) ) {
-          for ( const message of pairEntry.pair ) {
-            flatHistory.push( {
-              role: message.role,
-              content: this.cleanGeminiTokens( message.content ),
-              timestamp: pairEntry.timestamp
-            } );
-          }
-        }
-      }
-
-      return flatHistory;
-    } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error loading ML conversation history: ${ error.message }` );
-      return [];
-    }
+    return [];
   }
 
   /**
    * Save conversation entry to data service
-   * @param {string} question - The question asked
-   * @param {string} response - The AI's response
-   * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
+   * Currently a no-op (mlConversationHistory no longer stored)
+   * @deprecated - mlConversationHistory no longer stored
+   * @returns {Promise<void>}
    */
   async saveConversationEntry ( question, response, skipDataLoad = false ) {
-    try {
-      if ( !this.services?.dataService ) {
-        return;
-      }
-
-      if ( !skipDataLoad ) {
-        await this.services.dataService.loadData();
-      }
-
-      // Load existing history
-      let allHistory = this.services.dataService.getValue( 'conversationHistory' ) || [];
-
-      // Add new entry
-      const newEntry = {
-        timestamp: new Date().toISOString(),
-        question: question,
-        response: response
-      };
-      allHistory.push( newEntry );
-
-      // Filter to keep only entries from the last hour
-      const oneHourAgo = Date.now() - ( 60 * 60 * 1000 );
-      const filteredHistory = allHistory.filter( entry =>
-        new Date( entry.timestamp ).getTime() > oneHourAgo
-      );
-
-      // Save back to data service
-      await this.services.dataService.setValue( 'conversationHistory', filteredHistory );
-    } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error saving conversation entry: ${ error.message }` );
-    }
-  }
-
-  /**
-   * Convert conversation history to Google AI chat history format
-   * Supports both old format (with question/response fields) and new format (with role/content fields)
-   * @param {Array} history - Array of conversation entries
-   * @returns {Array} Array of Google AI chat history objects
-   */
-  formatChatHistory ( history ) {
-    const chatHistory = [];
-
-    for ( const entry of history ) {
-      // Support both old format (question/response) and new format (role/content)
-      if ( entry.role && entry.content ) {
-        // New ML conversation history format
-        chatHistory.push( {
-          role: entry.role,
-          parts: [ { text: entry.content } ]
-        } );
-      } else if ( entry.question && entry.response ) {
-        // Old conversation history format (if still used)
-        chatHistory.push( {
-          role: 'user',
-          parts: [ { text: entry.question } ]
-        } );
-        chatHistory.push( {
-          role: 'model',
-          parts: [ { text: entry.response } ]
-        } );
-      }
-    }
-
-    return chatHistory;
-  }
-
-  /**
-   * Get or create a chat session with current conversation history
-   * @param {string} model - The model to use for the chat
-   * @param {Array} conversationHistory - The conversation history
-   * @param {Array} systemInstruction - System instructions for the chat as array of strings
-   * @returns {Promise<Object>} Promise that resolves to the chat instance
-   */
-  async getOrCreateChat ( model, conversationHistory, systemInstruction ) {
-    // Format the conversation history for the chat API
-    const formattedHistory = this.formatChatHistory( conversationHistory );
-
-    // Create chat configuration with parameters optimized for Gemma 4 reasoning
-    // See: https://ai.google.dev/gemini-api/docs/text-generation
-    const config = {
-      temperature: 0.8,  // Balances creativity with consistency
-      topP: 0.8,         // Nucleus sampling threshold
-      topK: 20,          // Limit token selection to top 20 most probable options
-      maxOutputTokens: 1024,
-      thinkingConfig: {
-        includeThoughts: true, // Optional: includes the reasoning in the API response
-        thinkingLevel: "HIGH"  // Required for Gemma 4 reasoning
-      },
-      history: formattedHistory
-    };
-
-    // Add system instruction if available
-    if ( systemInstruction ) {
-      config.systemInstruction = systemInstruction;
-    }
-
-    logger.debug( `🤖 [MachineLearningService] Creating chat with model: ${ model }` );
-    // logger.debug( `🤖 [MachineLearningService] Chat config: ${ JSON.stringify( { config }, null, 2 ) }` );
-
-    // Always create a new chat session with the current history and context
-    // This ensures we have the most up-to-date conversation context
-    this.currentChat = await this.genAI.chats.create( {
-      model: model,
-      config
-    } );
-
-    return this.currentChat;
+    return;
   }
 
   /**
    * Create comprehensive system instruction by combining MLPersonality and MLInstructions
    * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
-   * @returns {Array|null} Array of processed system instruction strings or null if not available
+   * @returns {Promise<Array|null>} Array of system instruction strings or null
    */
   async createSystemInstruction ( skipDataLoad = false ) {
     if ( !this.services?.dataService ) {
@@ -295,26 +222,21 @@ class MachineLearningService {
       const personality = this.services.dataService.getValue( 'Instructions.MLPersonality' );
       const instructions = this.services.dataService.getValue( 'Instructions.MLInstructions' );
 
-      // Always start with the hardcoded safety instruction
-      const systemInstructionArray = [ "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise." ];
+      const systemInstructionArray = [
+        "## Safety & Constraints\n- **Prohibited Content:** No sexist, racist, or homophobic language.\n- **Use of Gender Pronouns:** Always use gender-neutral pronouns unless specified otherwise."
+      ];
 
-      // Add personality if available
       if ( personality ) {
         const processedPersonality = this.services.tokenService
           ? await this.services.tokenService.replaceTokens( personality, {}, true )
-          : personality
-            .replace( /\{hangoutName\}/g, hangoutName )
-            .replace( /\{botName\}/g, botName );
+          : personality;
         systemInstructionArray.push( "\n" + processedPersonality );
       }
 
-      // Add instructions if available
       if ( instructions ) {
         const processedInstructions = this.services.tokenService
           ? await this.services.tokenService.replaceTokens( instructions, {}, true )
-          : instructions
-            .replace( /\{hangoutName\}/g, hangoutName )
-            .replace( /\{botName\}/g, botName );
+          : instructions;
         systemInstructionArray.push( "\n" + processedInstructions );
       }
 
@@ -326,174 +248,115 @@ class MachineLearningService {
   }
 
   /**
-   * Get system instructions with template replacement (deprecated - use createSystemInstruction)
+   * Get system instructions with template replacement (backward compatibility)
    * @param {boolean} skipDataLoad - Skip calling loadData() if data is already loaded
-   * @returns {string|null} The processed system instructions or null if not available
+   * @returns {Promise<Array|null>} System instructions
    */
   async getSystemInstructions ( skipDataLoad = false ) {
-    // Delegate to the new createSystemInstruction method for backward compatibility
     return await this.createSystemInstruction( skipDataLoad );
   }
 
   /**
-   * List all available models from Google AI API
-   * @returns {Promise<Array>} Array of available model names, or empty array if error
+   * List available models (for current backend)
+   * @returns {Promise<Array>} Array of model names
    */
   async listModels () {
-    if ( !this.genAI ) {
-      logger.warn( "🤖 [MachineLearningService] Google AI service not configured. Cannot list models." );
+    if ( !this.activeBackend || !this.backends[ this.activeBackend ] ) {
+      logger.warn( "🤖 [MachineLearningService] No active backend" );
       return [];
     }
 
-    try {
-      const models = await this.genAI.models.list();
-      const modelNames = models.map( m => m.name.replace( 'models/', '' ) );
-      logger.info( `🤖 [MachineLearningService] Available models: ${ modelNames.join( ', ' ) }` );
-      return modelNames;
-    } catch ( error ) {
-      logger.error( `🤖 [MachineLearningService] Error listing models: ${ error.message }` );
-      return [];
+    // Currently only Gemma backend has model listing
+    if ( this.activeBackend === "gemma" ) {
+      return this.backends.gemma.availableModels || [];
     }
+
+    return [];
   }
 
   /**
-   * Ask Google AI a question and get a response using conversation context
-   * Tries primary model, then dynamically falls back through available models
-   * @param {string} theQuestion - The question to ask the AI
+   * Query the active LLM backend with a question
+   * @param {string} theQuestion - The question to ask
    * @param {Object} chatFunctions - Optional chat functions (reserved for future use)
    * @returns {Promise<string>} The AI's response or error message
    */
   async askGoogleAI ( theQuestion, chatFunctions ) {
-    if ( !this.genAI ) {
-      return "Google AI service is not configured. Please check your googleAIKey environment variable.";
+    if ( !this.activeBackend ) {
+      return "Machine learning service is not initialized. Please check your configuration.";
     }
 
-    // Normalize the question to convert decorative Unicode characters to ASCII equivalents
-    // This helps prevent ML model confusion from fancy fonts and character sets
-    const normalizedQuestion = normalizeText( theQuestion );
-    logger.debug( `🤖 [MachineLearningService] Normalized question for AI processing` );
-
-    // Load data once at the start
-    if ( this.services?.dataService ) {
-      await this.services.dataService.loadData();
-    }
-
-    // Use only Gemma 4 models
-    const primaryModel = "gemma-4-31b-it";
-    const secondaryModel = "gemma-4-26b-a4b-it";
-
-    // Create fallback chain with guaranteed models first, then dynamically-loaded ones
-    const modelsToTry = [ primaryModel, secondaryModel ];
-
-    // Add any other available gemma-4 models that aren't already in the chain
-    if ( this.availableModels && this.availableModels.length > 0 ) {
-      for ( const model of this.availableModels ) {
-        if ( model.includes( 'gemma-4' ) && !modelsToTry.includes( model ) ) {
-          modelsToTry.push( model );
-        }
+    try {
+      // Load data once
+      if ( this.services?.dataService ) {
+        await this.services.dataService.loadData();
       }
-    }
 
-    // Try each model in the fallback chain
-    for ( const model of modelsToTry ) {
-      try {
-        const result = await this.tryModel( model, normalizedQuestion );
-        if ( result ) {
-          return result;
-        }
-      } catch ( error ) {
-        // Check if this is a rate limit / quota exceeded error (429)
-        const is429Error = error.status === 429 ||
-          error.code === 429 ||
-          error.message?.includes( '429' ) ||
-          error.message?.toLowerCase().includes( 'quota' ) ||
-          error.message?.toLowerCase().includes( 'rate limit' );
+      // Create system instructions
+      const systemInstruction = await this.createSystemInstruction( true );
 
-        if ( is429Error ) {
-          logger.error( `🤖 [MachineLearningService] API quota/rate limit exceeded (429). Resources have been exhausted for this API key. No further models will be attempted.` );
-          return "I'm unable to process your request at the moment. Please try again later.";
-        }
+      // Get the active backend
+      const backend = this.backends[ this.activeBackend ];
 
-        logger.warn( `🤖 [MachineLearningService] Error with model ${ model }: ${ error.message }` );
-        // Continue to next model in chain for non-429 errors
+      // Query the backend (without conversation history)
+      const result = await backend.queryLLM( theQuestion, {
+        systemInstruction: systemInstruction
+      } );
+
+      if ( result.success ) {
+        return result.response;
       }
-    }
 
-    // All models failed (non-429 errors)
-    logger.error( `🤖 [MachineLearningService] All available models exhausted (${ modelsToTry.length } attempted). Unable to get response.` );
-    return "I'm unable to process your request at the moment. Please try again later.";
+      // If active backend fails, try fallback
+      logger.warn( `🤖 [MachineLearningService] Active backend (${ this.activeBackend }) failed: ${ result.error }` );
+      return await this.tryFallbackQuery( theQuestion, systemInstruction );
+    } catch ( error ) {
+      logger.error( `🤖 [MachineLearningService] Error in askGoogleAI: ${ error.message }` );
+      return "I'm unable to process your request at the moment. Please try again later.";
+    }
   }
 
   /**
-   * Try a single model with the given question
-   * @param {string} model - The model name to try
-   * @param {string} theQuestion - The question to ask
-   * @returns {Promise<string|null>} The response or null if unsuccessful
+   * Try query with fallback backend
+   * @private
+   * @param {string} question - Question to ask
+   * @param {Array} systemInstruction - System instructions
+   * @returns {Promise<string>} Response or error message
    */
-  async tryModel ( model, theQuestion ) {
-    // Load ML conversation history (data already loaded in askGoogleAI)
-    const conversationHistory = await this.loadMLConversationHistory( true );
+  async tryFallbackQuery ( question, systemInstruction ) {
+    const current = this.activeBackend;
+    const fallbackOrder = this.config.fallbackOrder || [ "gemma", "mistral" ];
 
-    // Get system instructions
-    const systemInstruction = await this.createSystemInstruction( true );
-
-    // For Gemma models, include instructions in the question with proper turn tokens; for others, pass separately
-    let instructionsForChat = null;
-    let questionToSend = theQuestion;
-
-    if ( model.includes( 'gemma' ) ) {
-      // Gemma models: format with turn tokens as per documentation
-      // https://ai.google.dev/gemma/docs/core/prompt-structure
-      let prompt = '<start_of_turn>user\n';
-
-      // Add instructions if available
-      if ( systemInstruction && systemInstruction.length > 0 ) {
-        prompt += systemInstruction.join( '\n\n' ) + '\n\n';
+    for ( const backendName of fallbackOrder ) {
+      if ( backendName === current ) {
+        continue;
       }
 
-      // Add the actual question and close the turn
-      prompt += theQuestion + '<end_of_turn>\n<start_of_turn>model\n';
+      try {
+        logger.warn( `🤖 [MachineLearningService] Attempting fallback to ${ backendName }` );
 
-      questionToSend = prompt;
-    } else {
-      // Other models: pass instructions separately
-      instructionsForChat = systemInstruction;
+        const backend = this.backends[ backendName ];
+        const initResult = await backend.initialize( this.config[ backendName ] );
+
+        if ( !initResult.success ) {
+          continue;
+        }
+
+        const result = await backend.queryLLM( question, {
+          systemInstruction: systemInstruction
+        } );
+
+        if ( result.success ) {
+          this.activeBackend = backendName;
+          logger.info( `🤖 [MachineLearningService] Switched to fallback backend: ${ backendName }` );
+          return result.response;
+        }
+      } catch ( error ) {
+        logger.warn( `🤖 [MachineLearningService] Fallback to ${ backendName } failed: ${ error.message }` );
+      }
     }
 
-    // Normalize the complete message before sending to convert decorative Unicode to ASCII
-    questionToSend = normalizeText( questionToSend );
-
-    // Get or create chat session with conversation history
-    const chat = await this.getOrCreateChat( model, conversationHistory, instructionsForChat );
-
-    logger.debug( `🤖 [MachineLearningService] Trying model ${ model }. The Question: ${ JSON.stringify( {
-      theQuestion
-    }, null, 2 ) }` );
-
-    // Send the message to the chat
-    const response = await chat.sendMessage( {
-      message: questionToSend
-    } );
-
-    logger.debug( `🤖 [MachineLearningService] Full API Request sent to model ${ model }:` );
-    logger.debug( `🤖 [MachineLearningService] Message: ${ JSON.stringify( questionToSend, null, 2 ) }` );
-    // logger.debug( `🤖 [MachineLearningService] Full API Response from ${ model }: ${ JSON.stringify( response, null, 2 ) }` );
-
-    let theResponse = response.text;
-
-    // Clean Gemini turn tokens from the response
-    theResponse = this.cleanGeminiTokens( theResponse );
-
-    if ( theResponse && theResponse !== "No response text available" ) {
-      logger.info( `🤖 [MachineLearningService] Successfully used model: ${ model }` );
-      // Conversation history storage disabled - no longer saving entries
-      return theResponse;
-    }
-
-    logger.warn( `🤖 [MachineLearningService] Model ${ model } returned no response` );
-    return null;
+    return "I'm unable to process your request at the moment. Please try again later.";
   }
-
 }
 
 module.exports = MachineLearningService;

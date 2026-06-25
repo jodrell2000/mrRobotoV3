@@ -11,6 +11,14 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Keep responses concise and focused - when summarizing changes, provide one brief paragraph instead of verbose details
 - When implementing features, confirm understanding before proceeding if requirements are unclear
 
+## Git Commit Messages
+- Keep commit messages brief and concise - focus on the "what" not the "how"
+- Use one-line summary (max 72 characters) as the primary commit message
+- Include only the most important information that describes the change
+- **Do NOT list all file changes or implementation details** - that information is in the diff
+- Example of good commit message: `Phase 1: Token optimization & backend architecture`
+- Example of poor commit message: `Phase 1: Token optimization & backend architecture refactoring - Extract Gemma-specific code into gemmaBackend.js - Create mistralBackend.js stub for future Mistral integration - Refactor machineLearningService.js as orchestrator...` (too verbose)
+
 ## Coding standards
 - Always use CommonJS modules
 - Use Node.js built-in modules and avoid external dependencies where possible

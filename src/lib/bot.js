@@ -677,7 +677,7 @@ class Bot {
   async processNewPublicMessages () {
     // Prevent concurrent processing
     if ( this.isProcessingPublicMessages ) {
-      // this.services.logger.debug( `🔄 [processNewPublicMessages] Already processing, skipping this interval` );
+      this.services.logger.debug( `🔄 [processNewPublicMessages] Already processing, skipping this interval` );
       return;
     }
 
@@ -702,16 +702,16 @@ class Bot {
 
       // Success! Reset interval to 1 second
       if ( this.publicMessageInterval !== 1000 ) {
-        // this.services.logger.info( `✅ [processNewPublicMessages] Fetch successful, resetting interval from ${ this.publicMessageInterval }ms to 1000ms` );
+        this.services.logger.info( `✅ [processNewPublicMessages] Fetch successful, resetting interval from ${ this.publicMessageInterval }ms to 1000ms` );
         this.publicMessageInterval = 1000;
       }
 
       if ( fetchDuration > timeout * 0.8 ) {
-        // this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
+        this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
       }
 
       if ( !messages?.length ) {
-        // this.services.logger.debug( `🔄 [processNewPublicMessages] No new public messages found` );
+        this.services.logger.debug( `🔄 [processNewPublicMessages] No new public messages found` );
         return; // No new messages to process
       }
 
@@ -731,14 +731,14 @@ class Bot {
           this.publicMessageInterval + this.publicMessageBackoffStep,
           this.publicMessageMaxInterval
         );
-        // this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
+        this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
       } else {
         this.services.logger.error( `Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
       }
 
-      // if ( error && error.stack ) {
-      //   this.services.logger.error( `Error stack: ${ error.stack }` );
-      // }
+      if ( error && error.stack ) {
+        this.services.logger.error( `Error stack: ${ error.stack }` );
+      }
 
       // Check if this error requires a reconnect (e.g., bot kicked from group)
       if ( error && error.shouldReconnect ) {
