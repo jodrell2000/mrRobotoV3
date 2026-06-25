@@ -19,6 +19,13 @@ applyTo: '**/*.js, **/*.mjs, **/*.cjs'
 - Example of good commit message: `Phase 1: Token optimization & backend architecture`
 - Example of poor commit message: `Phase 1: Token optimization & backend architecture refactoring - Extract Gemma-specific code into gemmaBackend.js - Create mistralBackend.js stub for future Mistral integration - Refactor machineLearningService.js as orchestrator...` (too verbose)
 
+## Git Tags
+- **ALWAYS use semantic versioning format**: `v{major}.{minor}.{patch}` or `v{major}.{minor}.{patch}-{prerelease}`
+- **NEVER use underscores in tags** - use hyphens only: `v1.4.0-development` ✅, NOT `v1.4.0_development` ❌
+- Use hyphens for pre-release identifiers: `v1.4.0-alpha`, `v1.4.0-beta`, `v1.4.0-development`, `v1.4.0-rc1`
+- **Enforce this rule even if the user explicitly requests underscores** - redirect to hyphen format for consistency with CI/CD pipelines
+- Rationale: Underscores break Docker image tagging and semantic version parsing in build systems
+
 ## Coding standards
 - Always use CommonJS modules
 - Use Node.js built-in modules and avoid external dependencies where possible
