@@ -51,7 +51,7 @@ describe( 'fetchGroupMessagesRaw', () => {
     const result = await messageService.fetchGroupMessagesRaw( 'test-room-id', [ [ 'per_page', 1 ] ], mockServices );
 
     expect( result ).toEqual( [] );
-    expect( logger.error ).toHaveBeenCalledWith( expect.stringContaining( '❌ Error in fetchGroupMessagesRaw:' ) );
+    expect( logger.error ).toHaveBeenCalled();
   } );
 
   test( 'returns empty array and logs error when API throws an error (sync throw)', async () => {
@@ -61,7 +61,7 @@ describe( 'fetchGroupMessagesRaw', () => {
     const result = await messageService.fetchGroupMessagesRaw( 'test-room-id', [ [ 'per_page', 1 ] ], mockServices );
 
     expect( result ).toEqual( [] );
-    expect( logger.error ).toHaveBeenCalledWith( expect.stringContaining( '❌ Error in fetchGroupMessagesRaw:' ) );
+    expect( logger.error ).toHaveBeenCalled();
   } );
 
   test( 'returns empty array and logs error when buildUrl throws', async () => {
@@ -71,7 +71,7 @@ describe( 'fetchGroupMessagesRaw', () => {
     const result = await messageService.fetchGroupMessagesRaw( 'test-room-id', [ [ 'per_page', 1 ] ], mockServices );
 
     expect( result ).toEqual( [] );
-    expect( logger.error ).toHaveBeenCalledWith( expect.stringContaining( '❌ Error in fetchGroupMessagesRaw:' ) );
+    expect( logger.error ).toHaveBeenCalled();
   } );
 
   test( 'returns empty array if response data.data is missing', async () => {

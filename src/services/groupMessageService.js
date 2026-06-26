@@ -142,7 +142,7 @@ const groupMessageService = {
 
             const response = await openchatApi.sendMessage( payload );
 
-            logger.debug( `📤 [sendGroupMessage] Message sent to chat: "${ message.substring( 0, 60 ) }${ message.length > 60 ? '...' : '' }"` );
+            // logger.debug( `📤 [sendGroupMessage] Message sent to chat: "${ message.substring( 0, 60 ) }${ message.length > 60 ? '...' : '' }"` );
 
             return {
                 message: message,
@@ -236,9 +236,18 @@ const groupMessageService = {
 
             let filteredMessages = messages;
 
+            // Client-side filtering: only return messages with ID > lastID
+            // This prevents receiving old messages when using id parameter
+            if ( messageId ) {
+                const beforeFilter = filteredMessages.length;
+                filteredMessages = filteredMessages.filter( msg => parseInt( msg.id ) > parseInt( messageId ) );
+                logger.debug( `📨 [fetchGroupMessages] After ID filtering (>${messageId}): ${ beforeFilter } → ${ filteredMessages.length } messages` );
+            }
+
             if ( filterCommands ) {
-                filteredMessages = this.filterMessagesForCommands( messages );
-                logger.debug( `📡 [fetchGroupMessages] Filtered: ${ messages.length } → ${ filteredMessages.length } command messages` );
+                const beforeCommandFilter = filteredMessages.length;
+                filteredMessages = this.filterMessagesForCommands( filteredMessages );
+                logger.debug( `📡 [fetchGroupMessages] Filtered: ${ beforeCommandFilter } → ${ filteredMessages.length } command messages` );
             }
 
             const formattedMessages = filteredMessages.map( msg => {

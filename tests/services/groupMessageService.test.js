@@ -303,7 +303,7 @@ describe( 'groupMessageService', () => {
 
       expect( result ).toEqual( [] );
       expect( logger.error ).toHaveBeenCalledWith(
-        expect.stringContaining( '❌ Error in fetchGroupMessagesRaw:' )
+        expect.stringContaining( '❌ [fetchGroupMessagesRaw] Error:' )
       );
     } );
 
@@ -357,17 +357,17 @@ describe( 'groupMessageService', () => {
     test( 'should pass custom room ID and build correct parameters', async () => {
       const mockMessages = [
         {
-          id: 'msg-1',
+          id: 101,
           sentAt: 1640995200,
           sender: { uid: 'user-123' },
           data: { text: '!hello' }
         }
       ];
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( mockMessages );
-      groupMessageService.setLatestGroupMessageId( 'latest-123' );
+      groupMessageService.setLatestGroupMessageId( 100 );
 
       const options = {
-        lastID: 'custom-last-456',
+        lastID: 100,
         fromTimestamp: 1640990000,
         limit: 25,
         filterCommands: false
@@ -378,7 +378,7 @@ describe( 'groupMessageService', () => {
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'custom-room-789',
         [
-          [ 'id', 'custom-last-456' ], // lastID takes precedence over latest
+          [ 'id', 100 ], // lastID takes precedence over latest
           [ 'updatedAt', 1640990000 ],
           [ 'per_page', 25 ]
         ],
@@ -387,7 +387,7 @@ describe( 'groupMessageService', () => {
 
       // Should return all messages when filterCommands is false
       expect( result ).toEqual( [ {
-        id: 'msg-1',
+        id: 101,
         text: '!hello',
         sender: 'user-123',
         sentAt: 1640995200,
@@ -398,7 +398,7 @@ describe( 'groupMessageService', () => {
 
     test( 'should use latestGroupMessageId when lastID not provided', async () => {
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( [] );
-      groupMessageService.setLatestGroupMessageId( 'stored-msg-789' );
+      groupMessageService.setLatestGroupMessageId( 789 );
 
       await groupMessageService.fetchGroupMessages( 'room-123', {
         fromTimestamp: 1640990000
@@ -407,7 +407,7 @@ describe( 'groupMessageService', () => {
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'room-123',
         [
-          [ 'id', 'stored-msg-789' ],
+          [ 'id', 789 ],
           [ 'updatedAt', 1640990000 ]
         ],
         undefined // services parameter

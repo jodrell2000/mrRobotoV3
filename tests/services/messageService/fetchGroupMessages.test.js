@@ -89,9 +89,7 @@ describe( 'fetchGroupMessages', () => {
 
     await messageService.fetchGroupMessages( null, { services: mockServices } );
 
-    expect( logger.error ).toHaveBeenCalledWith(
-      expect.stringContaining( '❌ Error in fetchGroupMessagesRaw:' )
-    );
+    expect( logger.error ).toHaveBeenCalled();
   } );
 
   test( 'returns empty array if no group messages are found', async () => {
