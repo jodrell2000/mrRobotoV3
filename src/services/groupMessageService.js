@@ -232,8 +232,8 @@ const groupMessageService = {
             const { lastID, limit = 50, filterCommands = true, fromTimestamp, services } = options;
 
             // Get the last message ID and timestamp we've processed
-            const lastProcessedId = lastID || this.getHighestProcessedMessageId();
-            const lastProcessedTimestamp = fromTimestamp || this.getHighestProcessedMessageTimestamp();
+            const lastProcessedId = lastID || getHighestProcessedMessageId();
+            const lastProcessedTimestamp = fromTimestamp || getHighestProcessedMessageTimestamp();
 
             logger.debug( `📡 [fetchGroupMessages] Request: lastProcessedId=${ lastProcessedId || 'none' }, timestamp=${ lastProcessedTimestamp || 'none' }` );
 
@@ -267,7 +267,7 @@ const groupMessageService = {
 
             if ( filterCommands ) {
                 const beforeCommandFilter = filteredMessages.length;
-                filteredMessages = this.filterMessagesForCommands( filteredMessages );
+                filteredMessages = filterMessagesForCommands( filteredMessages );
                 logger.debug( `📡 [fetchGroupMessages] Filtered: ${ beforeCommandFilter } → ${ filteredMessages.length } command messages` );
             }
 
@@ -296,8 +296,8 @@ const groupMessageService = {
             if ( formattedMessages.length > 0 ) {
                 const highestInBatch = Math.max( ...formattedMessages.map( m => parseInt( m.id ) ) );
                 const highestTimestamp = Math.max( ...formattedMessages.map( m => m.updatedAt || 0 ) );
-                this.setHighestProcessedMessageId( highestInBatch );
-                this.setHighestProcessedMessageTimestamp( highestTimestamp );
+                setHighestProcessedMessageId( highestInBatch );
+                setHighestProcessedMessageTimestamp( highestTimestamp );
                 logger.debug( `💾 [fetchGroupMessages] Updated highest processed ID to: ${ highestInBatch }, timestamp to: ${ highestTimestamp }` );
             }
 
