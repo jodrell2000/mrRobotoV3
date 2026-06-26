@@ -142,6 +142,8 @@ const groupMessageService = {
 
             const response = await openchatApi.sendMessage( payload );
 
+            logger.debug( `📤 [sendGroupMessage] Message sent to chat: "${ message.substring( 0, 60 ) }${ message.length > 60 ? '...' : '' }"` );
+
             return {
                 message: message,
                 messageResponse: response.data
