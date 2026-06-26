@@ -207,56 +207,28 @@ const groupMessageService = {
             const targetRoomId = roomId || config.HANGOUT_ID;
             const { lastID, limit = 50, filterCommands = true, fromTimestamp, services } = options;
 
-            // Log input parameters
-            logger.info( `📡 [fetchGroupMessages] Called with:
-              - roomId: ${ roomId } (target: ${ targetRoomId })
-              - lastID: ${ lastID || 'not set' }
-              - fromTimestamp: ${ fromTimestamp || 'not set' }
-              - limit: ${ limit }
-              - filterCommands: ${ filterCommands }` );
-
             const params = [];
             const messageId = lastID || this.getLatestGroupMessageId();
 
-            // Log message ID resolution
-            logger.debug( `📡 [fetchGroupMessages] Message ID resolution:
-              - getLatestGroupMessageId(): ${ this.getLatestGroupMessageId() }
-              - resolved messageId to use: ${ messageId || 'none' }` );
+            logger.debug( `📡 [fetchGroupMessages] Request: lastID=${ messageId || 'none' }, timestamp=${ fromTimestamp || 'none' }` );
 
             if ( messageId ) {
                 params.push( [ 'id', messageId ] );
-                logger.debug( `📡 [fetchGroupMessages] Added id parameter: ${ messageId }` );
-            } else {
-                logger.debug( `📡 [fetchGroupMessages] No messageId available, will fetch latest messages` );
             }
 
             if ( fromTimestamp ) {
                 params.push( [ 'updatedAt', fromTimestamp ] );
-                logger.debug( `📡 [fetchGroupMessages] Added updatedAt parameter: ${ fromTimestamp }` );
             }
 
             if ( limit !== 50 ) {
                 params.push( [ 'per_page', limit ] );
-                logger.debug( `📡 [fetchGroupMessages] Added per_page parameter: ${ limit }` );
             }
-
-            // Log final parameters array
-            logger.info( `📡 [fetchGroupMessages] Final API params (${ params.length } total):
-              - ${ params.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( '\n              - ' ) || 'no params' }` );
 
             const messages = await this.fetchGroupMessagesRaw( targetRoomId, params, services );
 
-            // Log raw response from API
-            logger.info( `📡 [fetchGroupMessages] Raw API response: ${ messages?.length || 0 } messages returned` );
-            if ( messages?.length ) {
-                logger.debug( `📡 [fetchGroupMessages] Message details:
-                  - IDs: ${ messages.map( m => m.id ).join( ', ' ) }
-                  - Senders: ${ messages.map( m => m.sender?.uid || m.sender || 'unknown' ).join( ', ' ) }
-                  - Timestamps: ${ messages.map( m => m.sentAt ).join( ', ' ) }` );
-            }
+            logger.debug( `📡 [fetchGroupMessages] Response: ${ messages?.length || 0 } raw messages` );
 
             if ( !messages || messages.length === 0 ) {
-                logger.debug( `📡 [fetchGroupMessages] No messages in response, returning empty array` );
                 return [];
             }
 
@@ -264,12 +236,7 @@ const groupMessageService = {
 
             if ( filterCommands ) {
                 filteredMessages = this.filterMessagesForCommands( messages );
-                logger.info( `📡 [fetchGroupMessages] Filtered for commands: ${ messages.length } → ${ filteredMessages.length } messages` );
-                if ( filteredMessages?.length ) {
-                    logger.debug( `📡 [fetchGroupMessages] Command message IDs: ${ filteredMessages.map( m => m.id ).join( ', ' ) }` );
-                }
-            } else {
-                logger.debug( `📡 [fetchGroupMessages] Not filtering (filterCommands=false)` );
+                logger.debug( `📡 [fetchGroupMessages] Filtered: ${ messages.length } → ${ filteredMessages.length } command messages` );
             }
 
             const formattedMessages = filteredMessages.map( msg => {
@@ -292,13 +259,6 @@ const groupMessageService = {
                     data: msg.data // Include original data for backward compatibility
                 };
             } );
-
-            // Log final results
-            logger.info( `📡 [fetchGroupMessages] Final results:
-              - Raw messages: ${ messages?.length || 0 }
-              - After command filter: ${ filteredMessages?.length || 0 }
-              - After formatting: ${ formattedMessages?.length || 0 }
-              ${ formattedMessages?.length > 0 ? `- Returning message IDs: ${ formattedMessages.map( m => m.id ).join( ', ' ) }` : '- No messages to return' }` );
 
             return formattedMessages;
 
@@ -331,23 +291,17 @@ const groupMessageService = {
         try {
             const finalParams = [ ...defaultParams, ...params ];
 
-            // Log API request details
-            logger.info( `🔌 [fetchGroupMessagesRaw] Making API request:
-              - Endpoint: v3.0/groups/${ roomId }/messages
-              - Total params: ${ finalParams.length }
-              - Params: ${ finalParams.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( ', ' ) }` );
+            // Log the request parameters (just the meaningful ones)
+            const keyParams = finalParams.filter( p => p[ 0 ] === 'id' || p[ 0 ] === 'updatedAt' );
+            const paramStr = keyParams.length ? keyParams.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( ', ' ) : 'none';
+            logger.debug( `🔌 [fetchGroupMessagesRaw] API request params: ${ paramStr }` );
 
             // Use openchatApi.fetchMessages with the correct endpoint format
             const response = await openchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );
 
-            // Log API response details
+            // Log response count
             const messagesCount = response.data?.data?.length || 0;
-            logger.info( `🔌 [fetchGroupMessagesRaw] API response received:
-              - Status: ${ response.status }
-              - Messages in response: ${ messagesCount }
-              - Has data.data: ${ !!response.data?.data }
-              ${ messagesCount > 0 ? `- Message IDs: ${ response.data.data.map( m => m.id ).join( ', ' ) }` : '' }
-              ${ messagesCount > 0 ? `- Timestamps: ${ response.data.data.map( m => m.sentAt ).join( ', ' ) }` : '' }` );
+            logger.info( `🔌 [fetchGroupMessagesRaw] Received ${ messagesCount } messages` );
 
             const messages = response.data?.data || [];
 
@@ -355,35 +309,16 @@ const groupMessageService = {
             if ( messages.length > 0 && services && services.updateLastMessageId ) {
                 const lastMessage = messages[ messages.length - 1 ];
                 if ( lastMessage && lastMessage.id ) {
-                    logger.debug( `💾 [fetchGroupMessagesRaw] Updating service state lastMessageId:
-                      - Previous value: unknown
-                      - New value: ${ lastMessage.id }
-                      - From message: ${ lastMessage.id } (sentAt: ${ lastMessage.sentAt })` );
                     services.updateLastMessageId( lastMessage.id );
-
-                    // Verify the update worked
-                    const verifyId = services.getState ? services.getState( 'lastMessageId' ) : 'getState not available';
-                    logger.debug( `💾 [fetchGroupMessagesRaw] Verification - getState('lastMessageId'): ${ verifyId }` );
+                    logger.debug( `💾 [fetchGroupMessagesRaw] Latest message ID now: ${ lastMessage.id }` );
                 } else {
-                    logger.warn( `⚠️ [fetchGroupMessagesRaw] Could not extract ID from last message. lastMessage: ${ JSON.stringify( lastMessage ) }` );
+                    logger.warn( `⚠️ [fetchGroupMessagesRaw] Could not extract ID from last message` );
                 }
-            } else {
-                logger.debug( `💾 [fetchGroupMessagesRaw] Skipping lastMessageId update:
-                  - Has messages: ${ messages.length > 0 }
-                  - Has services: ${ !!services }
-                  - Has updateLastMessageId method: ${ !!( services && services.updateLastMessageId ) }` );
             }
 
             return messages;
         } catch ( err ) {
-            logger.error( `❌ Error in fetchGroupMessagesRaw: ${ JSON.stringify( {
-                message: err?.message || 'Unknown error',
-                status: err?.response?.status,
-                statusText: err?.response?.statusText,
-                url: err?.config?.url,
-                responseData: err?.response?.data
-            }, null, 2 ) }` );
-            logger.debug( `Error stack: ${ err?.stack }` );
+            logger.error( `❌ [fetchGroupMessagesRaw] Error: ${ err.message }` );
             return [];
         }
     }
