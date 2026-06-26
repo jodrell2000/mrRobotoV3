@@ -207,45 +207,56 @@ const groupMessageService = {
             const targetRoomId = roomId || config.HANGOUT_ID;
             const { lastID, limit = 50, filterCommands = true, fromTimestamp, services } = options;
 
-            // Debug: Log input parameters
-            // logger.debug( `[GroupMessage] fetchGroupMessages called with:` );
-            // logger.debug( `[GroupMessage] - roomId: ${ roomId } (target: ${ targetRoomId })` );
-            // logger.debug( `[GroupMessage] - options.lastID: ${ lastID }` );
-            // logger.debug( `[GroupMessage] - options.fromTimestamp: ${ fromTimestamp }` );
-            // logger.debug( `[GroupMessage] - options.limit: ${ limit }` );
-            // logger.debug( `[GroupMessage] - options.filterCommands: ${ filterCommands }` );
+            // Log input parameters
+            logger.info( `📡 [fetchGroupMessages] Called with:
+              - roomId: ${ roomId } (target: ${ targetRoomId })
+              - lastID: ${ lastID || 'not set' }
+              - fromTimestamp: ${ fromTimestamp || 'not set' }
+              - limit: ${ limit }
+              - filterCommands: ${ filterCommands }` );
 
             const params = [];
             const messageId = lastID || this.getLatestGroupMessageId();
 
-            // Debug: Log message ID resolution
-            // logger.debug( `[GroupMessage] - getLatestGroupMessageId(): ${ this.getLatestGroupMessageId() }` );
-            // logger.debug( `[GroupMessage] - resolved messageId: ${ messageId }` );
+            // Log message ID resolution
+            logger.debug( `📡 [fetchGroupMessages] Message ID resolution:
+              - getLatestGroupMessageId(): ${ this.getLatestGroupMessageId() }
+              - resolved messageId to use: ${ messageId || 'none' }` );
 
             if ( messageId ) {
                 params.push( [ 'id', messageId ] );
-                // logger.debug( `[GroupMessage] - Added id parameter: ${ messageId }` );
+                logger.debug( `📡 [fetchGroupMessages] Added id parameter: ${ messageId }` );
             } else {
-                // logger.debug( `[GroupMessage] - No messageId available, fetching latest messages` );
+                logger.debug( `📡 [fetchGroupMessages] No messageId available, will fetch latest messages` );
             }
 
             if ( fromTimestamp ) {
                 params.push( [ 'updatedAt', fromTimestamp ] );
-                // logger.debug( `[GroupMessage] - Added updatedAt parameter: ${ fromTimestamp }` );
+                logger.debug( `📡 [fetchGroupMessages] Added updatedAt parameter: ${ fromTimestamp }` );
             }
 
             if ( limit !== 50 ) {
                 params.push( [ 'per_page', limit ] );
-                // logger.debug( `[GroupMessage] - Added per_page parameter: ${ limit }` );
+                logger.debug( `📡 [fetchGroupMessages] Added per_page parameter: ${ limit }` );
             }
 
-            // Debug: Log final parameters
-            // logger.debug( `[GroupMessage] - Final params array:`, params );
+            // Log final parameters array
+            logger.info( `📡 [fetchGroupMessages] Final API params (${ params.length } total):
+              - ${ params.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( '\n              - ' ) || 'no params' }` );
 
             const messages = await this.fetchGroupMessagesRaw( targetRoomId, params, services );
 
+            // Log raw response from API
+            logger.info( `📡 [fetchGroupMessages] Raw API response: ${ messages?.length || 0 } messages returned` );
+            if ( messages?.length ) {
+                logger.debug( `📡 [fetchGroupMessages] Message details:
+                  - IDs: ${ messages.map( m => m.id ).join( ', ' ) }
+                  - Senders: ${ messages.map( m => m.sender?.uid || m.sender || 'unknown' ).join( ', ' ) }
+                  - Timestamps: ${ messages.map( m => m.sentAt ).join( ', ' ) }` );
+            }
+
             if ( !messages || messages.length === 0 ) {
-                // logger.debug( 'No group messages found' );
+                logger.debug( `📡 [fetchGroupMessages] No messages in response, returning empty array` );
                 return [];
             }
 
@@ -253,27 +264,24 @@ const groupMessageService = {
 
             if ( filterCommands ) {
                 filteredMessages = this.filterMessagesForCommands( messages );
+                logger.info( `📡 [fetchGroupMessages] Filtered for commands: ${ messages.length } → ${ filteredMessages.length } messages` );
+                if ( filteredMessages?.length ) {
+                    logger.debug( `📡 [fetchGroupMessages] Command message IDs: ${ filteredMessages.map( m => m.id ).join( ', ' ) }` );
+                }
+            } else {
+                logger.debug( `📡 [fetchGroupMessages] Not filtering (filterCommands=false)` );
             }
 
             const formattedMessages = filteredMessages.map( msg => {
                 const text = msg.data?.text || '[No Text]';
-
-                // Debug: Log sender extraction for each message
-                // logger.debug( `Message ${ msg.id } sender field: ${ JSON.stringify( msg.sender ) }` );
-                // logger.debug( `Message ${ msg.id } sender?.uid: ${ JSON.stringify( msg.sender?.uid ) }` );
 
                 // Extract sender UUID from nested structure
                 const senderFromData = msg.data?.entities?.sender?.entity?.uid;
                 const senderFromChatMessage = msg.data?.metadata?.chatMessage?.userUuid;
                 const senderFromCustomData = msg.data?.metadata?.message?.customData?.userUuid;
 
-                // logger.debug( `Message ${ msg.id } data.entities.sender.entity.uid: "${ senderFromData }"` );
-                // logger.debug( `Message ${ msg.id } data.metadata.chatMessage.userUuid: "${ senderFromChatMessage }"` );
-                // logger.debug( `Message ${ msg.id } data.metadata.message.customData.userUuid: "${ senderFromCustomData }"` );
-
                 // Try multiple extraction paths in order of preference
                 const extractedSender = msg.sender?.uid || senderFromData || senderFromChatMessage || senderFromCustomData || 'Unknown';
-                // logger.debug( `Message ${ msg.id } final sender: "${ extractedSender }"` );
 
                 return {
                     id: msg.id,
@@ -285,24 +293,18 @@ const groupMessageService = {
                 };
             } );
 
-            // Debug: Log final results
-            // logger.debug( `[GroupMessage] - Raw messages count: ${ messages?.length || 0 }` );
-            // logger.debug( `[GroupMessage] - Filtered messages count: ${ filteredMessages?.length || 0 }` );
-            // logger.debug( `[GroupMessage] - Final formatted messages count: ${ formattedMessages?.length || 0 }` );
-
-            // if ( formattedMessages?.length > 0 ) {
-            //     logger.debug( `[GroupMessage] - Returning message IDs: ${ formattedMessages.map( m => m.id ).join( ', ' ) }` );
-            //     logger.debug( `[GroupMessage] - Returning message senders: ${ formattedMessages.map( m => m.sender ).join( ', ' ) }` );
-            //     logger.debug( `[GroupMessage] - First message timestamp: ${ formattedMessages[ 0 ]?.sentAt }` );
-            //     logger.debug( `[GroupMessage] - Last message timestamp: ${ formattedMessages[ formattedMessages.length - 1 ]?.sentAt }` );
-            // } else {
-            //     logger.debug( `[GroupMessage] - No messages being returned` );
-            // }
+            // Log final results
+            logger.info( `📡 [fetchGroupMessages] Final results:
+              - Raw messages: ${ messages?.length || 0 }
+              - After command filter: ${ filteredMessages?.length || 0 }
+              - After formatting: ${ formattedMessages?.length || 0 }
+              ${ formattedMessages?.length > 0 ? `- Returning message IDs: ${ formattedMessages.map( m => m.id ).join( ', ' ) }` : '- No messages to return' }` );
 
             return formattedMessages;
 
         } catch ( err ) {
             logger.error( `❌ Error fetching group messages: ${ err.message }` );
+            logger.debug( `Error details: ${ err.stack }` );
             return [];
         }
     },
@@ -329,42 +331,47 @@ const groupMessageService = {
         try {
             const finalParams = [ ...defaultParams, ...params ];
 
+            // Log API request details
+            logger.info( `🔌 [fetchGroupMessagesRaw] Making API request:
+              - Endpoint: v3.0/groups/${ roomId }/messages
+              - Total params: ${ finalParams.length }
+              - Params: ${ finalParams.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( ', ' ) }` );
+
             // Use openchatApi.fetchMessages with the correct endpoint format
             const response = await openchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );
 
-            // Debug: Log the response
-            // logger.debug( `[GroupMessageRaw] Response status: ${ response.status }` );
-            // logger.debug( `[GroupMessageRaw] Response data count: ${ response.data?.data?.length || 0 }` );
+            // Log API response details
+            const messagesCount = response.data?.data?.length || 0;
+            logger.info( `🔌 [fetchGroupMessagesRaw] API response received:
+              - Status: ${ response.status }
+              - Messages in response: ${ messagesCount }
+              - Has data.data: ${ !!response.data?.data }
+              ${ messagesCount > 0 ? `- Message IDs: ${ response.data.data.map( m => m.id ).join( ', ' ) }` : '' }
+              ${ messagesCount > 0 ? `- Timestamps: ${ response.data.data.map( m => m.sentAt ).join( ', ' ) }` : '' }` );
 
             const messages = response.data?.data || [];
 
-            // Debug: Log services parameter
-            // logger.debug( `[GroupMessageRaw] Services parameter:`, {
-            //     hasServices: !!services,
-            //     hasUpdateMethod: !!( services && services.updateLastMessageId ),
-            //     messagesCount: messages.length
-            // } );
-
             // Update lastMessageId with the last message ID if we have messages
-            if ( messages.length > 0 && services.updateLastMessageId ) {
+            if ( messages.length > 0 && services && services.updateLastMessageId ) {
                 const lastMessage = messages[ messages.length - 1 ];
                 if ( lastMessage && lastMessage.id ) {
-                    // logger.debug( `[GroupMessageRaw] About to update lastMessageId from current value to: ${ lastMessage.id }` );
+                    logger.debug( `💾 [fetchGroupMessagesRaw] Updating service state lastMessageId:
+                      - Previous value: unknown
+                      - New value: ${ lastMessage.id }
+                      - From message: ${ lastMessage.id } (sentAt: ${ lastMessage.sentAt })` );
                     services.updateLastMessageId( lastMessage.id );
-                    // logger.debug( `[GroupMessageRaw] Updated lastMessageId to: ${ lastMessage.id }` );
 
                     // Verify the update worked
                     const verifyId = services.getState ? services.getState( 'lastMessageId' ) : 'getState not available';
-                    // logger.debug( `[GroupMessageRaw] Verification - getState('lastMessageId'): ${ verifyId }` );
+                    logger.debug( `💾 [fetchGroupMessagesRaw] Verification - getState('lastMessageId'): ${ verifyId }` );
                 } else {
-                    // logger.debug( `[GroupMessageRaw] No valid lastMessage.id found. lastMessage:`, lastMessage );
+                    logger.warn( `⚠️ [fetchGroupMessagesRaw] Could not extract ID from last message. lastMessage: ${ JSON.stringify( lastMessage ) }` );
                 }
             } else {
-                // logger.debug( `[GroupMessageRaw] Not updating lastMessageId because:`, {
-                //     hasMessages: messages.length > 0,
-                //     hasServices: !!services,
-                //     hasUpdateMethod: !!(services && services.updateLastMessageId)
-                // });
+                logger.debug( `💾 [fetchGroupMessagesRaw] Skipping lastMessageId update:
+                  - Has messages: ${ messages.length > 0 }
+                  - Has services: ${ !!services }
+                  - Has updateLastMessageId method: ${ !!( services && services.updateLastMessageId ) }` );
             }
 
             return messages;
@@ -375,7 +382,8 @@ const groupMessageService = {
                 statusText: err?.response?.statusText,
                 url: err?.config?.url,
                 responseData: err?.response?.data
-            } ) }` );
+            }, null, 2 ) }` );
+            logger.debug( `Error stack: ${ err?.stack }` );
             return [];
         }
     }

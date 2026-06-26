@@ -685,6 +685,16 @@ class Bot {
     const startTime = Date.now();
     let timedOut = false;
 
+    // DEBUG: Log entry state
+    const serviceLastMessageId = this.services.getState( 'lastMessageId' );
+    const localLastMessageId = this.lastMessageIDs?.id;
+    this.services.logger.info( `🔍 [processNewPublicMessages] Starting fetch cycle:
+      - Current interval: ${ this.publicMessageInterval }ms
+      - Service lastMessageId: ${ serviceLastMessageId || 'none' }
+      - Local lastMessageId: ${ localLastMessageId || 'none' }
+      - Effective lastMessageId: ${ serviceLastMessageId || localLastMessageId || 'none' }
+      - fromTimestamp: ${ this.lastMessageIDs?.fromTimestamp || 'none' }` );
+
     try {
       // Dynamic timeout based on current interval (90% of interval)
       const timeout = Math.floor( this.publicMessageInterval * 0.9 );
@@ -710,12 +720,24 @@ class Bot {
         this.services.logger.warn( `⚠️ [processNewPublicMessages] Slow fetch: ${ fetchDuration }ms` );
       }
 
+      // DEBUG: Log fetch results
+      this.services.logger.info( `🔍 [processNewPublicMessages] Fetch completed:
+        - Duration: ${ fetchDuration }ms
+        - Messages returned: ${ messages?.length || 0 }
+        - Timeout threshold: ${ timeout }ms` );
+
       if ( !messages?.length ) {
-        this.services.logger.debug( `🔄 [processNewPublicMessages] No new public messages found` );
+        this.services.logger.info( `🔄 [processNewPublicMessages] No new public messages found (array empty or null)` );
         return; // No new messages to process
       }
 
-      // this.services.logger.info( `🔄 [processNewPublicMessages] Processing ${ messages.length } new public messages` );
+      // DEBUG: Log message details before processing
+      this.services.logger.info( `📨 [processNewPublicMessages] Processing ${ messages.length } command message(s):
+        - Message IDs: ${ messages.map( m => m.id ).join( ', ' ) }
+        - Message senders: ${ messages.map( m => m.sender ).join( ', ' ) }
+        - First message timestamp: ${ messages[ 0 ]?.sentAt }
+        - Last message timestamp: ${ messages[ messages.length - 1 ]?.sentAt }` );
+
       await this._processMessageBatch( messages );
     } catch ( error ) {
       const fetchDuration = Date.now() - startTime;
@@ -733,12 +755,13 @@ class Bot {
         );
         this.services.logger.warn( `⏰ [processNewPublicMessages] Timeout after ${ fetchDuration }ms! Increasing interval from ${ oldInterval }ms to ${ this.publicMessageInterval }ms` );
       } else {
-        this.services.logger.error( `Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
+        this.services.logger.error( `❌ Error in processNewPublicMessages after ${ fetchDuration }ms: ${ errorMessage }` );
       }
 
-      // if ( error && error.stack ) {
-      //   this.services.logger.error( `Error stack: ${ error.stack }` );
-      // }
+      // DEBUG: More error details
+      if ( error && error.stack ) {
+        this.services.logger.debug( `Error stack: ${ error.stack }` );
+      }
 
       // Check if this error requires a reconnect (e.g., bot kicked from group)
       if ( error && error.shouldReconnect ) {
@@ -809,6 +832,13 @@ class Bot {
     // Use service state if available, fallback to local state
     const effectiveLastMessageId = serviceLastMessageId || localLastMessageId;
 
+    // DEBUG: Log fetch parameters
+    this.services.logger.debug( `📡 [_fetchNewMessages] Fetch parameters:
+      - HANGOUT_ID: ${ this.services.config.HANGOUT_ID }
+      - fromTimestamp: ${ this.lastMessageIDs?.fromTimestamp || 'not set' }
+      - lastID (effectiveLastMessageId): ${ effectiveLastMessageId || 'not set' }
+      - filterCommands: false (fetching ALL messages for AFK tracking)` );
+
     // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
     // regular chat messages before filtering down to commands for processing.
     const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
@@ -818,11 +848,12 @@ class Bot {
       services: this.services
     } );
 
-    // Debug: Log message fetch results with IDs
-    // if ( allMessages?.length ) {
-    //   this.services.logger.debug( `[_fetchNewMessages] Fetched ${ allMessages.length } messages. IDs: ${ allMessages.map( m => m.id ).join( ', ' ) }` );
-    //   this.services.logger.debug( `[_fetchNewMessages] Last tracked ID: ${ effectiveLastMessageId || 'none' }` );
-    // }
+    // DEBUG: Log raw fetch results
+    this.services.logger.info( `📡 [_fetchNewMessages] Raw API response:
+      - Total messages returned: ${ allMessages?.length || 0 }
+      ${ allMessages?.length ? `- Message IDs: ${ allMessages.map( m => m.id ).join( ', ' ) }` : '' }
+      ${ allMessages?.length ? `- Sent timestamps: ${ allMessages.map( m => m.sentAt ).join( ', ' ) }` : '' }
+      ${ allMessages?.length ? `- Senders: ${ allMessages.map( m => m.sender ).join( ', ' ) }` : '' }` );
 
     if ( allMessages?.length && this.services.afkService ) {
       for ( const msg of allMessages ) {
@@ -834,7 +865,16 @@ class Bot {
     }
 
     // Return only command messages for the processing pipeline
-    return this.services.messageService.filterMessagesForCommands( allMessages || [] );
+    const commandMessages = this.services.messageService.filterMessagesForCommands( allMessages || [] );
+
+    // DEBUG: Log filtering results
+    this.services.logger.info( `📡 [_fetchNewMessages] Filter results:
+      - Raw messages: ${ allMessages?.length || 0 }
+      - After filtering for commands: ${ commandMessages?.length || 0 }
+      ${ commandMessages?.length ? `- Command message IDs: ${ commandMessages.map( m => m.id ).join( ', ' ) }` : '' }
+      ${ commandMessages?.length ? `- Command senders: ${ commandMessages.map( m => m.sender ).join( ', ' ) }` : '' }` );
+
+    return commandMessages;
   }
 
   async _fetchNewPrivateMessages () {
@@ -962,7 +1002,7 @@ class Bot {
           userState.interval + userState.backoffStep,
           userState.maxInterval
         );
-        this.services.logger.warn( `⏰ [_fetchPrivateMessagesForUser] [${ userUUID }] Timeout after ${ userDuration }ms! Increased interval from ${ oldInterval }ms to ${ userState.interval }ms` );
+        // this.services.logger.warn( `⏰ [_fetchPrivateMessagesForUser] [${ userUUID }] Timeout after ${ userDuration }ms! Increased interval from ${ oldInterval }ms to ${ userState.interval }ms` );
       } else {
         this.services.logger.error( `❌ [_fetchPrivateMessagesForUser] [${ userUUID }] Error after ${ userDuration }ms: ${ error.message }` );
       }
@@ -1031,18 +1071,12 @@ class Bot {
   }
 
   async _processSingleMessage ( message ) {
-    // Log raw CometChat data with timestamp information
-    // try {
-    //   this.services.logger.debug( `📨 [_processSingleMessage] Raw CometChat message data:` );
-    //   this.services.logger.debug( `   ID: ${message?.id}` );
-    //   this.services.logger.debug( `   SentAt: ${message?.sentAt} (${message?.sentAt?.toString().length || 0} digits)` );
-    //   this.services.logger.debug( `   Sender: ${JSON.stringify(message?.sender)}` );
-    //   this.services.logger.debug( `   IsPrivate: ${message?.isPrivateMessage || false}` );
-    //   this.services.logger.debug( `   Full structure: ${JSON.stringify(message, null, 2)}` );
-    // } catch ( err ) {
-    //   this.services.logger.debug( `📨 [_processSingleMessage] Could not log raw message: ${err.message}` );
-    //   this.services.logger.debug( `📨 [_processSingleMessage] Message type: ${typeof message}, basic info: id=${message?.id}, sentAt=${message?.sentAt}` );
-    // }
+    // Debug: Log message entry point
+    this.services.logger.info( `📨 [_processSingleMessage] Processing message:
+      - ID: ${ message?.id }
+      - Sender: ${ message?.sender }
+      - SentAt: ${ message?.sentAt }
+      - IsPrivate: ${ message?.isPrivateMessage || false }` );
 
     // Check for duplicate processing (additional safety check)
     if ( message.isPrivateMessage ) {
@@ -1050,6 +1084,7 @@ class Bot {
 
       // Silently ignore messages from unknown/invalid users
       if ( !sender || sender === '' ) {
+        this.services.logger.debug( `📨 [_processSingleMessage] Ignoring private message with invalid/empty sender` );
         return;
       }
 
@@ -1057,6 +1092,7 @@ class Bot {
 
       if ( userTracking && userTracking.lastMessageId === message.id ) {
         // Silently skip duplicate messages
+        this.services.logger.debug( `📨 [_processSingleMessage] Skipping duplicate private message ID: ${ message.id }` );
         return;
       }
     }
@@ -1064,21 +1100,23 @@ class Bot {
     this._updateMessageTracking( message );
 
     const chatMessage = this._extractChatMessage( message );
-    if ( !chatMessage ) return;
-
-    // Debug: Log sender extraction step by step
-    // this.services.logger.debug( `[_processSingleMessage] message?.sender: ${ JSON.stringify( message?.sender ) }` );
-    // this.services.logger.debug( `[_processSingleMessage] message?.sender?.uid: ${ JSON.stringify( message?.sender?.uid ) }` );
-    // this.services.logger.debug( `[_processSingleMessage] typeof message?.sender: ${ typeof message?.sender }` );
+    if ( !chatMessage ) {
+      this.services.logger.debug( `📨 [_processSingleMessage] Message has empty/no chat content, skipping. ID: ${ message?.id }` );
+      return;
+    }
 
     // Extract sender UUID - handle both direct string and object with uid property
     const sender = message?.sender?.uid || message?.sender || '';
 
-    // this.services.logger.debug( `[_processSingleMessage] Final extracted sender: "${ sender }"` );
+    if ( this._shouldIgnoreMessage( sender ) ) {
+      this.services.logger.debug( `📨 [_processSingleMessage] Message from ignored sender "${ sender }", skipping. ID: ${ message?.id }` );
+      return;
+    }
 
-    if ( this._shouldIgnoreMessage( sender ) ) return;
-
-    // this.services.logger.debug( `[_processSingleMessage] Processing message ID: ${ message?.id }: "${ chatMessage }" from ${ sender }` );
+    this.services.logger.info( `📨 [_processSingleMessage] ✅ Processing valid message:
+      - ID: ${ message?.id }
+      - Content: "${ chatMessage.substring( 0, 50 ) }${ chatMessage.length > 50 ? '...' : '' }"
+      - Sender: ${ sender }` );
 
     await this._handleMessage( chatMessage, sender, message );
   }
@@ -1103,10 +1141,10 @@ class Bot {
         // Persist private message tracking to service container
         try {
           this.services.setState( 'lastPrivateMessageTracking', this.lastPrivateMessageTracking );
-          // this.services.logger.debug( `✅ [_updateMessageTracking] Private message tracking updated for user ${ sender }:` );
-          // this.services.logger.debug( `   📨 Previous: { lastMessageId: ${ previousTracking?.lastMessageId || 'none' }, lastTimestamp: ${ previousTracking?.lastTimestamp || 'none' } }` );
-          // this.services.logger.debug( `   📨 Current:  { lastMessageId: ${ message.id }, lastTimestamp: ${ normalizedTimestamp } } (normalized from ${ message.sentAt })` );
-          // this.services.logger.debug( `   💾 State persisted successfully` );
+          this.services.logger.debug( `✅ [_updateMessageTracking] Private message tracking updated for user ${ sender }:
+            - Previous: { lastMessageId: ${ previousTracking?.lastMessageId || 'none' }, lastTimestamp: ${ previousTracking?.lastTimestamp || 'none' } }
+            - Current:  { lastMessageId: ${ message.id }, lastTimestamp: ${ normalizedTimestamp } }
+            - State persisted successfully` );
         } catch ( error ) {
           this.services.logger.error( `❌ [_updateMessageTracking] Failed to persist private message tracking state for user ${ sender }: ${ error.message }` );
         }
@@ -1118,11 +1156,16 @@ class Bot {
       this.lastMessageIDs.fromTimestamp = message.sentAt + 1;
       this.lastMessageIDs.id = message.id;
 
-      // Debug: Log tracking updates
-      // this.services.logger.debug( `[Bot] Message tracking updated:` );
-      // this.services.logger.debug( `[Bot] - Previous ID: ${ previousId } -> New ID: ${ message.id }` );
-      // this.services.logger.debug( `[Bot] - Previous timestamp: ${ previousTimestamp } -> New timestamp: ${ message.sentAt + 1 }` );
-      // this.services.logger.debug( `[Bot] - Message sentAt: ${ message.sentAt }` );
+      // Log tracking updates with comprehensive details
+      this.services.logger.info( `💾 [_updateMessageTracking] Public message tracking updated:
+        - Message ID: ${ message.id }
+        - Message sender: ${ message.sender }
+        - Previous tracking ID: ${ previousId || 'none' }
+        - New tracking ID: ${ message.id }
+        - Previous timestamp: ${ previousTimestamp || 'none' }
+        - New timestamp (message.sentAt + 1): ${ message.sentAt + 1 }
+        - Original message.sentAt: ${ message.sentAt }
+        - Service state also updated: lastMessageId=${ message.id }` );
     }
   }
 
