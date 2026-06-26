@@ -243,10 +243,12 @@ class Bot {
   async _initializeMessageTracking () {
     // Initialize lastMessageIDs from service container state
     const lastMessageId = this.services.getState( 'lastMessageId' );
+    const lastMessageTimestamp = this.services.getState( 'lastMessageTimestamp' );
 
     if ( lastMessageId ) {
       this.lastMessageIDs.id = lastMessageId;
-      this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }` );
+      this.lastMessageIDs.fromTimestamp = lastMessageTimestamp;
+      this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }, timestamp: ${ lastMessageTimestamp }` );
     } else {
       this.services.logger.debug( 'No previous message ID found, will fetch from latest messages' );
 
@@ -255,7 +257,8 @@ class Bot {
         const latestMessageId = await this.services.messageService.returnLatestGroupMessageId();
         if ( latestMessageId ) {
           this.lastMessageIDs.id = latestMessageId;
-          this.services.updateLastMessageId( latestMessageId );
+          // Don't set fromTimestamp on initial fetch - let it be undefined so we get latest batch as baseline
+          this.services.updateLastMessageId( latestMessageId, undefined );
           this.services.logger.debug( `Initialized tracking with latest message ID: ${ latestMessageId }` );
         } else {
           this.services.logger.debug( 'No messages found to establish baseline, starting fresh' );
@@ -809,6 +812,8 @@ class Bot {
     // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
     // regular chat messages before filtering down to commands for processing.
     const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
+      lastID: this.lastMessageIDs.id,
+      fromTimestamp: this.lastMessageIDs.fromTimestamp,
       filterCommands: false,
       services: this.services
     } );
@@ -1081,10 +1086,11 @@ class Bot {
       // Note: If sender is empty, message is silently ignored in _processSingleMessage
     } else {
       // Handle public message tracking (existing logic)
-      this.services.updateLastMessageId( message.id );
       this.lastMessageIDs.id = message.id;
+      this.lastMessageIDs.fromTimestamp = message.updatedAt;
+      this.services.updateLastMessageId( message.id, message.updatedAt );
 
-      this.services.logger.debug( `💾 [_updateMessageTracking] Public message ID: ${ previousId } → ${ message.id }` );
+      this.services.logger.debug( `💾 [_updateMessageTracking] Public message ID: ${ previousId } → ${ message.id }, timestamp: ${ message.updatedAt }` );
     }
   }
 

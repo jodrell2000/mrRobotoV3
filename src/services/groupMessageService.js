@@ -12,6 +12,7 @@ const RECEIVER_TYPE = {
 
 let latestGroupMessageId = null;
 let highestProcessedMessageId = null;  // Track highest message ID we've actually processed
+let highestProcessedMessageTimestamp = null;  // Track timestamp of highest processed message
 
 // ===============
 // Helper functions
@@ -33,6 +34,14 @@ function setHighestProcessedMessageId ( id ) {
 
 function getHighestProcessedMessageId () {
     return highestProcessedMessageId;
+}
+
+function setHighestProcessedMessageTimestamp ( timestamp ) {
+    highestProcessedMessageTimestamp = timestamp;
+}
+
+function getHighestProcessedMessageTimestamp () {
+    return highestProcessedMessageTimestamp;
 }
 
 function filterMessagesForCommands ( messages ) {
@@ -59,6 +68,8 @@ const groupMessageService = {
     setLatestGroupMessageId,
     getHighestProcessedMessageId,
     setHighestProcessedMessageId,
+    getHighestProcessedMessageTimestamp,
+    setHighestProcessedMessageTimestamp,
     filterMessagesForCommands,
 
     /**
@@ -218,21 +229,32 @@ const groupMessageService = {
     fetchGroupMessages: async function ( roomId = null, options = {} ) {
         try {
             const targetRoomId = roomId || config.HANGOUT_ID;
-            const { limit = 50, filterCommands = true, services } = options;
+            const { lastID, limit = 50, filterCommands = true, fromTimestamp, services } = options;
 
-            // Get highest message ID we've already processed
-            const highestProcessedId = this.getHighestProcessedMessageId();
+            // Get the last message ID and timestamp we've processed
+            const lastProcessedId = lastID || this.getHighestProcessedMessageId();
+            const lastProcessedTimestamp = fromTimestamp || this.getHighestProcessedMessageTimestamp();
 
-            logger.debug( `📡 [fetchGroupMessages] Fetching messages, highest processed ID: ${ highestProcessedId || 'none' }` );
+            logger.debug( `📡 [fetchGroupMessages] Request: lastProcessedId=${ lastProcessedId || 'none' }, timestamp=${ lastProcessedTimestamp || 'none' }` );
 
             const params = [];
 
-            // Only include limit if different from default
+            // Pass lastProcessedId to API to move the pagination window forward
+            // API returns messages around this ID (including and below it)
+            if ( lastProcessedId ) {
+                params.push( [ 'id', lastProcessedId ] );
+            }
+
+            // Pass updatedAt timestamp to API for server-side filtering
+            // API will only return messages updated AFTER this timestamp
+            if ( lastProcessedTimestamp ) {
+                params.push( [ 'updatedAt', lastProcessedTimestamp ] );
+            }
+
             if ( limit !== 50 ) {
                 params.push( [ 'per_page', limit ] );
             }
 
-            // Fetch messages without ID parameter - get latest batch
             const messages = await this.fetchGroupMessagesRaw( targetRoomId, params, services );
 
             logger.debug( `📡 [fetchGroupMessages] Response: ${ messages?.length || 0 } raw messages` );
@@ -242,14 +264,6 @@ const groupMessageService = {
             }
 
             let filteredMessages = messages;
-
-            // Client-side filtering: only return messages with ID > highestProcessedId
-            // This ensures we only process new messages we haven't seen before
-            if ( highestProcessedId ) {
-                const beforeFilter = filteredMessages.length;
-                filteredMessages = filteredMessages.filter( msg => parseInt( msg.id ) > parseInt( highestProcessedId ) );
-                logger.debug( `📨 [fetchGroupMessages] After ID filtering (>${ highestProcessedId }): ${ beforeFilter } → ${ filteredMessages.length } messages` );
-            }
 
             if ( filterCommands ) {
                 const beforeCommandFilter = filteredMessages.length;
@@ -278,11 +292,13 @@ const groupMessageService = {
                 };
             } );
 
-            // Update highest processed ID to the max we just processed
+            // Update highest processed ID and timestamp to the max we just processed
             if ( formattedMessages.length > 0 ) {
                 const highestInBatch = Math.max( ...formattedMessages.map( m => parseInt( m.id ) ) );
+                const highestTimestamp = Math.max( ...formattedMessages.map( m => m.updatedAt || 0 ) );
                 this.setHighestProcessedMessageId( highestInBatch );
-                logger.debug( `💾 [fetchGroupMessages] Updated highest processed ID to: ${ highestInBatch }` );
+                this.setHighestProcessedMessageTimestamp( highestTimestamp );
+                logger.debug( `💾 [fetchGroupMessages] Updated highest processed ID to: ${ highestInBatch }, timestamp to: ${ highestTimestamp }` );
             }
 
             return formattedMessages;
@@ -317,7 +333,7 @@ const groupMessageService = {
             const finalParams = [ ...defaultParams, ...params ];
 
             // Log the request parameters (just the meaningful ones)
-            const keyParams = finalParams.filter( p => p[ 0 ] === 'id' || p[ 0 ] === 'updatedAt' );
+            const keyParams = finalParams.filter( p => p[ 0 ] === 'id' || p[ 0 ] === 'updatedAt' || p[ 0 ] === 'per_page' );
             const paramStr = keyParams.length ? keyParams.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( ', ' ) : 'none';
             logger.debug( `🔌 [fetchGroupMessagesRaw] API request params: ${ paramStr }` );
 

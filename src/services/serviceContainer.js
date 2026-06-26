@@ -127,11 +127,17 @@ const services = {
     return this.hangoutState[ key ] !== undefined ? this.hangoutState[ key ] : this.state[ key ];
   },
 
-  updateLastMessageId ( id ) {
+  updateLastMessageId ( id, timestamp ) {
     if ( !this.hangoutState ) this.hangoutState = {};
-    this.hangoutState.lastMessageId = id;
-    if ( this.state ) this.state.lastMessageId = id;
-    // this.logger.debug( `Last message ID updated to: ${ id }` );
+    if ( id ) {
+      this.hangoutState.lastMessageId = id;
+      if ( this.state ) this.state.lastMessageId = id;
+    }
+    if ( timestamp ) {
+      this.hangoutState.lastMessageTimestamp = timestamp;
+      if ( this.state ) this.state.lastMessageTimestamp = timestamp;
+    }
+    // this.logger.debug( `Last message ID updated to: ${ id }, timestamp: ${ timestamp }` );
   },
 
   async initializeStateService () {

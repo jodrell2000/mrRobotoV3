@@ -41,6 +41,9 @@ describe( 'groupMessageService', () => {
     jest.clearAllMocks();
     // Reset the latest message ID
     groupMessageService.setLatestGroupMessageId( null );
+    // Reset highest processed message ID and timestamp
+    groupMessageService.setHighestProcessedMessageId( null );
+    groupMessageService.setHighestProcessedMessageTimestamp( null );
 
     // Set up mock implementations for openchatApi functions
     openchatApi.buildCustomData.mockImplementation( async ( message, services ) => {
@@ -359,18 +362,21 @@ describe( 'groupMessageService', () => {
         {
           id: 100,
           sentAt: 1640995100,
+          updatedAt: 1640995100,
           sender: { uid: 'user-456' },
           data: { text: 'old message' }
         },
         {
           id: 101,
           sentAt: 1640995200,
+          updatedAt: 1640995200,
           sender: { uid: 'user-123' },
           data: { text: '!hello' }
         }
       ];
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( mockMessages );
       groupMessageService.setHighestProcessedMessageId( 100 );
+      groupMessageService.setHighestProcessedMessageTimestamp( 1640995100 );
 
       const options = {
         limit: 25,
@@ -379,22 +385,32 @@ describe( 'groupMessageService', () => {
 
       const result = await groupMessageService.fetchGroupMessages( 'custom-room-789', options );
 
-      // Should fetch without ID parameter - just limit
+      // Should pass lastProcessedId and updatedAt timestamp to move pagination window forward
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'custom-room-789',
         [
+          [ 'id', 100 ],  // Pass ID to move window forward
+          [ 'updatedAt', 1640995100 ],  // Pass timestamp for server-side filtering
           [ 'per_page', 25 ]
         ],
         undefined // services parameter
       );
 
-      // Should only return messages with ID > highest processed (100)
+      // With server-side filtering by updatedAt, all messages should be returned
+      // (the API would only return messages updated after the timestamp, but our mock returns all)
       expect( result ).toEqual( [ {
+        id: 100,
+        text: 'old message',
+        sender: 'user-456',
+        sentAt: 1640995100,
+        updatedAt: 1640995100,
+        data: { text: 'old message' }
+      }, {
         id: 101,
         text: '!hello',
         sender: 'user-123',
         sentAt: 1640995200,
-        updatedAt: undefined,
+        updatedAt: 1640995200,
         data: { text: '!hello' }
       } ] );
     } );
