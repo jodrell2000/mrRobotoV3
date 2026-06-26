@@ -11,6 +11,7 @@ const RECEIVER_TYPE = {
 };
 
 let latestGroupMessageId = null;
+let highestProcessedMessageId = null;  // Track highest message ID we've actually processed
 
 // ===============
 // Helper functions
@@ -24,6 +25,14 @@ function setLatestGroupMessageId ( id ) {
 
 function getLatestGroupMessageId () {
     return latestGroupMessageId;
+}
+
+function setHighestProcessedMessageId ( id ) {
+    highestProcessedMessageId = id;
+}
+
+function getHighestProcessedMessageId () {
+    return highestProcessedMessageId;
 }
 
 function filterMessagesForCommands ( messages ) {
@@ -43,11 +52,13 @@ function filterMessagesForCommands ( messages ) {
 // ===============
 
 const groupMessageService = {
-    // Helper functions (exported for testing) - now from openchatApi
+    // Helper functions (exported for testing)
     buildCustomData: openchatApi.buildCustomData,
     buildPayload: openchatApi.buildPayload,
     getLatestGroupMessageId,
     setLatestGroupMessageId,
+    getHighestProcessedMessageId,
+    setHighestProcessedMessageId,
     filterMessagesForCommands,
 
     /**
@@ -207,25 +218,21 @@ const groupMessageService = {
     fetchGroupMessages: async function ( roomId = null, options = {} ) {
         try {
             const targetRoomId = roomId || config.HANGOUT_ID;
-            const { lastID, limit = 50, filterCommands = true, fromTimestamp, services } = options;
+            const { limit = 50, filterCommands = true, services } = options;
+
+            // Get highest message ID we've already processed
+            const highestProcessedId = this.getHighestProcessedMessageId();
+
+            logger.debug( `📡 [fetchGroupMessages] Fetching messages, highest processed ID: ${ highestProcessedId || 'none' }` );
 
             const params = [];
-            const messageId = lastID || this.getLatestGroupMessageId();
 
-            logger.debug( `📡 [fetchGroupMessages] Request: lastID=${ messageId || 'none' }, timestamp=${ fromTimestamp || 'none' }` );
-
-            if ( messageId ) {
-                params.push( [ 'id', messageId ] );
-            }
-
-            if ( fromTimestamp ) {
-                params.push( [ 'updatedAt', fromTimestamp ] );
-            }
-
+            // Only include limit if different from default
             if ( limit !== 50 ) {
                 params.push( [ 'per_page', limit ] );
             }
 
+            // Fetch messages without ID parameter - get latest batch
             const messages = await this.fetchGroupMessagesRaw( targetRoomId, params, services );
 
             logger.debug( `📡 [fetchGroupMessages] Response: ${ messages?.length || 0 } raw messages` );
@@ -236,12 +243,12 @@ const groupMessageService = {
 
             let filteredMessages = messages;
 
-            // Client-side filtering: only return messages with ID > lastID
-            // This prevents receiving old messages when using id parameter
-            if ( messageId ) {
+            // Client-side filtering: only return messages with ID > highestProcessedId
+            // This ensures we only process new messages we haven't seen before
+            if ( highestProcessedId ) {
                 const beforeFilter = filteredMessages.length;
-                filteredMessages = filteredMessages.filter( msg => parseInt( msg.id ) > parseInt( messageId ) );
-                logger.debug( `📨 [fetchGroupMessages] After ID filtering (>${messageId}): ${ beforeFilter } → ${ filteredMessages.length } messages` );
+                filteredMessages = filteredMessages.filter( msg => parseInt( msg.id ) > parseInt( highestProcessedId ) );
+                logger.debug( `📨 [fetchGroupMessages] After ID filtering (>${ highestProcessedId }): ${ beforeFilter } → ${ filteredMessages.length } messages` );
             }
 
             if ( filterCommands ) {
@@ -270,6 +277,13 @@ const groupMessageService = {
                     data: msg.data // Include original data for backward compatibility
                 };
             } );
+
+            // Update highest processed ID to the max we just processed
+            if ( formattedMessages.length > 0 ) {
+                const highestInBatch = Math.max( ...formattedMessages.map( m => parseInt( m.id ) ) );
+                this.setHighestProcessedMessageId( highestInBatch );
+                logger.debug( `💾 [fetchGroupMessages] Updated highest processed ID to: ${ highestInBatch }` );
+            }
 
             return formattedMessages;
 
@@ -315,17 +329,6 @@ const groupMessageService = {
             logger.info( `🔌 [fetchGroupMessagesRaw] Received ${ messagesCount } messages` );
 
             const messages = response.data?.data || [];
-
-            // Update lastMessageId with the last message ID if we have messages
-            if ( messages.length > 0 && services && services.updateLastMessageId ) {
-                const lastMessage = messages[ messages.length - 1 ];
-                if ( lastMessage && lastMessage.id ) {
-                    services.updateLastMessageId( lastMessage.id );
-                    logger.debug( `💾 [fetchGroupMessagesRaw] Latest message ID now: ${ lastMessage.id }` );
-                } else {
-                    logger.warn( `⚠️ [fetchGroupMessagesRaw] Could not extract ID from last message` );
-                }
-            }
 
             return messages;
         } catch ( err ) {

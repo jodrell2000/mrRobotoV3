@@ -357,6 +357,12 @@ describe( 'groupMessageService', () => {
     test( 'should pass custom room ID and build correct parameters', async () => {
       const mockMessages = [
         {
+          id: 100,
+          sentAt: 1640995100,
+          sender: { uid: 'user-456' },
+          data: { text: 'old message' }
+        },
+        {
           id: 101,
           sentAt: 1640995200,
           sender: { uid: 'user-123' },
@@ -364,28 +370,25 @@ describe( 'groupMessageService', () => {
         }
       ];
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( mockMessages );
-      groupMessageService.setLatestGroupMessageId( 100 );
+      groupMessageService.setHighestProcessedMessageId( 100 );
 
       const options = {
-        lastID: 100,
-        fromTimestamp: 1640990000,
         limit: 25,
         filterCommands: false
       };
 
       const result = await groupMessageService.fetchGroupMessages( 'custom-room-789', options );
 
+      // Should fetch without ID parameter - just limit
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'custom-room-789',
         [
-          [ 'id', 100 ], // lastID takes precedence over latest
-          [ 'updatedAt', 1640990000 ],
           [ 'per_page', 25 ]
         ],
         undefined // services parameter
       );
 
-      // Should return all messages when filterCommands is false
+      // Should only return messages with ID > highest processed (100)
       expect( result ).toEqual( [ {
         id: 101,
         text: '!hello',
@@ -396,20 +399,16 @@ describe( 'groupMessageService', () => {
       } ] );
     } );
 
-    test( 'should use latestGroupMessageId when lastID not provided', async () => {
+    test( 'should fetch without ID parameter when no highest processed ID set', async () => {
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( [] );
-      groupMessageService.setLatestGroupMessageId( 789 );
+      groupMessageService.setHighestProcessedMessageId( null );
 
       await groupMessageService.fetchGroupMessages( 'room-123', {
-        fromTimestamp: 1640990000
       } );
 
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'room-123',
-        [
-          [ 'id', 789 ],
-          [ 'updatedAt', 1640990000 ]
-        ],
+        [],
         undefined // services parameter
       );
     } );
@@ -432,19 +431,17 @@ describe( 'groupMessageService', () => {
 
     test( 'should not add per_page parameter when limit is default (50)', async () => {
       groupMessageService.fetchGroupMessagesRaw.mockResolvedValue( [] );
-      groupMessageService.setLatestGroupMessageId( 'msg-123' );
+      groupMessageService.setHighestProcessedMessageId( null );
 
       await groupMessageService.fetchGroupMessages( 'room-123', {
-        limit: 50,
-        lastID: 'custom-456'
+        limit: 50
       } );
 
       expect( groupMessageService.fetchGroupMessagesRaw ).toHaveBeenCalledWith(
         'room-123',
-        [
-          [ 'id', 'custom-456' ]
-          // No per_page parameter since it's the default
-        ],
+        []
+        // No parameters when using defaults
+        ,
         undefined // services parameter
       );
     } );

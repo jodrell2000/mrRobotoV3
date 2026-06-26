@@ -21,6 +21,7 @@ const validationService = require( './validationService.js' );
 const VersionService = require( './versionService.js' );
 const DocumentationService = require( './documentationService.js' );
 const RateLimiterService = require( './rateLimiterService.js' );
+const VerificationService = require( './verification/verificationService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -99,6 +100,7 @@ const services = {
   triggerService: null, // Will be initialized after services object is created
   tokenService: null, // Will be initialized after services object is created
   documentationService: null, // Will be initialized after services object is created
+  verificationService: null, // Will be initialized after services object is created
   openchatApi: null, // Will be initialized after services object is created
   data: {}, // Will be populated by initializeData()
 
@@ -168,6 +170,7 @@ services.documentationService = new DocumentationService( {
   versionService: services.versionService,
   services: services
 } );
+services.verificationService = new VerificationService( services );
 
 // Initialize retry service connection to OpenChat API
 const openchatApi = require( './openchatApi.js' );
@@ -178,6 +181,13 @@ services.openchatApi = openchatApi;
 const initializeServices = async () => {
   await initializeData();
   await initializeDatabase();
+
+  // Initialize verification service
+  try {
+    await services.verificationService.initialize();
+  } catch ( err ) {
+    logger.error( 'Failed to initialize VerificationService:', err );
+  }
 
   // Initialize machine learning service backend
   try {

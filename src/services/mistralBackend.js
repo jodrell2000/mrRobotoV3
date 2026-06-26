@@ -158,8 +158,8 @@ class MistralBackend {
         const normalizedPrompt = normalizeText( prompt );
         // logger.debug( `🤖 [MistralBackend] Normalized prompt: "${ normalizedPrompt }"` );
 
-        // const primaryModel = "mistral-tiny-latest";
-        const primaryModel = "mistral-medium-latest";
+        const primaryModel = "mistral-tiny-latest";
+        // const primaryModel = "mistral-medium-latest";
         const secondaryModel = "ministral-3b-latest";
 
         const modelsToTry = [ primaryModel, secondaryModel ];

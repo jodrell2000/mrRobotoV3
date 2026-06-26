@@ -246,8 +246,6 @@ class Bot {
 
     if ( lastMessageId ) {
       this.lastMessageIDs.id = lastMessageId;
-      // We don't have fromTimestamp in persistent state, so start fresh
-      this.lastMessageIDs.fromTimestamp = Math.floor( Date.now() / 1000 );
       this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }` );
     } else {
       this.services.logger.debug( 'No previous message ID found, will fetch from latest messages' );
@@ -257,16 +255,13 @@ class Bot {
         const latestMessageId = await this.services.messageService.returnLatestGroupMessageId();
         if ( latestMessageId ) {
           this.lastMessageIDs.id = latestMessageId;
-          this.lastMessageIDs.fromTimestamp = Math.floor( Date.now() / 1000 );
           this.services.updateLastMessageId( latestMessageId );
           this.services.logger.debug( `Initialized tracking with latest message ID: ${ latestMessageId }` );
         } else {
           this.services.logger.debug( 'No messages found to establish baseline, starting fresh' );
-          this.lastMessageIDs.fromTimestamp = Math.floor( Date.now() / 1000 );
         }
       } catch ( error ) {
         this.services.logger.warn( `Could not fetch latest message ID: ${ error.message }` );
-        this.lastMessageIDs.fromTimestamp = Math.floor( Date.now() / 1000 );
       }
     }
 
@@ -809,19 +804,11 @@ class Bot {
   }
 
   async _fetchNewMessages () {
-    // Get the most current lastMessageId from service container state
-    const serviceLastMessageId = this.services.getState( 'lastMessageId' );
-    const localLastMessageId = this.lastMessageIDs?.id;
-    const effectiveLastMessageId = serviceLastMessageId || localLastMessageId;
-    const fromTimestamp = this.lastMessageIDs?.fromTimestamp;
-
-    this.services.logger.debug( `📨 [_fetchNewMessages] Fetch with lastID: ${ effectiveLastMessageId || 'none' }, timestamp: ${ fromTimestamp || 'none' }` );
+    this.services.logger.debug( `📨 [_fetchNewMessages] Fetching new messages` );
 
     // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
     // regular chat messages before filtering down to commands for processing.
     const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
-      fromTimestamp: fromTimestamp,
-      lastID: effectiveLastMessageId,
       filterCommands: false,
       services: this.services
     } );
@@ -1095,7 +1082,6 @@ class Bot {
     } else {
       // Handle public message tracking (existing logic)
       this.services.updateLastMessageId( message.id );
-      this.lastMessageIDs.fromTimestamp = message.sentAt + 1;
       this.lastMessageIDs.id = message.id;
 
       this.services.logger.debug( `💾 [_updateMessageTracking] Public message ID: ${ previousId } → ${ message.id }` );
@@ -1226,8 +1212,7 @@ class Bot {
     return {
       isConnected: !!this.socket,
       hasState: !!this.state,
-      lastMessageId: this.lastMessageIDs?.id,
-      lastTimestamp: this.lastMessageIDs?.fromTimestamp
+      lastMessageId: this.lastMessageIDs?.id
     };
   }
 
