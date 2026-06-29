@@ -818,6 +818,18 @@ class Bot {
       services: this.services
     } );
 
+    // Update tracking with highest message received (not just processed)
+    // This ensures pagination moves forward even if no commands are found
+    if ( allMessages?.length > 0 ) {
+      const highestReceived = Math.max( ...allMessages.map( m => parseInt( m.id ) ) );
+      const highestTimestamp = Math.max( ...allMessages.map( m => m.updatedAt || 0 ) );
+      this.services.logger.debug( `📊 [_fetchNewMessages] Updating tracking: ${ this.lastMessageIDs.id } → ${ highestReceived }` );
+      this.lastMessageIDs.id = highestReceived;
+      this.lastMessageIDs.fromTimestamp = highestTimestamp;
+      this.services.updateLastMessageId( highestReceived, highestTimestamp );
+      this.services.logger.debug( `✅ [_fetchNewMessages] Tracking updated to ID: ${ this.lastMessageIDs.id }, timestamp: ${ this.lastMessageIDs.fromTimestamp }` );
+    }
+
     if ( allMessages?.length && this.services.afkService ) {
       for ( const msg of allMessages ) {
         const chatUuid = msg.data?.metadata?.chatMessage?.userUuid || msg.sender;
@@ -1218,7 +1230,8 @@ class Bot {
     return {
       isConnected: !!this.socket,
       hasState: !!this.state,
-      lastMessageId: this.lastMessageIDs?.id
+      lastMessageId: this.lastMessageIDs?.id,
+      lastTimestamp: this.lastMessageIDs?.fromTimestamp
     };
   }
 
