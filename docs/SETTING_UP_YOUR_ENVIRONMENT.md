@@ -21,6 +21,7 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 7: Tell the bot which Hangout enter](#step-7-tell-the-bot-which-hangout-enter)
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
    - [Step 9: Adding a Google API key for Machine Learning services (optional)](#step-9-adding-a-google-api-key-for-machine-learning-services-optional)
+   - [Step 10: Adding a Mistral API key for Machine Learning services (optional)](#step-10-adding-a-mistral-api-key-for-machine-learning-services-optional)
 
 [The botConfig.json file](#understanding-botconfigjson)
    - [Step 1: Creating your botConfig.json file](#step-1-creating-your-botconfigjson-file)
@@ -251,6 +252,48 @@ The bot includes Machine Learning features that can answer questions about songs
 > 🔒 **SECURITY WARNING**: Your API key gives access to your Google AI account. Never share it publicly or commit it to version control!
 
 > 💰 **BILLING NOTE**: Google AI Studio provides free tier usage that should be sufficient for most bot usage. Monitor your usage in the Google Cloud Console if you're concerned about costs.
+
+## Step 10: Adding a Mistral API key for Machine Learning services (optional)
+**Time: ~5 minutes**
+
+The bot can also use Mistral AI as an alternative ML backend for answering questions about songs. If you want to use Mistral models instead of or alongside Gemma, you'll need to create a Mistral API key.
+
+> 💡 **NOTE**: This step is optional. The bot will work without a Mistral API key. If configured, Mistral can be set as your primary backend or used as a fallback.
+
+### Getting Your Mistral API Key
+
+1. Navigate to Mistral's authentication portal: https://v2.auth.mistral.ai/login
+
+2. Sign in with your existing account or click **"Sign up"** to create a free account
+
+3. Once logged in, click **"API Keys"** in the left sidebar
+
+4. Click **"Add a new key"** button
+
+5. Give your key a descriptive name (e.g., "HangBot ML Features")
+
+6. Leave the other options as their defaults and click **"Create"**
+
+7. Your API key will be generated and displayed on the screen. **Important**: Copy the key immediately as you will not be shown it again
+
+8. Open your `.env` file and find the line that says:
+   ```
+   MISTRAL_API_KEY=your-mistral-api-key-here
+   ```
+
+9. Replace `your-mistral-api-key-here` with your actual API key (keep the quotes if they're there)
+
+### Switching Between Backends
+
+Once both (or either) API keys are configured, you can switch between backends or manage fallbacks:
+
+* **Switch to Mistral**: `!switchllm mistral`
+* **Switch to Gemma**: `!switchllm gemma`  
+* **Check current backend**: `!llmstatus`
+
+> 🔒 **SECURITY WARNING**: Your API key gives access to your Mistral account. Never share it publicly or commit it to version control!
+
+> 💰 **BILLING NOTE**: Mistral AI offers free tier usage for development. Check their pricing page for production rate limits and costs.
 
 ---
 
