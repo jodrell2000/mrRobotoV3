@@ -235,8 +235,6 @@ const groupMessageService = {
             const lastProcessedId = lastID || getHighestProcessedMessageId();
             const lastProcessedTimestamp = fromTimestamp || getHighestProcessedMessageTimestamp();
 
-            logger.debug( `📡 [fetchGroupMessages] Request: lastProcessedId=${ lastProcessedId || 'none' }, timestamp=${ lastProcessedTimestamp || 'none' }` );
-
             const params = [];
 
             // Pass lastProcessedId to API to move the pagination window forward
@@ -257,8 +255,6 @@ const groupMessageService = {
 
             const messages = await this.fetchGroupMessagesRaw( targetRoomId, params, services );
 
-            logger.debug( `📡 [fetchGroupMessages] Response: ${ messages?.length || 0 } raw messages` );
-
             if ( !messages || messages.length === 0 ) {
                 return [];
             }
@@ -266,9 +262,7 @@ const groupMessageService = {
             let filteredMessages = messages;
 
             if ( filterCommands ) {
-                const beforeCommandFilter = filteredMessages.length;
                 filteredMessages = filterMessagesForCommands( filteredMessages );
-                logger.debug( `📡 [fetchGroupMessages] Filtered: ${ beforeCommandFilter } → ${ filteredMessages.length } command messages` );
             }
 
             const formattedMessages = filteredMessages.map( msg => {
@@ -298,7 +292,6 @@ const groupMessageService = {
                 const highestTimestamp = Math.max( ...formattedMessages.map( m => m.updatedAt || 0 ) );
                 setHighestProcessedMessageId( highestInBatch );
                 setHighestProcessedMessageTimestamp( highestTimestamp );
-                logger.debug( `💾 [fetchGroupMessages] Updated highest processed ID to: ${ highestInBatch }, timestamp to: ${ highestTimestamp }` );
             }
 
             return formattedMessages;
@@ -332,17 +325,8 @@ const groupMessageService = {
         try {
             const finalParams = [ ...defaultParams, ...params ];
 
-            // Log the request parameters (just the meaningful ones)
-            const keyParams = finalParams.filter( p => p[ 0 ] === 'id' || p[ 0 ] === 'updatedAt' || p[ 0 ] === 'per_page' );
-            const paramStr = keyParams.length ? keyParams.map( p => `${ p[ 0 ] }=${ p[ 1 ] }` ).join( ', ' ) : 'none';
-            logger.debug( `🔌 [fetchGroupMessagesRaw] API request params: ${ paramStr }` );
-
             // Use openchatApi.fetchMessages with the correct endpoint format
             const response = await openchatApi.fetchMessages( `v3.0/groups/${ roomId }/messages`, finalParams );
-
-            // Log response count
-            const messagesCount = response.data?.data?.length || 0;
-            logger.info( `🔌 [fetchGroupMessagesRaw] Received ${ messagesCount } messages` );
 
             const messages = response.data?.data || [];
 

@@ -823,11 +823,9 @@ class Bot {
     if ( allMessages?.length > 0 ) {
       const highestReceived = Math.max( ...allMessages.map( m => parseInt( m.id ) ) );
       const highestTimestamp = Math.max( ...allMessages.map( m => m.updatedAt || 0 ) );
-      this.services.logger.debug( `📊 [_fetchNewMessages] Updating tracking: ${ this.lastMessageIDs.id } → ${ highestReceived }` );
       this.lastMessageIDs.id = highestReceived;
       this.lastMessageIDs.fromTimestamp = highestTimestamp;
       this.services.updateLastMessageId( highestReceived, highestTimestamp );
-      this.services.logger.debug( `✅ [_fetchNewMessages] Tracking updated to ID: ${ this.lastMessageIDs.id }, timestamp: ${ this.lastMessageIDs.fromTimestamp }` );
     }
 
     if ( allMessages?.length && this.services.afkService ) {
