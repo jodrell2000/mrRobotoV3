@@ -1,21 +1,21 @@
 {
-  "timestamp": "2026-07-02T14:25:35.405Z",
-  "query": "Kon Kan - I Beg Your Pardon (I Never Promised You a Rose Garden)",
+  "timestamp": "2026-07-02T15:25:06.600Z",
+  "query": "Marillion - Hooks in you",
   "verifiedData": {
     "track": {
-      "title": "I Beg Your Pardon (I Never Promised You a Rose Garden)",
-      "categories": [
-        "1988 songs",
-        "1988 debut singles",
-        "Kon Kan songs"
-      ],
+      "title": "Hooks in you",
+      "categories": [],
+      "artist": "Marillion",
+      "releaseDate": "2008-06-30",
       "wikidata": {}
     },
     "artist": {
-      "title": "Kon Kan",
+      "title": "Marillion",
       "categories": [],
+      "founded": "1979",
+      "country": "GB",
       "wikidata": {
-        "properties": []
+        "qid": "Q678410"
       }
     }
   }

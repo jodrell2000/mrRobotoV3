@@ -14,8 +14,8 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 
 // ============ EDIT THESE TO TEST DIFFERENT ARTISTS/TRACKS ============
-const TEST_ARTIST = 'Kon Kan';
-const TEST_TRACK = 'I Beg Your Pardon (I Never Promised You a Rose Garden)';
+const TEST_ARTIST = 'Marillion';
+const TEST_TRACK = 'Hooks in you';
 // =====================================================================
 
 // Color codes for console output

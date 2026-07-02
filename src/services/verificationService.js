@@ -7,7 +7,11 @@ class VerificationService {
     constructor ( services = {} ) {
         this.services = services;
         this.logger = services.logger || console;
-        this.userAgent = 'mrRoboto/1.4.1 (contact@example.com)';
+        
+        // Create user agent with hangout URL if available
+        const hangoutUrl = services.config?.HANGOUT_URL || 'contact@example.com';
+        this.userAgent = `mrRoboto/1.4.1 (${ hangoutUrl })`;
+        
         this.delayMs = 2000; // Delay between requests to avoid rate limiting (Wikidata recommends 1-2s between requests)
     }
 

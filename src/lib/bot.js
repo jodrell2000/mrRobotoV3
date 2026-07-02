@@ -85,6 +85,9 @@ class Bot {
     // Data is already loaded and available in serviceContainer as services.data
     this.services.logger.debug( 'Using data loaded in serviceContainer' );
 
+    // Create hangout URL and store in config for use by services like VerificationService
+    this._createHangoutUrl();
+
     // First create the socket connection
     await this._createSocketConnection();
 
@@ -113,6 +116,39 @@ class Bot {
 
     // Finally set up reconnect handler
     this._setupReconnectHandler();
+  }
+
+  // ========================================================
+  // Hangout URL Creation
+  // ========================================================
+
+  _createHangoutUrl () {
+    try {
+      const { HANGOUT_ID, HANGOUT_SLUG, HANGOUT_LANGUAGE } = this.services.config;
+      
+      if ( !HANGOUT_ID ) {
+        this.services.logger.warn( '⚠️ [Bot] HANGOUT_ID not configured' );
+        return;
+      }
+
+      let hangoutUrl;
+      if ( HANGOUT_SLUG && HANGOUT_LANGUAGE ) {
+        // Use full hang.fm URL format with slug and language
+        hangoutUrl = `https://hang.fm/${ HANGOUT_LANGUAGE }/${ HANGOUT_SLUG }`;
+      } else if ( HANGOUT_SLUG ) {
+        // Use URL without language code
+        hangoutUrl = `https://hang.fm/${ HANGOUT_SLUG }`;
+      } else {
+        // Fallback to using just the hangout ID
+        hangoutUrl = `https://hang.fm/hangouts/${ HANGOUT_ID }`;
+      }
+
+      // Store in config for use by other services
+      this.services.config.HANGOUT_URL = hangoutUrl;
+      this.services.logger.info( `✅ [Bot] Hangout URL: ${ hangoutUrl }` );
+    } catch ( error ) {
+      this.services.logger.error( `❌ [Bot] Error creating hangout URL: ${ error.message }` );
+    }
   }
 
   // ========================================================
