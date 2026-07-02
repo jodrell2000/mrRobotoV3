@@ -21,7 +21,7 @@ const validationService = require( './validationService.js' );
 const VersionService = require( './versionService.js' );
 const DocumentationService = require( './documentationService.js' );
 const RateLimiterService = require( './rateLimiterService.js' );
-const VerificationService = require( './verification/verificationService.js' );
+const VerificationService = require( './verificationService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {

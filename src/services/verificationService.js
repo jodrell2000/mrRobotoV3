@@ -373,5 +373,3 @@ class VerificationService {
 }
 
 module.exports = VerificationService;
-
-module.exports = VerificationService;

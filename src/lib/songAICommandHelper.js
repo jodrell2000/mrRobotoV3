@@ -6,6 +6,76 @@
 const appConfig = require( '../config' );
 
 /**
+ * Format verified information from VerificationService for inclusion in AI prompt
+ * @param {Object} verifiedData - Verified data object from VerificationService
+ * @returns {string} Formatted verified information section
+ */
+function formatVerifiedInformation ( verifiedData ) {
+    if ( !verifiedData ) {
+        return '';
+    }
+
+    const sections = [];
+
+    // Track information
+    if ( verifiedData.track ) {
+        const trackInfo = [];
+        if ( verifiedData.track.title ) {
+            trackInfo.push( `Title: ${ verifiedData.track.title }` );
+        }
+        if ( verifiedData.track.artist ) {
+            trackInfo.push( `Artist: ${ verifiedData.track.artist }` );
+        }
+        if ( verifiedData.track.releaseDate ) {
+            trackInfo.push( `Release Date: ${ verifiedData.track.releaseDate }` );
+        }
+        if ( verifiedData.track.categories && verifiedData.track.categories.length > 0 ) {
+            trackInfo.push( `Categories: ${ verifiedData.track.categories.join( ', ' ) }` );
+        }
+        if ( verifiedData.track.wikidata?.qid ) {
+            trackInfo.push( `Wikidata ID: ${ verifiedData.track.wikidata.qid }` );
+        }
+        if ( verifiedData.track.album?.title ) {
+            trackInfo.push( `Album: ${ verifiedData.track.album.title }` );
+        }
+
+        if ( trackInfo.length > 0 ) {
+            sections.push( `**Track:**\n- ${ trackInfo.join( '\n- ' ) }` );
+        }
+    }
+
+    // Artist information
+    if ( verifiedData.artist ) {
+        const artistInfo = [];
+        if ( verifiedData.artist.title ) {
+            artistInfo.push( `Name: ${ verifiedData.artist.title }` );
+        }
+        if ( verifiedData.artist.founded ) {
+            artistInfo.push( `Founded: ${ verifiedData.artist.founded }` );
+        }
+        if ( verifiedData.artist.country ) {
+            artistInfo.push( `Country: ${ verifiedData.artist.country }` );
+        }
+        if ( verifiedData.artist.categories && verifiedData.artist.categories.length > 0 ) {
+            artistInfo.push( `Categories: ${ verifiedData.artist.categories.join( ', ' ) }` );
+        }
+        if ( verifiedData.artist.wikidata?.qid ) {
+            artistInfo.push( `Wikidata ID: ${ verifiedData.artist.wikidata.qid }` );
+        }
+
+        if ( artistInfo.length > 0 ) {
+            sections.push( `**Artist:**\n- ${ artistInfo.join( '\n- ' ) }` );
+        }
+    }
+
+    if ( sections.length === 0 ) {
+        return '';
+    }
+
+    return `\n\n## Verified Information\n${ sections.join( '\n\n' ) }`;
+}
+
+/**
  * Add a message pair (user question + model response) to the ML conversation history
  * @param {string} userContent - The user's question/task
  * @param {string} modelContent - The model's response
@@ -188,10 +258,26 @@ async function executeSongAICommand ( commandParams, config ) {
             senderUsername
         }, true );
 
+        // Get verified information from VerificationService if available
+        let verifiedInformationSection = '';
+        try {
+            if ( services.verificationService ) {
+                const verificationResult = await services.verificationService.verify( `${ artistName } - ${ trackName }` );
+                if ( verificationResult.found && verificationResult.data ) {
+                    verifiedInformationSection = formatVerifiedInformation( verificationResult.data );
+                }
+            }
+        } catch ( error ) {
+            logger.debug( `[${ config.commandName }] Could not get verified information: ${ error.message }` );
+        }
+
+        // Append verified information to the question if available
+        const fullQuestion = theQuestion + verifiedInformationSection;
+
         // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
         // Get response from the machine learning service
-        const aiResponse = await machineLearningService.askGoogleAI( theQuestion );
+        const aiResponse = await machineLearningService.askGoogleAI( fullQuestion );
 
         // Store the task (question) and response in conversation history as a pair
         // Extract just the task section from the full question (everything after "## Task")

@@ -28,12 +28,15 @@
     "chain": "^0.4.2",
     "dotenv": "^17.0.1",
     "fast-json-patch": "^3.1.1",
+    "musicbrainz-api": "^1.2.1",
     "node-fetch": "^3.3.2",
     "ttfm-socket": "^1.6.4",
     "uuid": "^11.1.0",
+    "wikidata-sdk": "^8.1.1",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "wtf_wikipedia": "^10.4.2"
   },
   "devDependencies": {
     "jest": "^29.7.0",
