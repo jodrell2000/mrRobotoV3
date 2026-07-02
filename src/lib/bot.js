@@ -125,7 +125,7 @@ class Bot {
   _createHangoutUrl () {
     try {
       const { HANGOUT_ID, HANGOUT_SLUG, HANGOUT_LANGUAGE } = this.services.config;
-      
+
       if ( !HANGOUT_ID ) {
         this.services.logger.warn( '⚠️ [Bot] HANGOUT_ID not configured' );
         return;

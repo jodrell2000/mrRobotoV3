@@ -24,7 +24,8 @@ describe( 'VerificationService', () => {
         } );
 
         it( 'should have default configuration', () => {
-            expect( verificationService.userAgent ).toBe( 'mrRoboto/1.4.1 (contact@example.com)' );
+            // Service with config but no HANGOUT_URL or HANGOUT_SLUG will have undefined slug
+            expect( verificationService.userAgent ).toBe( 'mrRoboto/1.4.1 (Hangout.fm undefined)' );
             expect( verificationService.delayMs ).toBe( 2000 );
         } );
     } );
@@ -252,12 +253,23 @@ describe( 'VerificationService', () => {
             expect( service.logger ).toBe( console );
         } );
 
-        it( 'should accept custom userAgent', () => {
-            const customUA = 'CustomBot/1.0';
-            const service = new VerificationService( { logger: mockLogger } );
-            service.userAgent = customUA;
+        it( 'should accept custom userAgent via config', () => {
+            const customUrl = 'https://custom.example.com';
+            const service = new VerificationService( {
+                logger: mockLogger,
+                config: { HANGOUT_URL: customUrl }
+            } );
 
-            expect( service.userAgent ).toBe( customUA );
+            expect( service.userAgent ).toBe( `mrRoboto/1.4.1 (${ customUrl })` );
+        } );
+
+        it( 'should fallback to slug if HANGOUT_URL not available', () => {
+            const service = new VerificationService( {
+                logger: mockLogger,
+                config: { HANGOUT_SLUG: 'i-love-the-80s' }
+            } );
+
+            expect( service.userAgent ).toBe( 'mrRoboto/1.4.1 (Hangout.fm i-love-the-80s)' );
         } );
 
         it( 'should have configurable delay', () => {

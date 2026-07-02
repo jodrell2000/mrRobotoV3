@@ -7,12 +7,26 @@ class VerificationService {
     constructor ( services = {} ) {
         this.services = services;
         this.logger = services.logger || console;
-        
-        // Create user agent with hangout URL if available
-        const hangoutUrl = services.config?.HANGOUT_URL || 'contact@example.com';
-        this.userAgent = `mrRoboto/1.4.1 (${ hangoutUrl })`;
-        
         this.delayMs = 2000; // Delay between requests to avoid rate limiting (Wikidata recommends 1-2s between requests)
+    }
+
+    /**
+     * Get user agent dynamically from current config
+     * Ensures we always use the current hangout URL or slug
+     * Slug should always be available - if not, the bot can't function
+     * @returns {string}
+     */
+    get userAgent () {
+        const config = this.services.config;
+        let hangoutUrl = config?.HANGOUT_URL;
+
+        // If full URL not available yet, use the slug (which must be present)
+        if ( !hangoutUrl ) {
+            const slug = config?.HANGOUT_SLUG;
+            hangoutUrl = `Hangout.fm ${ slug }`;
+        }
+
+        return `mrRoboto/1.4.1 (${ hangoutUrl })`;
     }
 
     /**
