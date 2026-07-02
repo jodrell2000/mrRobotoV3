@@ -8,7 +8,7 @@ class VerificationService {
         this.services = services;
         this.logger = services.logger || console;
         this.userAgent = 'mrRoboto/1.4.1 (contact@example.com)';
-        this.delayMs = 500; // Delay between Wikidata requests to avoid rate limiting
+        this.delayMs = 2000; // Delay between requests to avoid rate limiting (Wikidata recommends 1-2s between requests)
     }
 
     /**
@@ -91,6 +91,11 @@ class VerificationService {
             const response = await fetch( searchUrl, {
                 headers: { 'User-Agent': this.userAgent }
             } );
+
+            if ( !response.ok ) {
+                throw new Error( `Wikidata API error: ${ response.status } ${ response.statusText }` );
+            }
+
             const data = await response.json();
 
             let filteredResults = data.search || [];
@@ -124,6 +129,11 @@ class VerificationService {
                     const entityResponse = await fetch( entityUrl, {
                         headers: { 'User-Agent': this.userAgent }
                     } );
+
+                    if ( !entityResponse.ok ) {
+                        throw new Error( `Entity fetch error: ${ entityResponse.status } ${ entityResponse.statusText }` );
+                    }
+
                     const entityData = await entityResponse.json();
                     const entity = entityData.entities[ selectedQid ];
 
@@ -166,6 +176,11 @@ class VerificationService {
                                 const albumResponse = await fetch( albumUrl, {
                                     headers: { 'User-Agent': this.userAgent }
                                 } );
+
+                                if ( !albumResponse.ok ) {
+                                    throw new Error( `Album fetch error: ${ albumResponse.status } ${ albumResponse.statusText }` );
+                                }
+
                                 const albumData = await albumResponse.json();
                                 const album = albumData.entities[ albumQid ];
 
@@ -212,6 +227,9 @@ class VerificationService {
                 const response = await fetch( searchUrl, {
                     headers: { 'User-Agent': this.userAgent }
                 } );
+                if ( !response.ok ) {
+                    throw new Error( `MusicBrainz API error: ${ response.status }` );
+                }
                 const data = await response.json();
                 results.searches[ `${ artist } - ${ track }` ] = {
                     success: true,
@@ -232,6 +250,9 @@ class VerificationService {
                 const response = await fetch( searchUrl, {
                     headers: { 'User-Agent': this.userAgent }
                 } );
+                if ( !response.ok ) {
+                    throw new Error( `MusicBrainz artist API error: ${ response.status }` );
+                }
                 const data = await response.json();
                 results.searches[ `${ artist } artist` ] = {
                     success: true,
@@ -282,13 +303,17 @@ class VerificationService {
 
             this.logger.debug( `🔍 [VerificationService] Verifying: ${ artist } - ${ track }` );
 
-            // Run all searches in parallel
-            const [ wikipediaResults, wikidataTrackResults, wikidataArtistResults, musicbrainzResults ] = await Promise.all( [
-                this._searchWikipedia( track ),
-                this._searchWikidata( track, true ),
-                this._searchWikidata( artist, false ),
-                this._searchMusicBrainz( artist, track )
-            ] );
+            // Run searches sequentially to avoid rate limiting
+            const wikipediaResults = await this._searchWikipedia( track );
+            await new Promise( resolve => setTimeout( resolve, this.delayMs ) );
+
+            const wikidataTrackResults = await this._searchWikidata( track, true );
+            await new Promise( resolve => setTimeout( resolve, this.delayMs ) );
+
+            const wikidataArtistResults = await this._searchWikidata( artist, false );
+            await new Promise( resolve => setTimeout( resolve, this.delayMs ) );
+
+            const musicbrainzResults = await this._searchMusicBrainz( artist, track );
 
             // Build verified data summary
             const verifiedDataSummary = {

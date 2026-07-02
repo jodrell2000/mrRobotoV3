@@ -25,7 +25,7 @@ describe( 'VerificationService', () => {
 
         it( 'should have default configuration', () => {
             expect( verificationService.userAgent ).toBe( 'mrRoboto/1.4.1 (contact@example.com)' );
-            expect( verificationService.delayMs ).toBe( 500 );
+            expect( verificationService.delayMs ).toBe( 2000 );
         } );
     } );
 
@@ -48,7 +48,7 @@ describe( 'VerificationService', () => {
             expect( mockLogger.debug ).toHaveBeenCalledWith( expect.stringContaining( 'The Beatles - Hey Jude' ) );
             expect( result ).toHaveProperty( 'found' );
             expect( result ).toHaveProperty( 'data' );
-        } );
+        }, 15000 );
 
         it( 'should accept artist and track as options', async () => {
             // Mock the private search methods
@@ -63,7 +63,7 @@ describe( 'VerificationService', () => {
 
             expect( mockLogger.debug ).toHaveBeenCalledWith( expect.stringContaining( 'Pink Floyd - Wish You Were Here' ) );
             expect( result.found ).toBe( true );
-        } );
+        }, 15000 );
 
         it( 'should return found: true when searches complete', async () => {
             // Mock the private search methods
@@ -77,7 +77,7 @@ describe( 'VerificationService', () => {
             expect( result.data ).toBeDefined();
             expect( result.data ).toHaveProperty( 'track' );
             expect( result.data ).toHaveProperty( 'artist' );
-        } );
+        }, 15000 );
 
         it( 'should return error object on failure', async () => {
             jest.spyOn( verificationService, '_searchWikipedia' ).mockRejectedValueOnce( new Error( 'API error' ) );
@@ -107,7 +107,7 @@ describe( 'VerificationService', () => {
             expect( result.data.artist.title ).toBe( 'Test Artist' );
             expect( result.data.artist.categories ).toBeDefined();
             expect( result.data.artist.wikidata ).toBeDefined();
-        } );
+        }, 15000 );
     } );
 
     describe( '_extractImageUrl', () => {
@@ -263,7 +263,7 @@ describe( 'VerificationService', () => {
         it( 'should have configurable delay', () => {
             const service = new VerificationService( { logger: mockLogger } );
 
-            expect( service.delayMs ).toBe( 500 );
+            expect( service.delayMs ).toBe( 2000 );
 
             service.delayMs = 1000;
             expect( service.delayMs ).toBe( 1000 );
