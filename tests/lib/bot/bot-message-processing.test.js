@@ -93,7 +93,8 @@ describe( 'Bot - Message Processing', () => {
 
       await bot.processNewPublicMessages();
 
-      expect( mockServices.logger.error ).toHaveBeenCalledWith( 'Error in processNewPublicMessages: Fetch failed' );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'Error in processNewPublicMessages after' ) );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'Fetch failed' ) );
     } );
 
     test( 'should handle non-Error objects', async () => {
@@ -102,7 +103,8 @@ describe( 'Bot - Message Processing', () => {
 
       await bot.processNewPublicMessages();
 
-      expect( mockServices.logger.error ).toHaveBeenCalledWith( 'Error in processNewPublicMessages: Custom error message' );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'Error in processNewPublicMessages after' ) );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'Custom error message' ) );
     } );
 
     test( 'should handle primitive error values', async () => {
@@ -110,7 +112,8 @@ describe( 'Bot - Message Processing', () => {
 
       await bot.processNewPublicMessages();
 
-      expect( mockServices.logger.error ).toHaveBeenCalledWith( 'Error in processNewPublicMessages: String error' );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'Error in processNewPublicMessages after' ) );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'String error' ) );
     } );
   } );
 
@@ -354,13 +357,14 @@ describe( 'Bot - Message Processing', () => {
     test( 'should update tracking with message details', () => {
       const message = {
         id: 'msg-123',
-        sentAt: 1500
+        sentAt: 1500,
+        updatedAt: 1500
       };
 
       bot._updateMessageTracking( message );
 
-      expect( mockServices.updateLastMessageId ).toHaveBeenCalledWith( 'msg-123' );
-      expect( bot.lastMessageIDs.fromTimestamp ).toBe( 1501 ); // sentAt + 1
+      expect( mockServices.updateLastMessageId ).toHaveBeenCalledWith( 'msg-123', 1500 );
+      expect( bot.lastMessageIDs.fromTimestamp ).toBe( 1500 );
       expect( bot.lastMessageIDs.id ).toBe( 'msg-123' );
     } );
   } );
@@ -632,10 +636,11 @@ describe( 'Bot - Message Processing', () => {
 
       const result = await bot._fetchNewPrivateMessages();
 
-      // Check that warning was logged (don't test exact message format)
-      expect( mockServices.logger.warn ).toHaveBeenCalledWith( expect.stringContaining( 'Failed to fetch private messages for user user1' ) );
+      // Check that error was logged for user1 (not warn - the internal handler logs error and returns [])
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'user1' ) );
+      expect( mockServices.logger.error ).toHaveBeenCalledWith( expect.stringContaining( 'API error for user1' ) );
 
-      // Should still return messages from user2
+      // Should still return messages from user2 (user1 returns empty array)
       expect( result ).toHaveLength( 1 );
       expect( result[ 0 ].sender ).toBe( 'user2' );
     } );
