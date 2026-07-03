@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary | Details |
 |---------|------|---------|---------|
-| **[1.4.1](changelog/1.4.1.md)** | 2026-06-30 | 🤖 Adding the Mistral LLM Backend & Chat Fixes | Added Mistral AI as alternative ML backend with automatic fallback chain. Multi-backend switching with `!switchllm` command. Fixed critical chat pagination bug (messages stuck in 50-message loop) by ensuring message tracking updates on every fetch. |  
+| **[1.4.1](changelog/1.4.1.md)** | 2026-06-30 | 🤖 Adding the Mistral LLM Backend & Chat Fixes | Added Mistral AI as alternative ML backend with automatic fallback chain. Multi-backend switching with `!switchllm` command. Fixed critical chat pagination bug (messages stuck in 50-message loop) by ensuring message tracking updates on every fetch. Added Verification service to try and get more reliable data for the info command |  
 | **[1.3.0](changelog/1.3.0.md)** | 2026-06-16 | 🚀 Per-User Private Message Backoff | Refactored private message fetching to parallel execution with per-user dynamic backoff (1s→10s). Fixed timeout detection and removed overall batch timeout to allow backoff escalation. Reduces fetch time from 6.5s+ to 1-2s. |
 | **[1.2.2](changelog/1.2.2.md)** | 2026-05-31 | 🚦 ML Service 429 Error Handling | Optimized API quota handling - stops model fallback chain immediately on rate limit errors to prevent wasting API calls. |
 | **[1.2.1](changelog/1.2.1.md)** | 2026-05-25 | 🔧 Oracle Deployment Script Fix | Critical fix for Oracle Cloud deployment script preventing empty .env files from being uploaded. Added validation, error checking, and interactive prompts for improved deployment experience. |

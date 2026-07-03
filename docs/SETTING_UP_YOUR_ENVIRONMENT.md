@@ -21,7 +21,7 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 7: Tell the bot which Hangout enter](#step-7-tell-the-bot-which-hangout-enter)
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
    - [Step 9: Adding a Google API key for Machine Learning services (optional)](#step-9-adding-a-google-api-key-for-machine-learning-services-optional)
-   - [Step 10: Adding a Mistral API key for Machine Learning services (optional)](#step-10-adding-a-mistral-api-key-for-machine-learning-services-optional)
+   - [Step 10: Adding a Mistral API key for Machine Learning services (optional)](#step-10-adding-a-mistral-api-key-for-machine-learning-services-optional)\n   - [Step 11: Adding Last.fm API Credentials (optional)](#step-11-adding-lastfm-api-credentials-optional)
 
 [The botConfig.json file](#understanding-botconfigjson)
    - [Step 1: Creating your botConfig.json file](#step-1-creating-your-botconfigjson-file)
@@ -294,6 +294,47 @@ Once both (or either) API keys are configured, you can switch between backends o
 > 🔒 **SECURITY WARNING**: Your API key gives access to your Mistral account. Never share it publicly or commit it to version control!
 
 > 💰 **BILLING NOTE**: Mistral AI offers free tier usage for development. Check their pricing page for production rate limits and costs.
+
+## Step 11: Adding Last.fm API Credentials (optional)
+**Time: ~5 minutes**
+
+The bot can verify artist and track information using Last.fm's extensive music database. If you want to use music verification features, you'll need to create a Last.fm API account.
+
+> 💡 **NOTE**: This step is optional. The bot will work without Last.fm credentials, but artist/track verification will not be available.
+
+### Getting Your Last.fm API Credentials
+
+1. Navigate to Last.fm's API documentation: https://www.last.fm/api
+
+2. Click **"Get an API account"** or **"Sign up"** if you don't have a Last.fm account
+
+3. If needed, create a free Last.fm account first
+
+4. Once logged in, click **"Create an API account"**
+
+5. Fill in the application details:
+   * **Application name**: e.g., "HangBot Music Verification"
+   * **Application description**: e.g., "Bot for verifying artist and track information"
+   * **Application type**: Select "Desktop" or "Web Application"
+   * **Application homepage**: You can leave this blank or use your hangout URL
+
+6. Accept the terms and click **"Submit"**
+
+7. You'll be shown two keys:
+   * **API Key** - Copy this for `LASTFM_API_KEY`
+   * **Shared Secret** - Copy this for `LASTFM_SHARED_SECRET`
+
+8. Open your `.env` file and find these lines:
+   ```
+   LASTFM_API_KEY=paste-your-lastfm-api-key-here
+   LASTFM_SHARED_SECRET=paste-your-lastfm-shared-secret-here
+   ```
+
+9. Replace both `paste-your-lastfm-api-key-here` and `paste-your-lastfm-shared-secret-here` with your actual credentials (keep the quotes if they're there)
+
+> 🔒 **SECURITY WARNING**: Your API key and shared secret give access to your Last.fm account. Never share them publicly or commit them to version control!
+
+> 💡 **NOTE**: Last.fm API access is completely free. There are no billing concerns.
 
 ---
 
