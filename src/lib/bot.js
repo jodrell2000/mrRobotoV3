@@ -722,7 +722,6 @@ class Bot {
     const serviceLastMessageId = this.services.getState( 'lastMessageId' );
     const localLastMessageId = this.lastMessageIDs?.id;
     const effectiveLastMessageId = serviceLastMessageId || localLastMessageId;
-    this.services.logger.debug( `🔄 [processNewPublicMessages] Interval: ${ this.publicMessageInterval }ms, LastMsgID: ${ effectiveLastMessageId || 'none' }` );
 
     try {
       // Dynamic timeout based on current interval (90% of interval)
@@ -750,7 +749,6 @@ class Bot {
       }
 
       if ( !messages?.length ) {
-        this.services.logger.debug( `🔄 [processNewPublicMessages] No messages returned` );
         return; // No new messages to process
       }
 
@@ -843,8 +841,6 @@ class Bot {
   }
 
   async _fetchNewMessages () {
-    this.services.logger.debug( `📨 [_fetchNewMessages] Fetching new messages` );
-
     // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
     // regular chat messages before filtering down to commands for processing.
     const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
@@ -875,7 +871,6 @@ class Bot {
 
     // Return only command messages for the processing pipeline
     const commandMessages = this.services.messageService.filterMessagesForCommands( allMessages || [] );
-    this.services.logger.debug( `📨 [_fetchNewMessages] Raw: ${ allMessages?.length || 0 }, Filtered commands: ${ commandMessages?.length || 0 }` );
     return commandMessages;
   }
 
