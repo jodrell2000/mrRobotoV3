@@ -355,10 +355,10 @@ When a DJ with escortme enabled is automatically removed:
 # One song will play, then you'll be automatically removed from decks
 # The room will see: 👋 {yourname} had enabled escortme and has left the decks.
 
-# If you change your mind before the song ends
+# Disable/cancel escortme before your song ends
 !escortme stop
 
-# You can re-enable anytime
+# Re-enable escortme if you change your mind
 !escortme
 ```
 
