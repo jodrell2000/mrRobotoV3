@@ -299,6 +299,69 @@ Shows all available features and their current status (enabled/disabled).
 - **meaning** - Song lyric meaning analysis
 - **bandinfo** - Artist information responses
 
+## 👨‍🎤 DJ Commands
+
+Commands available to all DJs for managing their queue position and preferences.
+
+### Escortme - Schedule Automatic Removal
+
+The escortme feature allows DJs to schedule their automatic removal from the decks after their current song finishes. Useful for DJs who want to ensure they leave after one song without forgetting.
+
+#### Enable Escortme
+```
+!escortme
+```
+**Requirements:**
+- Must be on the decks (currently playing or in queue positions 1-20)
+
+**Effect:**
+- If at position 0 (currently playing): You'll be removed after your song ends
+- If in queue (positions 1-20): You'll be removed after your song plays and ends
+
+**Response:**
+```
+⏰ Escortme enabled! You'll be removed after your song.
+```
+
+#### Disable Escortme
+```
+!escortme stop
+```
+**Effect:**
+- Cancels your scheduled removal
+- You can stay on the decks after your song ends
+
+**Response:**
+```
+✅ Escortme cancelled. You will remain on the decks.
+```
+
+#### Room Notification
+When a DJ with escortme enabled is automatically removed:
+```
+👋 {djUsername} had enabled escortme and has left the decks.
+```
+
+#### Error Messages
+- **Not on decks**: `❌ You must be on the decks to use the escortme command.`
+- **Already enabled**: `⏰ You already have escortme enabled. Use !escortme stop to cancel.`
+- **Stop without enabling**: `❌ You haven't enabled escortme.`
+
+#### Examples
+```
+# Enable escortme while playing or in queue
+!escortme
+
+# One song will play, then you'll be automatically removed from decks
+# The room will see: 👋 {yourname} had enabled escortme and has left the decks.
+
+# If you change your mind before the song ends
+!escortme stop
+
+# You can re-enable anytime
+!escortme
+```
+
 ## 🎛️ Command Management
 
 Enable or disable specific bot commands with the `!command` command.
