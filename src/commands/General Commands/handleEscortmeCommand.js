@@ -5,7 +5,7 @@ const config = require( '../../config.js' );
 // Set required role level for this command
 const requiredRole = 'USER';
 const description = 'Schedule removal after current song';
-const example = 'escortme';
+const example = 'escortme | escortme stop';
 const hidden = false;
 
 /**
