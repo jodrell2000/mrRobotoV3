@@ -237,4 +237,107 @@ describe( 'userLeft handler', () => {
       await expect( userLeft( mockMessage, mockState, servicesWithoutAfk ) ).resolves.not.toThrow();
     } );
   } );
+
+  describe( 'Phase 5: Escort flag cleanup', () => {
+    beforeEach( () => {
+      mockServices.dataService = {
+        getValue: jest.fn().mockReturnValue( {} ),
+        setValue: jest.fn()
+      };
+    } );
+
+    test( 'should clear escort flag when user disconnects from room', async () => {
+      const escortQueue = {
+        'user-123': {
+          markedAt: Date.now() - 5000,
+          removeAfterCurrent: true
+        }
+      };
+      mockServices.dataService.getValue.mockReturnValue( escortQueue );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      expect( mockServices.dataService.getValue ).toHaveBeenCalledWith( 'escortQueue' );
+      expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'escortQueue', {} );
+      expect( mockServices.logger.debug ).toHaveBeenCalledWith(
+        'userLeft handler: cleared escortme flag for user-123'
+      );
+    } );
+
+    test( 'should not call setValue when user has no escort flag', async () => {
+      const escortQueue = {
+        'other-user': {
+          markedAt: Date.now() - 5000,
+          removeAfterCurrent: false
+        }
+      };
+      mockServices.dataService.getValue.mockReturnValue( escortQueue );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      expect( mockServices.dataService.getValue ).toHaveBeenCalled();
+      expect( mockServices.dataService.setValue ).not.toHaveBeenCalled();
+    } );
+
+    test( 'should preserve other users flags when one user disconnects', async () => {
+      const otherUserFlag = {
+        markedAt: Date.now() - 10000,
+        removeAfterCurrent: false
+      };
+      const escortQueue = {
+        'user-123': {
+          markedAt: Date.now() - 5000,
+          removeAfterCurrent: true
+        },
+        'other-user': otherUserFlag
+      };
+      mockServices.dataService.getValue.mockReturnValue( escortQueue );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      const setValueCall = mockServices.dataService.setValue.mock.calls[ 0 ][ 1 ];
+      expect( setValueCall[ 'user-123' ] ).toBeUndefined();
+      expect( setValueCall[ 'other-user' ] ).toEqual( otherUserFlag );
+    } );
+
+    test( 'should handle empty escortQueue gracefully', async () => {
+      mockServices.dataService.getValue.mockReturnValue( {} );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      expect( mockServices.dataService.getValue ).toHaveBeenCalled();
+      expect( mockServices.dataService.setValue ).not.toHaveBeenCalled();
+    } );
+
+    test( 'should handle dataService.getValue returning null', async () => {
+      mockServices.dataService.getValue.mockReturnValue( null );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      expect( () => userLeft( mockMessage, mockState, mockServices ) ).not.toThrow();
+      expect( mockServices.dataService.setValue ).not.toHaveBeenCalled();
+    } );
+
+    test( 'should log error if escort flag clearing fails', async () => {
+      mockServices.dataService.getValue.mockImplementation( () => {
+        throw new Error( 'dataService error' );
+      } );
+
+      await userLeft( mockMessage, mockState, mockServices );
+
+      expect( mockServices.logger.error ).toHaveBeenCalledWith(
+        expect.stringContaining( 'error clearing escort flag' ),
+        expect.any( Error )
+      );
+    } );
+
+    test( 'should not throw when dataService is absent', async () => {
+      const servicesWithoutDataService = {
+        ...mockServices,
+        dataService: undefined
+      };
+
+      await expect( userLeft( mockMessage, mockState, servicesWithoutDataService ) ).resolves.not.toThrow();
+    } );
+  } );
 } );

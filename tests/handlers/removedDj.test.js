@@ -9,6 +9,7 @@ describe( 'removedDj handler', () => {
         services = {
             logger: {
                 debug: jest.fn(),
+                error: jest.fn(),
             },
             afkService: {
                 recordActivity: jest.fn(),
@@ -87,5 +88,146 @@ describe( 'removedDj handler', () => {
         };
         removedDj( message, {}, services );
         expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-999', 'leftDecks' );
+    } );
+
+    describe( 'Phase 4: Escort flag cleanup', () => {
+        beforeEach( () => {
+            services.dataService = {
+                getValue: jest.fn().mockReturnValue( {} ),
+                setValue: jest.fn(),
+            };
+        } );
+
+        it( 'should clear escort flag when user with escortme leaves decks', () => {
+            const escortQueue = {
+                'user-123': {
+                    markedAt: Date.now() - 5000,
+                    removeAfterCurrent: true,
+                },
+            };
+            services.dataService.getValue.mockReturnValue( escortQueue );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-123' } },
+                ],
+            };
+            removedDj( message, {}, services );
+
+            expect( services.dataService.getValue ).toHaveBeenCalledWith( 'escortQueue' );
+            expect( services.dataService.setValue ).toHaveBeenCalledWith( 'escortQueue', {} );
+            expect( services.logger.debug ).toHaveBeenCalledWith(
+                'removedDj handler: cleared escortme flag for user-123'
+            );
+        } );
+
+        it( 'should not call setValue when user has no escort flag', () => {
+            const escortQueue = {
+                'other-user': {
+                    markedAt: Date.now() - 5000,
+                    removeAfterCurrent: false,
+                },
+            };
+            services.dataService.getValue.mockReturnValue( escortQueue );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-456' } },
+                ],
+            };
+            removedDj( message, {}, services );
+
+            expect( services.dataService.getValue ).toHaveBeenCalled();
+            expect( services.dataService.setValue ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should preserve other users flags when one user leaves', () => {
+            const otherUserFlag = {
+                markedAt: Date.now() - 10000,
+                removeAfterCurrent: false,
+            };
+            const escortQueue = {
+                'user-123': {
+                    markedAt: Date.now() - 5000,
+                    removeAfterCurrent: true,
+                },
+                'other-user': otherUserFlag,
+            };
+            services.dataService.getValue.mockReturnValue( escortQueue );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-123' } },
+                ],
+            };
+            removedDj( message, {}, services );
+
+            const setValueCall = services.dataService.setValue.mock.calls[ 0 ][ 1 ];
+            expect( setValueCall[ 'user-123' ] ).toBeUndefined();
+            expect( setValueCall[ 'other-user' ] ).toEqual( otherUserFlag );
+        } );
+
+        it( 'should handle empty escortQueue gracefully', () => {
+            services.dataService.getValue.mockReturnValue( {} );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-999' } },
+                ],
+            };
+            removedDj( message, {}, services );
+
+            expect( services.dataService.getValue ).toHaveBeenCalled();
+            expect( services.dataService.setValue ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should handle dataService.getValue returning null', () => {
+            services.dataService.getValue.mockReturnValue( null );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-123' } },
+                ],
+            };
+            expect( () => removedDj( message, {}, services ) ).not.toThrow();
+            expect( services.dataService.setValue ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should log error if escort flag clearing fails', () => {
+            services.dataService.getValue.mockImplementation( () => {
+                throw new Error( 'dataService error' );
+            } );
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-123' } },
+                ],
+            };
+            removedDj( message, {}, services );
+
+            expect( services.logger.error ).toHaveBeenCalledWith(
+                expect.stringContaining( 'error clearing escort flag' ),
+                expect.any( Error )
+            );
+        } );
+
+        it( 'should not throw when dataService is absent', () => {
+            delete services.dataService;
+
+            const message = {
+                statePatch: [
+                    { op: 'remove', path: '/djs/0' },
+                    { op: 'add', path: '/audienceUsers/3', value: { uuid: 'user-123' } },
+                ],
+            };
+            expect( () => removedDj( message, {}, services ) ).not.toThrow();
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-123', 'leftDecks' );
+        } );
     } );
 } );

@@ -35,6 +35,20 @@ async function userLeft ( message, state, services ) {
         services.afkService.removeUser( userUUID );
       }
 
+      // Phase 5: Clear escort flag when user disconnects from room
+      if ( services.dataService ) {
+        try {
+          const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+          if ( escortQueue[ userUUID ] ) {
+            delete escortQueue[ userUUID ];
+            services.dataService.setValue( 'escortQueue', escortQueue );
+            services.logger.debug( `userLeft handler: cleared escortme flag for ${ userUUID }` );
+          }
+        } catch ( err ) {
+          services.logger.error( `userLeft handler: error clearing escort flag for ${ userUUID }`, err );
+        }
+      }
+
       // Remove private message tracking for the user who left
       if ( services.bot && typeof services.bot.removePrivateMessageTrackingForUser === 'function' ) {
         try {

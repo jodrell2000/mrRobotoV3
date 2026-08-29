@@ -11,6 +11,20 @@ function removedDj ( message, state, services ) {
     services.afkService.recordActivity( uuid, 'leftDecks' );
   }
   services.logger.debug( `removedDj handler: recorded leftDecks activity for ${ uuid }` );
+
+  // Phase 4: Clear escort flag when user leaves decks
+  if ( services.dataService ) {
+    try {
+      const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+      if ( escortQueue[ uuid ] ) {
+        delete escortQueue[ uuid ];
+        services.dataService.setValue( 'escortQueue', escortQueue );
+        services.logger.debug( `removedDj handler: cleared escortme flag for ${ uuid }` );
+      }
+    } catch ( err ) {
+      services.logger.error( `removedDj handler: error clearing escort flag for ${ uuid }`, err );
+    }
+  }
 }
 
 module.exports = removedDj;

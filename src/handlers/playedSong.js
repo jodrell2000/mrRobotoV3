@@ -438,6 +438,43 @@ async function playedSong ( message, state, services ) {
       }
     }
 
+    // Phase 6: Execute escort removals - remove DJ if they have escortme enabled
+    if ( services.hangSocketServices && services.dataService && services.messageService ) {
+      try {
+        const djs = services.stateService?._getDjs?.() || [];
+        if ( djs.length > 0 ) {
+          const currentDj = djs[ 0 ]; // Position 0 = currently playing
+          const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+
+          if ( currentDj && escortQueue[ currentDj.uuid ] ) {
+            // Current DJ has escortme enabled - remove them
+            const djName = currentDj.nickname || currentDj.uuid;
+
+            // Clear the escort flag BEFORE removal to prevent double-removal
+            delete escortQueue[ currentDj.uuid ];
+            services.dataService.setValue( 'escortQueue', escortQueue );
+
+            try {
+              // Remove the DJ from the decks
+              await services.hangSocketServices.removeDj( services.socket, currentDj.uuid );
+
+              // Notify the room
+              await services.messageService.sendGroupMessage(
+                `👋 ${ djName } had enabled escortme and has left the decks.`,
+                { services }
+              );
+
+              services.logger.info( `[playedSong] Escort removal executed for DJ ${ djName } (${ currentDj.uuid })` );
+            } catch ( err ) {
+              services.logger.error( `[playedSong] Failed to execute escort removal for ${ djName }: ${ err.message }` );
+            }
+          }
+        }
+      } catch ( err ) {
+        services.logger.error( `[playedSong] Error processing escort removals: ${ err.message }` );
+      }
+    }
+
     const nowPlaying = services.hangoutState?.nowPlaying;
 
     // Cancel any existing timer
