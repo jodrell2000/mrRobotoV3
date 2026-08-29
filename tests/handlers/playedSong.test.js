@@ -907,8 +907,9 @@ describe( 'playedSong handler', () => {
       await playedSong( {}, {}, services );
 
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'escort-dj-uuid' );
+      expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'escort-dj-uuid' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
-        expect.stringContaining( 'EscortDJ' ),
+        expect.stringContaining( '<@uid:escort-dj-uuid>' ),
         { services }
       );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(

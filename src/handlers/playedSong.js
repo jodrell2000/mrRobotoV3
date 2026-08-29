@@ -448,7 +448,7 @@ async function playedSong ( message, state, services ) {
 
           if ( currentDj && escortQueue[ currentDj.uuid ] ) {
             // Current DJ has escortme enabled - remove them
-            const djName = currentDj.nickname || currentDj.uuid;
+            const djMention = services.messageService.formatMention( currentDj.uuid );
 
             // Clear the escort flag BEFORE removal to prevent double-removal
             delete escortQueue[ currentDj.uuid ];
@@ -460,13 +460,13 @@ async function playedSong ( message, state, services ) {
 
               // Notify the room
               await services.messageService.sendGroupMessage(
-                `👋 ${ djName } had enabled escortme and has left the decks.`,
+                `👋 ${ djMention } had enabled escortme and has left the decks.`,
                 { services }
               );
 
-              services.logger.info( `[playedSong] Escort removal executed for DJ ${ djName } (${ currentDj.uuid })` );
+              services.logger.info( `[playedSong] Escort removal executed for DJ ${ djMention } (${ currentDj.uuid })` );
             } catch ( err ) {
-              services.logger.error( `[playedSong] Failed to execute escort removal for ${ djName }: ${ err.message }` );
+              services.logger.error( `[playedSong] Failed to execute escort removal for ${ djMention }: ${ err.message }` );
             }
           }
         }
