@@ -1147,7 +1147,7 @@ describe( 'playedSong handler', () => {
       for ( let i = 0; i <= 5; i++ ) {
         const uuid = `dj-${ i }-uuid`;
         djs.push( { uuid, nickname: `DJ${ i }` } );
-        escortQueue[uuid] = {
+        escortQueue[ uuid ] = {
           markedAt: Date.now() - ( 5000 - i * 100 ),
           removeAfterCurrent: i === 0
         };
@@ -1260,7 +1260,7 @@ describe( 'playedSong handler', () => {
       for ( let i = 0; i < 10; i++ ) {
         const uuid = `dj-${ i }-uuid`;
         djs.push( { uuid, nickname: `DJ${ i }` } );
-        escortQueue[uuid] = {
+        escortQueue[ uuid ] = {
           markedAt: Date.now() - ( 5000 - i * 100 ),
           removeAfterCurrent: i === 0
         };
