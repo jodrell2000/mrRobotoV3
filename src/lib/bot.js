@@ -472,6 +472,7 @@ class Bot {
       throw new Error( 'Socket adapter not initialized - check config and adapter initialization in serviceContainer' );
     }
     this.socketAdapter = this.services.socketAdapter;
+    await this.socketAdapter.connect();
     this.services.logger.debug( '✅ Socket adapter registered' );
   }
 
