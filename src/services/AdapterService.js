@@ -11,8 +11,9 @@ const { loadSocketAdapter } = require( '../socketAdapters' );
 const { loadApiAdapter } = require( '../apiAdapters' );
 
 class AdapterService {
-    constructor ( config ) {
+    constructor ( config, logger ) {
         this.config = config;
+        this.logger = logger;
         this.socketAdapter = null;
         this.apiAdapter = null;
         this.framework = null;
@@ -39,11 +40,9 @@ class AdapterService {
             this.apiAdapter = loadApiAdapter( this.framework, this.config );
 
             // Log successful initialization
-            const logger = require( '../lib/logger' );
-            logger.info( `AdapterService initialized for framework: ${ this.framework }` );
+            this.logger.info( `AdapterService initialized for framework: ${ this.framework }` );
         } catch ( error ) {
-            const logger = require( '../lib/logger' );
-            logger.error( `AdapterService initialization failed: ${ error.message }` );
+            this.logger.error( `AdapterService initialization failed: ${ error.message }` );
             throw error;
         }
     }

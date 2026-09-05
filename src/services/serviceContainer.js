@@ -84,7 +84,7 @@ const initializeAdapters = async () => {
     logger.debug( 'Initializing adapter service...' );
 
     // Create AdapterService with current config
-    services.adapterService = new AdapterService( config );
+    services.adapterService = new AdapterService( config, logger );
 
     // Initialize and validate configuration
     await services.adapterService.initialize();
