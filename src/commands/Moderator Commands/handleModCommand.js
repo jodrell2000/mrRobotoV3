@@ -81,7 +81,7 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
     }
 
     try {
-        await services.hangSocketServices.removeDj( services.socket, uuid );
+        await services.hangSocketServices.removeDj( services, uuid );
     } catch ( err ) {
         const response = `❌ Failed to remove "${ nameArg }": ${ err.message }`;
         await messageService.sendResponse( response, {
@@ -107,7 +107,7 @@ async function handleSkipSong ( services, context, responseChannel ) {
     const { messageService } = services;
 
     try {
-        await services.hangSocketServices.skipSong( services.socket );
+        await services.hangSocketServices.skipSong( services );
     } catch ( err ) {
         const response = `❌ Failed to skip song: ${ err.message }`;
         await messageService.sendResponse( response, {

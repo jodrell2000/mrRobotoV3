@@ -43,7 +43,7 @@ describe( 'songAICommandHelper', () => {
         };
 
         const mockHangUserService = {
-            getUserNicknameByUuid: jest.fn().mockImplementation( ( uuid ) => {
+            getUserNicknameByUuid: jest.fn().mockImplementation( ( services, uuid ) => {
                 if ( uuid === 'test-user-uuid' ) return Promise.resolve( 'AliceUser' );
                 if ( uuid === 'test-dj-uuid' ) return Promise.resolve( 'TestDJ' );
                 if ( uuid === 'sender-uuid-string' ) return Promise.resolve( 'BobUser' );

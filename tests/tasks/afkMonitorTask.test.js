@@ -240,7 +240,7 @@ describe( 'runAfkMonitorTick', () => {
             ],
         } );
         await runAfkMonitorTick( services );
-        expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'u1' );
+        expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'u1' );
         expect( services.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );
         const [ msg ] = services.messageService.sendResponse.mock.calls[ 0 ];
         expect( msg ).toContain( 'DJ Cool' );

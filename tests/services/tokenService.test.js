@@ -334,7 +334,7 @@ describe( 'TokenService', () => {
                 const result = await tokenService.getSenderUsername( context );
 
                 expect( result ).toBe( 'John Doe' );
-                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'sender-123' );
+                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( mockServices, 'sender-123' );
             } );
 
             it( 'should handle errors gracefully', async () => {
@@ -397,7 +397,7 @@ describe( 'TokenService', () => {
                 const result = await tokenService.getDjUsername( {} );
 
                 expect( result ).toBe( 'DJ Mike' );
-                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'dj-123' );
+                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( mockServices, 'dj-123' );
             } );
 
             it( 'should handle errors gracefully', async () => {

@@ -1,27 +1,19 @@
 const { logger } = require( '../lib/logging.js' );
-const config = require( '../config.js' );
-
-// Action constants for socket actions
-const ActionName = {
-  voteOnSong: 'voteOnSong',
-  removeDj: 'removeDj',
-  skipSong: 'skipSong'
-};
 
 const hangSocketServices = {
   /**
    * Send an upvote for the current song
-   * @param {Object} socket - The socket connection object
+   * @param {Object} services - The services container with socketAdapter
    */
-  upVote: async function ( socket ) {
+  upVote: async function ( services ) {
     try {
-      logger.debug( `hangSocketServices.upVote: Sending upvote for room ${ config.HANGOUT_ID }` );
+      if ( !services || !services.socketAdapter ) {
+        throw new Error( 'Socket adapter not available - ensure serviceContainer is initialized' );
+      }
 
-      await socket.action( ActionName.voteOnSong, {
-        roomUuid: config.HANGOUT_ID,
-        userUuid: config.BOT_UID,
-        songVotes: { like: true }
-      } );
+      logger.debug( `hangSocketServices.upVote: Sending upvote` );
+
+      await services.socketAdapter.voteOnSong( services.config.BOT_UID, 'upvote' );
 
       logger.debug( `hangSocketServices.upVote: Successfully sent upvote` );
     } catch ( err ) {
@@ -32,17 +24,17 @@ const hangSocketServices = {
 
   /**
    * Send a downvote for the current song
-   * @param {Object} socket - The socket connection object
+   * @param {Object} services - The services container with socketAdapter
    */
-  downVote: async function ( socket ) {
+  downVote: async function ( services ) {
     try {
-      logger.debug( `hangSocketServices.downVote: Sending downvote for room ${ config.HANGOUT_ID }` );
+      if ( !services || !services.socketAdapter ) {
+        throw new Error( 'Socket adapter not available - ensure serviceContainer is initialized' );
+      }
 
-      await socket.action( ActionName.voteOnSong, {
-        roomUuid: config.HANGOUT_ID,
-        userUuid: config.BOT_UID,
-        songVotes: { like: false }
-      } );
+      logger.debug( `hangSocketServices.downVote: Sending downvote` );
+
+      await services.socketAdapter.voteOnSong( services.config.BOT_UID, 'downvote' );
 
       logger.debug( `hangSocketServices.downVote: Successfully sent downvote` );
     } catch ( err ) {
@@ -53,19 +45,18 @@ const hangSocketServices = {
 
   /**
    * Remove a DJ from the decks
-   * @param {Object} socket - The socket connection object
+   * @param {Object} services - The services container with socketAdapter
    * @param {string} djUuid - The UUID of the DJ to remove
    */
-  removeDj: async function ( socket, djUuid ) {
+  removeDj: async function ( services, djUuid ) {
     try {
-      logger.debug( `hangSocketServices.removeDj: Removing DJ ${ djUuid } from room ${ config.HANGOUT_ID }` );
-      logger.debug( `hangSocketServices.removeDj: userUuid (bot) = ${ config.BOT_UID }` );
+      if ( !services || !services.socketAdapter ) {
+        throw new Error( 'Socket adapter not available - ensure serviceContainer is initialized' );
+      }
 
-      await socket.action( ActionName.removeDj, {
-        roomUuid: config.HANGOUT_ID,
-        userUuid: config.BOT_UID,
-        djUuid
-      } );
+      logger.debug( `hangSocketServices.removeDj: Removing DJ ${ djUuid }` );
+
+      await services.socketAdapter.removeDj( djUuid );
 
       logger.debug( `hangSocketServices.removeDj: Successfully removed DJ ${ djUuid }` );
     } catch ( err ) {
@@ -76,14 +67,19 @@ const hangSocketServices = {
     }
   },
 
-  skipSong: async function ( socket ) {
+  /**
+   * Skip the current song
+   * @param {Object} services - The services container with socketAdapter
+   */
+  skipSong: async function ( services ) {
     try {
-      logger.debug( `hangSocketServices.skipSong: Skipping song in room ${ config.HANGOUT_ID }` );
+      if ( !services || !services.socketAdapter ) {
+        throw new Error( 'Socket adapter not available - ensure serviceContainer is initialized' );
+      }
 
-      await socket.action( ActionName.skipSong, {
-        roomUuid: config.HANGOUT_ID,
-        userUuid: config.BOT_UID
-      } );
+      logger.debug( `hangSocketServices.skipSong: Skipping song` );
+
+      await services.socketAdapter.skipSong();
 
       logger.debug( `hangSocketServices.skipSong: Successfully skipped song` );
     } catch ( err ) {

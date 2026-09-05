@@ -34,7 +34,7 @@ async function handleChangebotnameCommand ( commandParams ) {
 
   try {
     // 1. Update the nickname in TT.fm
-    await services.hangUserService.updateHangNickname( args );
+    await services.hangUserService.updateHangNickname( services, args );
 
     // 2. Update CHAT_NAME in the data service (this will also update the file)
     await services.dataService.setValue( 'botData.CHAT_NAME', args );

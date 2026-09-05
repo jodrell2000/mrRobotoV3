@@ -202,7 +202,7 @@ class TokenService {
             // Fallback: try to get nickname from hangUserService
             if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
                 try {
-                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( senderUuid );
+                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, senderUuid );
                     return nickname || 'Unknown User';
                 } catch ( error ) {
                     this.logger.debug( `[TokenService] Could not get sender nickname: ${ error.message }` );
@@ -245,7 +245,7 @@ class TokenService {
             // Fallback: try to get nickname from hangUserService
             if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
                 try {
-                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( djUuid );
+                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, djUuid );
                     return nickname || 'Unknown DJ';
                 } catch ( error ) {
                     this.logger.debug( `[TokenService] Could not get DJ nickname: ${ error.message }` );

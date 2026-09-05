@@ -22,6 +22,9 @@ module.exports = {
   // Hangout configuration
   HANGOUT_SLUG: process.env.HANGOUT_SLUG, // e.g., 'i-love-the-80s'
   HANGOUT_LANGUAGE: process.env.HANGOUT_LANGUAGE || 'da', // Language code for hang.fm URL
+  // Adapter configuration for multi-site support
+  API_FRAMEWORK: process.env.API_FRAMEWORK || 'hangfm', // Framework selector: 'hangfm' for Hang.fm
+  SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'https://socket.prod.tt.fm', // WebSocket server URL
   // Web documentation server
   PORT: process.env.PORT || 8080,
   WEB_DOCS_URL: process.env.WEB_DOCS_URL, // Auto-configured by deployment script

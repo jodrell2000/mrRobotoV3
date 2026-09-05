@@ -1,21 +1,15 @@
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
-const { makeRequest } = require( '../lib/buildUrl.js' );
 
-async function _fetchUserProfileByUuid ( userUuid ) {
+async function _fetchUserProfileByUuid ( services, userUuid ) {
   if ( !userUuid || typeof userUuid !== 'string' ) {
     throw new Error( 'userUuid must be a non-empty string' );
   }
-  const commonHeaders = { Authorization: `Bearer ${ config.BOT_USER_TOKEN }` }
-  const path = `/api/user-service/profile/${ encodeURIComponent( userUuid ) }`;
-  const url = `${ config.TTFM_GATEWAY_BASE_URL }${ path }`;
+  if ( !services || !services.apiAdapter ) {
+    throw new Error( 'API adapter not available - ensure serviceContainer is initialized' );
+  }
 
-  // Debugging info (mask token)
-  const maskedToken = typeof config.BOT_USER_TOKEN === 'string' && config.BOT_USER_TOKEN.length > 8
-    ? `${ config.BOT_USER_TOKEN.slice( 0, 4 ) }...${ config.BOT_USER_TOKEN.slice( -4 ) }`
-    : '[unset]';
-
-  const res = await makeRequest( url, { method: 'GET' }, commonHeaders );
+  const res = await services.apiAdapter.getUserProfile( userUuid );
   if ( res && typeof res === 'object' ) {
     const keys = Object.keys( res );
     const hasNickname = Object.prototype.hasOwnProperty.call( res, 'nickname' ) || !!res?.data?.nickname;
@@ -26,9 +20,12 @@ async function _fetchUserProfileByUuid ( userUuid ) {
   return res;
 }
 
-async function getUserNicknameByUuid ( userUuid ) {
+async function getUserNicknameByUuid ( services, userUuid ) {
   try {
-    const profile = await _fetchUserProfileByUuid( userUuid );
+    if ( !services ) {
+      throw new Error( 'services parameter is required' );
+    }
+    const profile = await _fetchUserProfileByUuid( services, userUuid );
     const nickname = profile?.nickname || profile?.data?.nickname;
     if ( !nickname ) {
       logger.debug( `hangUserService.getUserNicknameByUuid: nickname missing for uuid=${ userUuid }, profilePreview=${ JSON.stringify( profile ).slice( 0, 200 ) }...` );
@@ -42,27 +39,18 @@ async function getUserNicknameByUuid ( userUuid ) {
   }
 }
 
-async function updateHangNickname ( newNickname ) {
+async function updateHangNickname ( services, newNickname ) {
   try {
+    if ( !services || !services.apiAdapter ) {
+      throw new Error( 'API adapter not available - ensure serviceContainer is initialized' );
+    }
     if ( !newNickname || typeof newNickname !== 'string' ) {
       throw new Error( 'newNickname must be a non-empty string' );
     }
 
-    const url = `${ config.TTFM_GATEWAY_BASE_URL }/api/user-service/users/profile`;
-    const payload = {
-      nickname: newNickname
-    };
-
     logger.debug( `hangUserService.updateHangNickname: attempting to update nickname to "${ newNickname }"` );
 
-    const response = await makeRequest(
-      url,
-      {
-        method: 'POST',
-        data: payload
-      },
-      { Authorization: `Bearer ${ config.BOT_USER_TOKEN }` }
-    );
+    const response = await services.apiAdapter.updateUserNickname( newNickname );
 
     logger.debug( `hangUserService.updateHangNickname: successfully updated nickname to "${ newNickname }"` );
     return response;
@@ -72,21 +60,14 @@ async function updateHangNickname ( newNickname ) {
   }
 }
 
-function getAllPresentUsers ( services ) {
+async function getAllPresentUsers ( services ) {
   try {
-    if ( !services || !services.hangoutState ) {
-      logger.debug( 'hangUserService.getAllPresentUsers: hangoutState service not available' );
+    if ( !services || !services.apiAdapter ) {
+      logger.debug( 'hangUserService.getAllPresentUsers: API adapter not available' );
       return [];
     }
 
-    const currentState = services.hangoutState.getCurrentState();
-    if ( !currentState || !currentState.allUsers || !Array.isArray( currentState.allUsers ) ) {
-      logger.debug( 'hangUserService.getAllPresentUsers: allUsers not found or not an array in current state' );
-      return [];
-    }
-
-    const userUuids = currentState.allUsers.map( user => user.uuid ).filter( uuid => uuid );
-
+    const userUuids = await services.apiAdapter.getAllPresentUsers( services );
     logger.debug( `hangUserService.getAllPresentUsers: found ${ userUuids.length } users currently in hangout` );
     return userUuids;
   } catch ( err ) {
@@ -96,31 +77,23 @@ function getAllPresentUsers ( services ) {
 }
 
 /**
- * Fetch CometChat auth token from TT.fm Gateway API
+ * Fetch CometChat auth token from Gateway API via adapter
+ * @param {Object} services - Services container with apiAdapter
  * @returns {Promise<string>} The CometChat auth token
  * @throws {Error} If token fetch fails
  */
-async function getCometChatToken () {
-  const url = `${ config.TTFM_GATEWAY_BASE_URL }/api/user-service/comet-chat/user-token`;
-
+async function getCometChatToken ( services ) {
   try {
-    logger.debug( '🔑 Fetching CometChat auth token from Gateway API...' );
-
-    const response = await makeRequest(
-      url,
-      { method: 'GET' },
-      {
-        'accept': 'application/json',
-        'Authorization': `Bearer ${ config.BOT_USER_TOKEN }`
-      }
-    );
-
-    if ( !response || !response.cometAuthToken ) {
-      throw new Error( 'Invalid response: missing cometAuthToken field' );
+    if ( !services || !services.apiAdapter ) {
+      throw new Error( 'API adapter not available - ensure serviceContainer is initialized' );
     }
 
-    logger.info( '✅ Successfully fetched CometChat auth token from Gateway API' );
-    return response.cometAuthToken;
+    logger.debug( '🔑 Fetching CometChat auth token via API adapter...' );
+
+    const token = await services.apiAdapter.getChatAuthToken();
+
+    logger.info( '✅ Successfully fetched CometChat auth token' );
+    return token;
 
   } catch ( error ) {
     logger.error( `❌ Failed to fetch CometChat token: ${ error.message }` );

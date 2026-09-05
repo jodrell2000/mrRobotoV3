@@ -51,7 +51,7 @@ describe( 'playedSong handler', () => {
     jest.advanceTimersByTime( 90000 );
     // Wait for async upVote
     await Promise.resolve();
-    expect( services.hangSocketServices.upVote ).toHaveBeenCalledWith( services.socket );
+    expect( services.hangSocketServices.upVote ).toHaveBeenCalledWith( services );
   } );
 
   test( 'cancels existing timer and starts new one if nowPlaying is not null', () => {
@@ -823,7 +823,7 @@ describe( 'playedSong handler', () => {
       await playedSong( {}, {}, services );
 
       expect( services.afkService.clearPendingRemoval ).toHaveBeenCalledWith( 'afk-uuid' );
-      expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'afk-uuid' );
+      expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'afk-uuid' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
         expect.stringContaining( 'AFK DJ' ),
         { services }
@@ -906,7 +906,7 @@ describe( 'playedSong handler', () => {
 
       await playedSong( {}, {}, services );
 
-      expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'escort-dj-uuid' );
+      expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'escort-dj-uuid' );
       expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'escort-dj-uuid' );
       expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
         expect.stringContaining( '<@uid:escort-dj-uuid>' ),
@@ -1080,7 +1080,7 @@ describe( 'playedSong handler', () => {
       // Only DJ at position 0 should be removed
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledTimes( 1 );
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'dj-0-uuid'
       );
 
@@ -1129,7 +1129,7 @@ describe( 'playedSong handler', () => {
 
       // Only DJ0 should be removed
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'dj-0-uuid'
       );
 
@@ -1161,7 +1161,7 @@ describe( 'playedSong handler', () => {
 
       // Only DJ0 removed
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'dj-0-uuid'
       );
 
@@ -1189,7 +1189,7 @@ describe( 'playedSong handler', () => {
 
       // Verify the currentDJ (removeAfterCurrent: true) is removed
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'current-dj-uuid'
       );
 
@@ -1215,7 +1215,7 @@ describe( 'playedSong handler', () => {
 
       // Verify removal executed correctly despite potential queue changes
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'dj-0-uuid'
       );
 
@@ -1275,7 +1275,7 @@ describe( 'playedSong handler', () => {
       // Only position 0 removed
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledTimes( 1 );
       expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-        services.socket,
+        services,
         'dj-0-uuid'
       );
 
@@ -1339,7 +1339,7 @@ describe( 'playedSong handler', () => {
 
         // Should remove the DJ since flag is enabled
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'flow-dj-uuid'
         );
 
@@ -1366,7 +1366,7 @@ describe( 'playedSong handler', () => {
 
         // DJ should still be removed (flag takes precedence)
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'moved-dj-uuid'
         );
       } );
@@ -1430,7 +1430,7 @@ describe( 'playedSong handler', () => {
 
         // Entire flow should work: enable → song ends → removal
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'normal-flow-uuid'
         );
         expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
@@ -1482,7 +1482,7 @@ describe( 'playedSong handler', () => {
         // Only position 0 should be affected
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledTimes( 1 );
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'concurrent-dj-0'
         );
 
@@ -1509,7 +1509,7 @@ describe( 'playedSong handler', () => {
 
         // Should still remove (timestamp doesn't prevent removal)
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'timestamp-dj'
         );
       } );
@@ -1532,7 +1532,7 @@ describe( 'playedSong handler', () => {
 
         // Should still remove DJ0 despite DJ1's corruption
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'good-dj'
         );
       } );
@@ -1573,7 +1573,7 @@ describe( 'playedSong handler', () => {
 
         // DJ0 should be removed
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'first-song-dj'
         );
 
@@ -1621,7 +1621,7 @@ describe( 'playedSong handler', () => {
 
         // Should complete the full journey
         expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services.socket,
+          services,
           'full-journey-uuid'
         );
         expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(

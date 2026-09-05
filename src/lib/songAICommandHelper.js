@@ -216,7 +216,7 @@ async function executeSongAICommand ( commandParams, config ) {
         if ( currentDjUuid ) {
             try {
                 // Get actual display name for AI context
-                username = await services.hangUserService.getUserNicknameByUuid( currentDjUuid );
+                username = await services.hangUserService.getUserNicknameByUuid( services, currentDjUuid );
                 // Create mention format for final response
                 usernameMention = `<@uid:${ currentDjUuid }>`;
             } catch ( error ) {
@@ -240,7 +240,7 @@ async function executeSongAICommand ( commandParams, config ) {
             try {
                 const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
                 if ( senderUuid ) {
-                    senderUsername = await services.hangUserService.getUserNicknameByUuid( senderUuid ) || 'User';
+                    senderUsername = await services.hangUserService.getUserNicknameByUuid( services, senderUuid ) || 'User';
                 }
             } catch ( error ) {
                 logger.debug( `[${ config.commandName }] Could not get sender username: ${ error.message }` );

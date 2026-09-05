@@ -162,7 +162,7 @@ services.logger.info( '======================================= Application Start
 
     // Fetch and configure CometChat token from Gateway API (CRITICAL - must happen before bot operations)
     try {
-      const dynamicToken = await services.hangUserService.getCometChatToken();
+      const dynamicToken = await services.hangUserService.getCometChatToken( services );
       services.openchatApi.setAuthToken( dynamicToken );
       services.logger.info( '✅ CometChat auth token successfully configured' );
     } catch ( tokenError ) {
@@ -177,7 +177,7 @@ services.logger.info( '======================================= Application Start
     // Fetch bot's nickname using BOT_UID and hangUserService
     services.logger.debug( '🔍 About to fetch bot nickname' );
     try {
-      const botNickname = await services.hangUserService.getUserNicknameByUuid( services.config.BOT_UID );
+      const botNickname = await services.hangUserService.getUserNicknameByUuid( services, services.config.BOT_UID );
       services.setState( 'botNickname', botNickname );
       services.logger.info( `🤖 Bot nickname resolved and stored: ${ botNickname }` );
     } catch ( err ) {
@@ -206,7 +206,7 @@ services.logger.info( '======================================= Application Start
       const savedBotName = services.dataService.getValue( 'botData.CHAT_NAME' );
       if ( savedBotName ) {
         services.logger.debug( `🔄 Syncing bot name to TT.fm platform: ${ savedBotName }` );
-        await services.hangUserService.updateHangNickname( savedBotName );
+        await services.hangUserService.updateHangNickname( services, savedBotName );
         services.logger.info( `✅ Bot name synced to TT.fm: ${ savedBotName }` );
 
         // Leave and rejoin CometChat to refresh display name

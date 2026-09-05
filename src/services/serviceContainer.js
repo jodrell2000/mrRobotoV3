@@ -22,6 +22,7 @@ const VersionService = require( './versionService.js' );
 const DocumentationService = require( './documentationService.js' );
 const RateLimiterService = require( './rateLimiterService.js' );
 const VerificationService = require( './verificationService.js' );
+const AdapterService = require( './AdapterService.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -77,6 +78,33 @@ const initializeDatabase = async () => {
   }
 };
 
+// Initialize adapter service (socket and API adapters)
+const initializeAdapters = async () => {
+  try {
+    logger.debug( 'Initializing adapter service...' );
+
+    // Create AdapterService with current config
+    services.adapterService = new AdapterService( config );
+
+    // Initialize and validate configuration
+    await services.adapterService.initialize();
+
+    // Register socket adapter
+    services.socketAdapter = services.adapterService.getSocketAdapter();
+    services.socketAdapter.setLogger( logger );
+    logger.info( `✅ Socket adapter initialized for framework: ${ services.adapterService.getFramework() }` );
+
+    // Register API adapter
+    services.apiAdapter = services.adapterService.getApiAdapter();
+    services.apiAdapter.setLogger( logger );
+    logger.info( `✅ API adapter initialized for framework: ${ services.adapterService.getFramework() }` );
+
+  } catch ( err ) {
+    logger.error( `❌ Failed to initialize adapters: ${ err.message }` );
+    throw err; // Re-throw to prevent bot startup with invalid configuration
+  }
+};
+
 const services = {
   // External services
   messageService,
@@ -102,6 +130,9 @@ const services = {
   documentationService: null, // Will be initialized after services object is created
   verificationService: null, // Will be initialized after services object is created
   openchatApi: null, // Will be initialized after services object is created
+  adapterService: null, // Will be initialized async - adapter orchestrator
+  socketAdapter: null, // Will be initialized async - socket adapter for the configured framework
+  apiAdapter: null, // Will be initialized async - API adapter for the configured framework
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -187,6 +218,14 @@ services.openchatApi = openchatApi;
 const initializeServices = async () => {
   await initializeData();
   await initializeDatabase();
+
+  // Initialize adapters (socket and API) - CRITICAL for phases 5, 6, 7
+  try {
+    await initializeAdapters();
+  } catch ( err ) {
+    logger.error( 'Adapter initialization failed - bot cannot start:', err );
+    throw err;
+  }
 
   // Initialize verification service
   try {

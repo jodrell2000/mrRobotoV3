@@ -62,7 +62,7 @@ async function runAfkMonitorTick ( services ) {
                     { responseChannel: 'public', services }
                 );
             } else {
-                await services.hangSocketServices.removeDj( services.socket, dj.uuid );
+                await services.hangSocketServices.removeDj( services, dj.uuid );
                 await services.messageService.sendResponse(
                     `🚫 ${ nickname } has been removed from the decks for being AFK for ${ inactiveMinutes } minutes.`,
                     { responseChannel: 'public', services }

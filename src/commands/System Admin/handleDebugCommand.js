@@ -32,7 +32,7 @@ async function handleDebugCommand ( { command, args, services, context, response
         // Check bot status
         response += `\n**Bot Status:**\n`;
         response += `• Bot instance: ${ services.bot ? '✅ Available' : '❌ Missing' }\n`;
-        response += `• Socket connection: ${ services.socket ? '✅ Connected' : '❌ Disconnected' }\n`;
+        response += `• Socket connection: ${ services.socketAdapter && services.socketAdapter.isConnected() ? '✅ Connected' : '❌ Disconnected' }\n`;
         response += `• Hangout state: ${ services.hangoutState ? '✅ Available' : '❌ Missing' }\n`;
 
         // Check message processing flags

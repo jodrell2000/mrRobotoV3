@@ -22,6 +22,7 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
    - [Step 9: Adding a Google API key for Machine Learning services (optional)](#step-9-adding-a-google-api-key-for-machine-learning-services-optional)
    - [Step 10: Adding a Mistral API key for Machine Learning services (optional)](#step-10-adding-a-mistral-api-key-for-machine-learning-services-optional)\n   - [Step 11: Adding Last.fm API Credentials (optional)](#step-11-adding-lastfm-api-credentials-optional)
+   - [Step 12: Adapter Configuration (Optional - Advanced)](#step-12-adapter-configuration-optional---advanced)
 
 [The botConfig.json file](#understanding-botconfigjson)
    - [Step 1: Creating your botConfig.json file](#step-1-creating-your-botconfigjson-file)
@@ -336,7 +337,26 @@ The bot can verify artist and track information using Last.fm's extensive music 
 
 > 💡 **NOTE**: Last.fm API access is completely free. There are no billing concerns.
 
----
+## Step 12: Adapter Configuration (Optional - Advanced)
+**Time: ~2 minutes**
+
+The bot supports multi-site architecture through adapters. Most users can skip this step and use the default Hang.fm configuration. This is only needed if you're setting up the bot to work with a different website.
+
+### Configuration Variables
+
+Two optional environment variables control the adapter framework:
+
+* **API_FRAMEWORK** - Selects which site adapter to use (default: `hangfm`)
+  ```
+  API_FRAMEWORK=hangfm
+  ```
+
+* **SOCKET_SERVER_URL** - Overrides the WebSocket server URL (default: `https://socket.prod.tt.fm`)
+  ```
+  SOCKET_SERVER_URL=https://socket.prod.tt.fm
+  ```
+
+> 💡 **NOTE**: Unless you're working with a different music website, you don't need to configure these. The defaults work perfectly for Hang.fm.
 
 ## Understanding Data Files
 **Time: ~10 minutes**

@@ -173,7 +173,7 @@ describe( 'handleIntroCommand', () => {
             );
 
             // Check that getUserNicknameByUuid was called to get the actual name
-            expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( 'test-dj-uuid' );
+            expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( mockServices, 'test-dj-uuid' );
 
             // Check response was sent
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledTimes( 1 );

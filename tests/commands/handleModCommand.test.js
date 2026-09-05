@@ -162,21 +162,21 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'DJ Cool' );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'uuid-dj' );
+            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'matches DJ name case-insensitively', async () => {
             const services = makeServices( { allUserData, djs } );
             const result = await handleModCommand( { args: 'remove dj cool', services, context: makeContext() } );
             expect( result.success ).toBe( true );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'uuid-dj' );
+            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'strips surrounding double quotes from name', async () => {
             const services = makeServices( { allUserData, djs } );
             const result = await handleModCommand( { args: 'remove "DJ Cool"', services, context: makeContext() } );
             expect( result.success ).toBe( true );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services.socket, 'uuid-dj' );
+            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'responds privately to the moderator', async () => {
@@ -200,7 +200,7 @@ describe( 'handleModCommand', () => {
             const services = makeServices();
             const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
             expect( result.success ).toBe( true );
-            expect( services.hangSocketServices.skipSong ).toHaveBeenCalledWith( services.socket );
+            expect( services.hangSocketServices.skipSong ).toHaveBeenCalledWith( services );
         } );
 
         test( 'is case-insensitive for the subcommand name', async () => {

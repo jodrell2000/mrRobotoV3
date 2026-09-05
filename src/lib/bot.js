@@ -1,4 +1,3 @@
-const { ServerMessageName, SocketClient, StatefulServerMessageName, StatelessServerMessageName } = require( 'ttfm-socket' );
 const { applyPatch } = require( 'fast-json-patch' );
 const fs = require( 'fs' ).promises;
 const path = require( 'path' );
@@ -468,11 +467,12 @@ class Bot {
   }
 
   async _createSocketConnection () {
-    this.services.logger.debug( 'Creating SocketClient...' );
-    this.socket = new SocketClient( 'https://socket.prod.tt.fm' );
-    this.services.logger.debug( '✅ SocketClient created' );
-    this.services.socket = this.socket; // Register socket to serviceContainer
-    this.services.logger.debug( 'Socket registered to serviceContainer' );
+    this.services.logger.debug( 'Using socket adapter from serviceContainer...' );
+    if ( !this.services.socketAdapter ) {
+      throw new Error( 'Socket adapter not initialized - check config and adapter initialization in serviceContainer' );
+    }
+    this.socketAdapter = this.services.socketAdapter;
+    this.services.logger.debug( '✅ Socket adapter registered' );
   }
 
   async _joinSocketRoom () {
@@ -562,9 +562,7 @@ class Bot {
     const timeoutMs = 1000 * 60; // 60 seconds
 
     return Promise.race( [
-      this.socket.joinRoom( this.services.config.BOT_USER_TOKEN, {
-        roomUuid: this.services.config.HANGOUT_ID
-      } ),
+      this.socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN ),
       new Promise( ( _, reject ) =>
         setTimeout( () => reject( new Error( `Socket join room timeout after ${ timeoutMs / 1000 } seconds` ) ), timeoutMs )
       )
@@ -574,12 +572,10 @@ class Bot {
   _setupReconnectHandler () {
     this.services.logger.debug( '✅ Setting up reconnect handler...' );
 
-    this.socket.on( "reconnect", async () => {
+    this.socketAdapter.on( "reconnect", async () => {
       this.services.logger.debug( '🔄 Reconnecting to room...' );
       try {
-        const { state } = await this.socket.joinRoom( this.services.config.BOT_USER_TOKEN, {
-          roomUuid: this.services.config.HANGOUT_ID
-        } );
+        const { state } = await this.socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN );
         this.state = state;
         this.services.hangoutState = state;
         this.services.logger.debug( '🔄 Reconnected successfully' );
@@ -603,7 +599,7 @@ class Bot {
   }
 
   _setupStatefulMessageListener () {
-    this.socket.on( 'statefulMessage', async ( message ) => {
+    this.socketAdapter.on( 'statefulMessage', async ( message ) => {
       // this.services.logger.debug( `statefulMessage - ${ message.name }` );
 
       // Log payload to file
@@ -653,7 +649,7 @@ class Bot {
   }
 
   _setupStatelessMessageListener () {
-    this.socket.on( "statelessMessage", async ( payload ) => {
+    this.socketAdapter.on( "statelessMessage", async ( payload ) => {
       this.services.logger.debug( `statelessMessage - ${ payload.name }` );
 
       // Log payload to file
@@ -664,7 +660,7 @@ class Bot {
   }
 
   _setupServerMessageListener () {
-    this.socket.on( "serverMessage", async ( payload ) => {
+    this.socketAdapter.on( "serverMessage", async ( payload ) => {
       // this.services.logger.debug( `serverMessage - ${ payload.message.name }` );
 
       // Log payload to file
@@ -694,7 +690,7 @@ class Bot {
   }
 
   _setupErrorListener () {
-    this.socket.on( "error", async ( message ) => {
+    this.socketAdapter.on( "error", async ( message ) => {
       this.services.logger.debug( `Socket error: ${ message }` );
 
       // Log message to file
@@ -783,8 +779,8 @@ class Bot {
       if ( error && error.shouldReconnect ) {
         this.services.logger.warn( '🔄 Initiating reconnect due to authorization error' );
         try {
-          this.socket.disconnect();
-          this.socket.connect();
+          await this.socketAdapter.disconnect();
+          await this.socketAdapter.connect();
         } catch ( reconnectError ) {
           this.services.logger.error( `Failed to initiate reconnect: ${ reconnectError.message }` );
         }
@@ -1257,7 +1253,7 @@ class Bot {
 
   getConnectionStatus () {
     return {
-      isConnected: !!this.socket,
+      isConnected: this.socketAdapter ? this.socketAdapter.isConnected() : false,
       hasState: !!this.state,
       lastMessageId: this.lastMessageIDs?.id,
       lastTimestamp: this.lastMessageIDs?.fromTimestamp
@@ -1273,9 +1269,13 @@ class Bot {
       // this.services.logger.debug( 'Saved private message tracking state' );
     }
 
-    if ( this.socket ) {
-      // TODO: Add proper socket cleanup
-      this.socket = null;
+    if ( this.socketAdapter ) {
+      try {
+        await this.socketAdapter.disconnect();
+      } catch ( error ) {
+        this.services.logger.warn( `Error disconnecting socket adapter: ${ error.message }` );
+      }
+      this.socketAdapter = null;
     }
 
     this.state = null;
