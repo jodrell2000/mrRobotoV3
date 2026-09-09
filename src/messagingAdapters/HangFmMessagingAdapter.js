@@ -3,6 +3,15 @@ class HangFmMessagingAdapter {
         this.messageService = messageService;
         this.privateMessageService = privateMessageService;
         this.openchatApi = openchatApi;
+
+        this.setAuthToken = this.setAuthToken.bind( this );
+        this.hasAuthToken = this.hasAuthToken.bind( this );
+        this.joinRoom = this.joinRoom.bind( this );
+        this.leaveRoom = this.leaveRoom.bind( this );
+        this.sendChatMessage = this.sendChatMessage.bind( this );
+        this.sendPrivateMessage = this.sendPrivateMessage.bind( this );
+        this.fetchChatMessages = this.fetchChatMessages.bind( this );
+        this.fetchPrivateMessages = this.fetchPrivateMessages.bind( this );
     }
 
     setAuthToken ( token ) {
