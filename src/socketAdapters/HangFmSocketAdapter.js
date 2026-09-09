@@ -10,7 +10,17 @@
  */
 
 const AbstractSocketAdapter = require( './AbstractSocketAdapter' );
-const { SocketClient, ServerMessageName, StatefulServerMessageName, StatelessServerMessageName } = require( 'ttfm-socket' );
+const { SocketClient, ActionName } = require( 'ttfm-socket' );
+
+function getErrorMessage ( error ) {
+    return error instanceof Error ? error.message : String( error );
+}
+
+function toSongVotes ( voteType ) {
+    if ( voteType === 'upvote' || voteType === 'up' ) return { like: true };
+    if ( voteType === 'downvote' || voteType === 'down' ) return { like: false };
+    throw new Error( `Unsupported vote type: ${ voteType }` );
+}
 
 class HangFmSocketAdapter extends AbstractSocketAdapter {
     constructor ( config ) {
@@ -139,18 +149,18 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
 
         try {
             const result = await this.socket.action(
-                StatefulServerMessageName.voteOnSong,
+                ActionName.voteOnSong,
                 {
                     roomUuid: this.config.HANGOUT_ID,
                     userUuid: userUuid,
-                    voteType: voteType
+                    songVotes: toSongVotes( voteType )
                 }
             );
 
             if ( this.logger ) this.logger.debug( `✅ Vote ${ voteType } submitted` );
             return result;
         } catch ( error ) {
-            if ( this.logger ) this.logger.error( `Failed to vote on song: ${ error.message }` );
+            if ( this.logger ) this.logger.error( `Failed to vote on song: ${ getErrorMessage( error ) }` );
             throw error;
         }
     }
@@ -170,9 +180,10 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
 
         try {
             const result = await this.socket.action(
-                StatefulServerMessageName.removeDj,
+                ActionName.removeDj,
                 {
                     roomUuid: this.config.HANGOUT_ID,
+                    userUuid: this.config.BOT_UID,
                     djUuid: djUuid
                 }
             );
@@ -180,7 +191,7 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
             if ( this.logger ) this.logger.debug( `✅ DJ removed` );
             return result;
         } catch ( error ) {
-            if ( this.logger ) this.logger.error( `Failed to remove DJ: ${ error.message }` );
+            if ( this.logger ) this.logger.error( `Failed to remove DJ: ${ getErrorMessage( error ) }` );
             throw error;
         }
     }
@@ -199,16 +210,17 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
 
         try {
             const result = await this.socket.action(
-                StatefulServerMessageName.skipSong,
+                ActionName.skipSong,
                 {
-                    roomUuid: this.config.HANGOUT_ID
+                    roomUuid: this.config.HANGOUT_ID,
+                    userUuid: this.config.BOT_UID
                 }
             );
 
             if ( this.logger ) this.logger.debug( '✅ Song skipped' );
             return result;
         } catch ( error ) {
-            if ( this.logger ) this.logger.error( `Failed to skip song: ${ error.message }` );
+            if ( this.logger ) this.logger.error( `Failed to skip song: ${ getErrorMessage( error ) }` );
             throw error;
         }
     }

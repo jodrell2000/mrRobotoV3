@@ -9,6 +9,10 @@ function unsupported ( action, source ) {
     };
 }
 
+function getErrorMessage ( error ) {
+    return error instanceof Error ? error.message : String( error );
+}
+
 function createPlatformActions ( services ) {
     const source = services.frameworkSpecification?.id || 'unknown';
 
@@ -24,7 +28,7 @@ function createPlatformActions ( services ) {
                 success: false,
                 supported: true,
                 errorCode: 'TEMPORARY_FAILURE',
-                error: error.message,
+                error: getErrorMessage( error ),
                 retryable: true,
                 source
             };

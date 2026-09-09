@@ -1,5 +1,9 @@
 const { logger } = require( '../lib/logging.js' );
 
+function getErrorMessage ( err ) {
+  return err instanceof Error ? err.message : String( err );
+}
+
 const hangSocketServices = {
   /**
    * Send an upvote for the current song
@@ -17,8 +21,9 @@ const hangSocketServices = {
 
       logger.debug( `hangSocketServices.upVote: Successfully sent upvote` );
     } catch ( err ) {
-      logger.error( `hangSocketServices.upVote: Error sending upvote - ${ err.message }` );
-      throw err;
+      const message = getErrorMessage( err );
+      logger.error( `hangSocketServices.upVote: Error sending upvote - ${ message }` );
+      throw err instanceof Error ? err : new Error( message );
     }
   },
 
@@ -38,8 +43,9 @@ const hangSocketServices = {
 
       logger.debug( `hangSocketServices.downVote: Successfully sent downvote` );
     } catch ( err ) {
-      logger.error( `hangSocketServices.downVote: Error sending downvote - ${ err.message }` );
-      throw err;
+      const message = getErrorMessage( err );
+      logger.error( `hangSocketServices.downVote: Error sending downvote - ${ message }` );
+      throw err instanceof Error ? err : new Error( message );
     }
   },
 
@@ -60,7 +66,7 @@ const hangSocketServices = {
 
       logger.debug( `hangSocketServices.removeDj: Successfully removed DJ ${ djUuid }` );
     } catch ( err ) {
-      const message = err instanceof Error ? err.message : String( err );
+      const message = getErrorMessage( err );
       logger.error( `hangSocketServices.removeDj: Error removing DJ ${ djUuid } - ${ message }` );
       logger.debug( `hangSocketServices.removeDj: raw error value:`, err );
       throw err instanceof Error ? err : new Error( message );
@@ -83,7 +89,7 @@ const hangSocketServices = {
 
       logger.debug( `hangSocketServices.skipSong: Successfully skipped song` );
     } catch ( err ) {
-      const message = err instanceof Error ? err.message : String( err );
+      const message = getErrorMessage( err );
       logger.error( `hangSocketServices.skipSong: Error skipping song - ${ message }` );
       throw err instanceof Error ? err : new Error( message );
     }

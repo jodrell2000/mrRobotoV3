@@ -45,6 +45,15 @@ describe( 'hangSocketServices', () => {
       );
     } );
 
+    it( 'should preserve string socket adapter errors', async () => {
+      mockServices.socketAdapter.voteOnSong.mockRejectedValue( 'unknown action or invalid apiVersion' );
+
+      await expect( hangSocketServices.upVote( mockServices ) ).rejects.toThrow( 'unknown action or invalid apiVersion' );
+      expect( logger.error ).toHaveBeenCalledWith(
+        'hangSocketServices.upVote: Error sending upvote - unknown action or invalid apiVersion'
+      );
+    } );
+
     it( 'should throw error if socketAdapter is not available', async () => {
       const invalidServices = { config: { BOT_UID: 'test-bot-uid' } };
 
@@ -70,6 +79,15 @@ describe( 'hangSocketServices', () => {
       await expect( hangSocketServices.downVote( mockServices ) ).rejects.toThrow( 'Socket connection failed' );
       expect( logger.error ).toHaveBeenCalledWith(
         'hangSocketServices.downVote: Error sending downvote - Socket connection failed'
+      );
+    } );
+
+    it( 'should preserve string socket adapter errors', async () => {
+      mockServices.socketAdapter.voteOnSong.mockRejectedValue( 'unknown action or invalid apiVersion' );
+
+      await expect( hangSocketServices.downVote( mockServices ) ).rejects.toThrow( 'unknown action or invalid apiVersion' );
+      expect( logger.error ).toHaveBeenCalledWith(
+        'hangSocketServices.downVote: Error sending downvote - unknown action or invalid apiVersion'
       );
     } );
 

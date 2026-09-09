@@ -57,4 +57,18 @@ describe( 'platformActions', () => {
         } );
         expect( services.socketAdapter.skipSong ).not.toHaveBeenCalled();
     } );
+
+    test( 'preserves string socket adapter errors', async () => {
+        const services = makeServices();
+        services.socketAdapter.removeDj.mockRejectedValue( 'unknown action or invalid apiVersion' );
+        const actions = createPlatformActions( services );
+
+        await expect( actions.removeFromDJQueue( 'dj-1' ) ).resolves.toMatchObject( {
+            success: false,
+            supported: true,
+            errorCode: 'TEMPORARY_FAILURE',
+            error: 'unknown action or invalid apiVersion',
+            retryable: true
+        } );
+    } );
 } );
