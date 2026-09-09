@@ -19,28 +19,28 @@ jest.mock( '../../src/config.js', () => ( {
     COMETCHAT_API_KEY: 'test-api-key'
 } ) );
 
-// Mock makeRequest
-jest.mock( '../../src/lib/buildUrl.js', () => ( {
-    makeRequest: jest.fn(),
-    buildUrl: jest.fn()
-} ) );
-
-const { makeRequest } = require( '../../src/lib/buildUrl.js' );
 const { getCometChatToken } = require( '../../src/services/hangUserService.js' );
 const openchatApi = require( '../../src/services/openchatApi.js' );
+
+const mockServices = {
+    apiAdapter: {
+        getChatAuthToken: jest.fn()
+    }
+};
 
 describe( 'Startup Token Configuration', () => {
     beforeEach( () => {
         jest.clearAllMocks();
+        mockServices.apiAdapter.getChatAuthToken.mockReset();
     } );
 
     describe( 'Dynamic Token Fetching', () => {
         test( 'should configure openchatApi with dynamic token on successful fetch', async () => {
             const mockToken = 'auth_dynamic123456789';
-            makeRequest.mockResolvedValueOnce( { cometAuthToken: mockToken } );
+            mockServices.apiAdapter.getChatAuthToken.mockResolvedValueOnce( mockToken );
 
             // Simulate startup sequence
-            const dynamicToken = await getCometChatToken();
+            const dynamicToken = await getCometChatToken( mockServices );
             openchatApi.setAuthToken( dynamicToken );
 
             expect( dynamicToken ).toBe( mockToken );
@@ -49,18 +49,18 @@ describe( 'Startup Token Configuration', () => {
 
         test( 'should throw error if token fetch fails', async () => {
             const networkError = new Error( 'Gateway API unreachable' );
-            makeRequest.mockRejectedValueOnce( networkError );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( networkError );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'CometChat token fetch failed: Gateway API unreachable' );
         } );
 
         test( 'should throw error if BOT_USER_TOKEN is invalid', async () => {
             const authError = new Error( '401 Unauthorized' );
-            makeRequest.mockRejectedValueOnce( authError );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( authError );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'CometChat token fetch failed: 401 Unauthorized' );
         } );
@@ -100,10 +100,10 @@ describe( 'Startup Token Configuration', () => {
     describe( 'Startup Sequence Integration', () => {
         test( 'should complete full token fetch and configuration flow', async () => {
             const mockToken = 'auth_fullFlow123456';
-            makeRequest.mockResolvedValueOnce( { cometAuthToken: mockToken } );
+            mockServices.apiAdapter.getChatAuthToken.mockResolvedValueOnce( mockToken );
 
             // Step 1: Fetch token
-            const fetchedToken = await getCometChatToken();
+            const fetchedToken = await getCometChatToken( mockServices );
             expect( fetchedToken ).toBe( mockToken );
 
             // Step 2: Configure openchatApi
@@ -112,23 +112,15 @@ describe( 'Startup Token Configuration', () => {
             // Step 3: Verify configuration
             expect( openchatApi.hasAuthToken() ).toBe( true );
 
-            // Step 4: Verify correct API was called
-            expect( makeRequest ).toHaveBeenCalledWith(
-                'https://gateway.prod.tt.fm/api/user-service/comet-chat/user-token',
-                { method: 'GET' },
-                {
-                    'accept': 'application/json',
-                    'Authorization': 'Bearer TEST_BOT_TOKEN'
-                }
-            );
+            expect( mockServices.apiAdapter.getChatAuthToken ).toHaveBeenCalledTimes( 1 );
         } );
 
         test( 'should handle token fetch failure gracefully', async () => {
-            makeRequest.mockRejectedValueOnce( new Error( 'Network timeout' ) );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( new Error( 'Network timeout' ) );
 
             let errorCaught = false;
             try {
-                await getCometChatToken();
+                await getCometChatToken( mockServices );
             } catch ( error ) {
                 errorCaught = true;
                 expect( error.message ).toContain( 'CometChat token fetch failed' );
@@ -139,9 +131,9 @@ describe( 'Startup Token Configuration', () => {
 
         test( 'should validate response structure before using token', async () => {
             // Missing cometAuthToken field
-            makeRequest.mockResolvedValueOnce( { invalidField: 'value' } );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( new Error( 'Invalid response: missing cometAuthToken field' ) );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'Invalid response: missing cometAuthToken field' );
         } );
@@ -149,26 +141,26 @@ describe( 'Startup Token Configuration', () => {
 
     describe( 'Error Handling', () => {
         test( 'should provide clear error message on missing token field', async () => {
-            makeRequest.mockResolvedValueOnce( {} );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( new Error( 'Invalid response: missing cometAuthToken field' ) );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'CometChat token fetch failed: Invalid response: missing cometAuthToken field' );
         } );
 
         test( 'should provide clear error message on null response', async () => {
-            makeRequest.mockResolvedValueOnce( null );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( new Error( 'Invalid response: missing cometAuthToken field' ) );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'CometChat token fetch failed: Invalid response: missing cometAuthToken field' );
         } );
 
         test( 'should propagate network errors with context', async () => {
             const originalError = new Error( 'ECONNREFUSED' );
-            makeRequest.mockRejectedValueOnce( originalError );
+            mockServices.apiAdapter.getChatAuthToken.mockRejectedValueOnce( originalError );
 
-            await expect( getCometChatToken() )
+            await expect( getCometChatToken( mockServices ) )
                 .rejects
                 .toThrow( 'CometChat token fetch failed: ECONNREFUSED' );
         } );

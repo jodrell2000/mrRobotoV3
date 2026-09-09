@@ -128,6 +128,7 @@ describe( 'Bot', () => {
       COMMAND_SWITCH: '!',
       SOCKET_MESSAGE_LOG_LEVEL: 'ON'
     };
+    mockServices.socket = mockSocketInstance;
 
     // Set up hangoutState with required properties for StateService
     mockServices.hangoutState = {
@@ -198,6 +199,7 @@ describe( 'Bot', () => {
         joinRoom: jest.fn().mockResolvedValue( { state: {} } )
       };
       MockSocketClient.mockImplementation( () => mockSocket );
+      mockServices.socket = mockSocket;
 
       // Mock all connection steps
       const originalCreateConnection = bot._createSocketConnection;
@@ -231,6 +233,7 @@ describe( 'Bot', () => {
         joinRoom: jest.fn().mockResolvedValue( { state: {} } )
       };
       MockSocketClient.mockImplementation( () => mockSocket );
+      mockServices.socket = mockSocket;
 
       const connectionError = new Error( 'Connection failed' );
       const originalCreateConnection = bot._createSocketConnection;
@@ -271,10 +274,9 @@ describe( 'Bot', () => {
     test( 'should create SocketClient with correct URL', async () => {
       await bot._createSocketConnection();
 
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith( 'Creating SocketClient...' );
-      expect( MockSocketClient ).toHaveBeenCalledWith( 'https://socket.prod.tt.fm' );
+      expect( bot.socketAdapter ).toBe( mockServices.socket );
       expect( bot.socket ).toBeDefined();
-      expect( mockServices.logger.debug ).toHaveBeenCalledWith( '✅ SocketClient created' );
+      expect( mockServices.logger.debug ).toHaveBeenCalledWith( '✅ Socket adapter registered' );
     } );
   } );
 
@@ -466,9 +468,7 @@ describe( 'Bot', () => {
 
       const result = await joinPromise;
 
-      expect( mockSocketInstance.joinRoom ).toHaveBeenCalledWith( 'test-bot-token-456', {
-        roomUuid: 'test-hangout-123'
-      } );
+      expect( mockSocketInstance.joinRoom ).toHaveBeenCalledWith( 'test-hangout-123', 'test-bot-token-456' );
       expect( result ).toBe( mockResponse );
     } );
 
@@ -512,9 +512,7 @@ describe( 'Bot', () => {
       await reconnectHandler();
 
       expect( mockServices.logger.debug ).toHaveBeenCalledWith( '🔄 Reconnecting to room...' );
-      expect( mockSocketInstance.joinRoom ).toHaveBeenCalledWith( 'test-bot-token-456', {
-        roomUuid: 'test-hangout-123'
-      } );
+      expect( mockSocketInstance.joinRoom ).toHaveBeenCalledWith( 'test-hangout-123', 'test-bot-token-456' );
       expect( bot.state ).toBe( mockState );
       expect( mockServices.logger.debug ).toHaveBeenCalledWith( '🔄 Reconnected successfully' );
     } );

@@ -9,13 +9,17 @@
 
 const { loadSocketAdapter } = require( '../socketAdapters' );
 const { loadApiAdapter } = require( '../apiAdapters' );
+const { loadMessagingAdapter } = require( '../messagingAdapters' );
+const { loadFramework } = require( '../siteFrameworks' );
 
 class AdapterService {
-    constructor ( config, logger ) {
+    constructor ( config, logger, dependencies = {} ) {
         this.config = config;
         this.logger = logger;
+        this.dependencies = dependencies;
         this.socketAdapter = null;
         this.apiAdapter = null;
+        this.messagingAdapter = null;
         this.framework = null;
     }
 
@@ -30,17 +34,21 @@ class AdapterService {
      */
     async initialize () {
         try {
-            // Validate all required configuration
+            // Load framework metadata before validating framework-specific configuration
+            this.framework = loadFramework( this.config.API_FRAMEWORK );
             this._validateConfig();
 
             // Load adapters based on framework
-            this.framework = this.config.API_FRAMEWORK;
-
-            this.socketAdapter = loadSocketAdapter( this.framework, this.config );
-            this.apiAdapter = loadApiAdapter( this.framework, this.config );
+            this.socketAdapter = loadSocketAdapter( this.framework.id, this.config );
+            this.apiAdapter = loadApiAdapter( this.framework.id, this.config );
+            this.messagingAdapter = loadMessagingAdapter( this.framework.id, {
+                messageService: this.dependencies.messageService,
+                privateMessageService: this.dependencies.privateMessageService,
+                openchatApi: this.dependencies.openchatApi
+            } );
 
             // Log successful initialization
-            this.logger.info( `AdapterService initialized for framework: ${ this.framework }` );
+            this.logger.info( `AdapterService initialized for framework: ${ this.framework.id }` );
         } catch ( error ) {
             this.logger.error( `AdapterService initialization failed: ${ error.message }` );
             throw error;
@@ -54,58 +62,9 @@ class AdapterService {
      * @throws {Error} With helpful message if any required variable is missing or invalid
      */
     _validateConfig () {
-        const errors = [];
-
-        // API_FRAMEWORK validation
-        if ( !this.config.API_FRAMEWORK ) {
-            errors.push( 'API_FRAMEWORK not set. Set API_FRAMEWORK=hangfm in .env' );
-        } else if ( ![ 'hangfm' ].includes( this.config.API_FRAMEWORK ) ) {
-            errors.push(
-                `API_FRAMEWORK="${ this.config.API_FRAMEWORK }" is not supported. ` +
-                `Supported frameworks: hangfm`
-            );
-        }
-
-        // SOCKET_SERVER_URL validation
-        if ( !this.config.SOCKET_SERVER_URL ) {
-            errors.push( 'SOCKET_SERVER_URL not set. Set SOCKET_SERVER_URL=https://socket.prod.tt.fm in .env' );
-        } else {
-            try {
-                new URL( this.config.SOCKET_SERVER_URL );
-            } catch {
-                errors.push( `SOCKET_SERVER_URL="${ this.config.SOCKET_SERVER_URL }" is not a valid URL` );
-            }
-        }
-
-        // BOT_USER_TOKEN validation
-        if ( !this.config.BOT_USER_TOKEN ) {
-            errors.push( 'BOT_USER_TOKEN not set. Set BOT_USER_TOKEN in .env with your bot authentication token' );
-        }
-
-        // TTFM_GATEWAY_BASE_URL validation
-        if ( !this.config.TTFM_GATEWAY_BASE_URL ) {
-            errors.push( 'TTFM_GATEWAY_BASE_URL not set. Set TTFM_GATEWAY_BASE_URL=https://gateway.tt.fm in .env' );
-        } else {
-            try {
-                new URL( this.config.TTFM_GATEWAY_BASE_URL );
-            } catch {
-                errors.push( `TTFM_GATEWAY_BASE_URL="${ this.config.TTFM_GATEWAY_BASE_URL }" is not a valid URL` );
-            }
-        }
-
-        // HANGOUT_ID validation
-        if ( !this.config.HANGOUT_ID ) {
-            errors.push( 'HANGOUT_ID not set. Set HANGOUT_ID in .env with your target hangout UUID' );
-        } else if ( !this._isValidUuid( this.config.HANGOUT_ID ) ) {
-            errors.push( `HANGOUT_ID="${ this.config.HANGOUT_ID }" is not a valid UUID` );
-        }
-
-        // BOT_UID validation
-        if ( !this.config.BOT_UID ) {
-            errors.push( 'BOT_UID not set. Set BOT_UID in .env with your bot user UUID' );
-        } else if ( !this._isValidUuid( this.config.BOT_UID ) ) {
-            errors.push( `BOT_UID="${ this.config.BOT_UID }" is not a valid UUID` );
-        }
+        const errors = this.framework?.validateConfig?.( this.config ) || [
+            'Site framework metadata is not loaded'
+        ];
 
         // Throw all errors together
         if ( errors.length > 0 ) {
@@ -152,6 +111,11 @@ class AdapterService {
         return this.apiAdapter;
     }
 
+    getMessagingAdapter () {
+        if ( !this.messagingAdapter ) throw new Error( 'AdapterService not initialized. Call initialize() first.' );
+        return this.messagingAdapter;
+    }
+
     /**
      * Get the current framework name
      * 
@@ -159,6 +123,13 @@ class AdapterService {
      * @throws {Error} If initialize() has not been called
      */
     getFramework () {
+        if ( !this.framework ) {
+            throw new Error( 'AdapterService not initialized. Call initialize() first.' );
+        }
+        return this.framework.id;
+    }
+
+    getFrameworkSpecification () {
         if ( !this.framework ) {
             throw new Error( 'AdapterService not initialized. Call initialize() first.' );
         }

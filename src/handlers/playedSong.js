@@ -427,7 +427,10 @@ async function playedSong ( message, state, services ) {
         try {
           const snapshot = services.afkService.getActivitySnapshot().find( e => e.uuid === uuid );
           const djName = snapshot?.nickname || uuid;
-          await services.hangSocketServices.removeDj( services, uuid );
+          const result = services.platformActions
+            ? await services.platformActions.removeFromDJQueue( uuid )
+            : await services.hangSocketServices.removeDj( services, uuid );
+          if ( result && !result.success ) throw new Error( result.error );
           await services.messageService.sendGroupMessage(
             `🚫 ${ djName } has been removed from the decks for inactivity.`,
             { services }
@@ -456,7 +459,10 @@ async function playedSong ( message, state, services ) {
 
             try {
               // Remove the DJ from the decks
-              await services.hangSocketServices.removeDj( services, currentDj.uuid );
+              const result = services.platformActions
+                ? await services.platformActions.removeFromDJQueue( currentDj.uuid )
+                : await services.hangSocketServices.removeDj( services, currentDj.uuid );
+              if ( result && !result.success ) throw new Error( result.error );
 
               // Notify the room
               await services.messageService.sendGroupMessage(
@@ -487,7 +493,10 @@ async function playedSong ( message, state, services ) {
       // Start a new timer for 90 seconds
       global.playedSongTimer = setTimeout( async () => {
         try {
-          await services.hangSocketServices.upVote( services );
+          const result = services.platformActions
+            ? await services.platformActions.voteOnTrack( 'up' )
+            : await services.hangSocketServices.upVote( services );
+          if ( result && !result.success ) throw new Error( result.error );
         } catch ( err ) {
           services.logger.error( 'Error in playedSong timer upVote:', err );
         }

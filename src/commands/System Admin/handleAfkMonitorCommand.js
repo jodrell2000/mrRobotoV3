@@ -1,6 +1,6 @@
 'use strict';
 
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 const config = require( '../../config' );
 
 const DEFAULT_FIRST_WARNING_MS = 15 * 60 * 1000;
@@ -33,7 +33,7 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
     }
 
     const senderRole = stateService.getUserRole( context.sender );
-    if ( !hasPermission( senderRole, 'MODERATOR' ) ) {
+    if ( !hasPermission( services, senderRole, 'MODERATOR' ) ) {
         const response = '❌ You need at least moderator permissions to use this command.';
         await messageService.sendResponse( response, {
             responseChannel,
@@ -52,7 +52,7 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
             return handleStatus( afkService, stateService, dataService, messageService, responseChannel, context, services );
 
         case 'exempt': {
-            if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can exempt DJs.';
                 await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
@@ -62,7 +62,7 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
         }
 
         case 'reset': {
-            if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can reset AFK timers.';
                 await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
@@ -72,7 +72,7 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
         }
 
         case 'set': {
-            if ( !hasPermission( senderRole, 'OWNER' ) ) {
+            if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can change AFK settings.';
                 await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };

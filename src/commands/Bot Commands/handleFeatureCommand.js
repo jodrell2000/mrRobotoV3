@@ -4,7 +4,7 @@ const description = 'Manage bot features "list" to see all or "enable/disable/st
 const example = 'feature <feature name> enable|disable|status>';
 const hidden = false;
 const config = require( '../../config' );
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 
 /**
  * Handle the !feature command for managing bot features
@@ -24,7 +24,7 @@ async function handleFeatureCommand ( commandParams ) {
     // Check if user has required permissions (owner or coOwner)
     const senderRole = stateService.getUserRole( context.sender );
 
-    if ( !hasPermission( senderRole, requiredRole ) ) {
+    if ( !hasPermission( services, senderRole, requiredRole ) ) {
       const response = '❌ Only the room owner or co-owner can manage features.';
       await messageService.sendResponse( response, {
         responseChannel,

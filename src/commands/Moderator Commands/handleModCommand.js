@@ -1,7 +1,7 @@
 'use strict';
 
 const config = require( '../../config' );
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 
 const requiredRole = 'MODERATOR';
 const description = 'Moderator tools (anonymous)';
@@ -81,7 +81,10 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
     }
 
     try {
-        await services.hangSocketServices.removeDj( services, uuid );
+        const result = services.platformActions
+            ? await services.platformActions.removeFromDJQueue( uuid )
+            : await services.hangSocketServices.removeDj( services, uuid );
+        if ( result && !result.success ) throw new Error( result.error );
     } catch ( err ) {
         const response = `❌ Failed to remove "${ nameArg }": ${ err.message }`;
         await messageService.sendResponse( response, {
@@ -107,7 +110,10 @@ async function handleSkipSong ( services, context, responseChannel ) {
     const { messageService } = services;
 
     try {
-        await services.hangSocketServices.skipSong( services );
+        const result = services.platformActions
+            ? await services.platformActions.skipTrack()
+            : await services.hangSocketServices.skipSong( services );
+        if ( result && !result.success ) throw new Error( result.error );
     } catch ( err ) {
         const response = `❌ Failed to skip song: ${ err.message }`;
         await messageService.sendResponse( response, {
@@ -134,7 +140,7 @@ async function handleModCommand ( commandParams ) {
     const { stateService, messageService } = services;
 
     const senderRole = stateService.getUserRole( context.sender );
-    if ( !hasPermission( senderRole, 'MODERATOR' ) ) {
+    if ( !hasPermission( services, senderRole, 'MODERATOR' ) ) {
         const response = '❌ You need at least moderator permissions to use this command.';
         await messageService.sendResponse( response, {
             responseChannel,

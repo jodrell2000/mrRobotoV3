@@ -5,6 +5,20 @@
 
 const appConfig = require( '../config' );
 
+async function resolveUserNickname ( services, userId ) {
+    const stateUser = services.stateService?.getUser?.( userId );
+    if ( stateUser?.nickname && stateUser.nickname !== userId ) return stateUser.nickname;
+
+    if ( services.stateService?.getUserProfile ) {
+        const profile = await services.stateService.getUserProfile( userId );
+        if ( profile?.nickname ) return profile.nickname;
+    }
+
+    return services.hangUserService?.getUserNicknameByUuid
+        ? services.hangUserService.getUserNicknameByUuid( services, userId )
+        : undefined;
+}
+
 /**
  * Format verified information from VerificationService for inclusion in AI prompt
  * @param {Object} verifiedData - Verified data object from VerificationService
@@ -209,14 +223,15 @@ async function executeSongAICommand ( commandParams, config ) {
         questionTemplate = questionTemplate || config.defaultTemplate;
 
         // Get additional context for token replacement
-        const currentDjUuid = services.hangoutState?.djs?.[ 0 ]?.uuid;
+        const currentDj = services.stateService?.getCurrentDj?.();
+        const currentDjUuid = currentDj?.userId || currentDj?.uuid || services.hangoutState?.djs?.[ 0 ]?.uuid;
         let username = 'Someone';
         let usernameMention = 'Someone';
 
         if ( currentDjUuid ) {
             try {
                 // Get actual display name for AI context
-                username = await services.hangUserService.getUserNicknameByUuid( services, currentDjUuid );
+                username = await resolveUserNickname( services, currentDjUuid );
                 // Create mention format for final response
                 usernameMention = `<@uid:${ currentDjUuid }>`;
             } catch ( error ) {
@@ -240,7 +255,7 @@ async function executeSongAICommand ( commandParams, config ) {
             try {
                 const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
                 if ( senderUuid ) {
-                    senderUsername = await services.hangUserService.getUserNicknameByUuid( services, senderUuid ) || 'User';
+                    senderUsername = await resolveUserNickname( services, senderUuid ) || 'User';
                 }
             } catch ( error ) {
                 logger.debug( `[${ config.commandName }] Could not get sender username: ${ error.message }` );

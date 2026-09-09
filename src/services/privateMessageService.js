@@ -4,6 +4,7 @@ const openchatApi = require( './openchatApi.js' );
 const config = require( '../config.js' );
 const { logger } = require( '../lib/logging.js' );
 const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
+const normalizeOutgoingMessage = require( '../siteFrameworks/hangfm/normalizeHangOutgoingMessage.js' );
 
 // Constants
 const RECEIVER_TYPE = {
@@ -37,7 +38,12 @@ const privateMessageService = {
             const customData = await openchatApi.buildCustomData( theMessage, services );
             const payload = await openchatApi.buildPayload( receiver, RECEIVER_TYPE.USER, customData, theMessage );
             const response = await openchatApi.sendMessage( payload );
+            const normalizedMessage = ( services?.frameworkSpecification?.translators?.normalizeOutgoingMessage || normalizeOutgoingMessage )( theMessage, {
+                recipientId: receiver,
+                visibility: 'private'
+            } );
             // logger.debug( `✅ Private message sent: ${ JSON.stringify( response.data, null, 2 ) }` );
+            return { message: theMessage, messageResponse: response.data, normalizedMessage };
         } catch ( err ) {
             logger.error( `❌ Failed to send private message: ${ err.response?.data || err.message }` );
         }

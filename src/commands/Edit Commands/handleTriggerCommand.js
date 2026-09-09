@@ -1,5 +1,5 @@
 const config = require( '../../config.js' );
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 
 // Set required role level for this command - requires owner
 const requiredRole = 'OWNER';
@@ -279,7 +279,7 @@ async function handleTriggerCommand ( commandParams ) {
     // Check if user has required permissions (owner or coOwner)
     const senderRole = stateService.getUserRole( context.sender );
 
-    if ( !hasPermission( senderRole, requiredRole ) ) {
+    if ( !hasPermission( services, senderRole, requiredRole ) ) {
         const response = '❌ Only the room owner or co-owner can manage triggers.';
         await messageService.sendResponse( response, {
             responseChannel,

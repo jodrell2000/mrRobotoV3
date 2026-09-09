@@ -549,7 +549,7 @@ describe( 'handlePersonalityCommand', () => {
             expect( result.response ).toContain( 'Activated' );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'activePersonality', 'TestPersonality' );
             expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'botData.CHAT_NAME', 'NewBotName' );
-            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( mockServices, 'NewBotName' );
             expect( mockServices.messageService.leaveChat ).toHaveBeenCalledWith( 'test-hangout-id' );
             expect( mockServices.messageService.joinChat ).toHaveBeenCalledWith( 'test-hangout-id' );
 
@@ -618,7 +618,7 @@ describe( 'handlePersonalityCommand', () => {
             // Should still succeed even if CometChat rejoin fails
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'Activated' );
-            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( mockServices, 'NewBotName' );
             expect( mockServices.messageService.leaveChat ).toHaveBeenCalled();
             expect( mockServices.messageService.joinChat ).toHaveBeenCalled();
             expect( mockServices.logger.warn ).toHaveBeenCalledWith(
@@ -651,7 +651,7 @@ describe( 'handlePersonalityCommand', () => {
             // Should still succeed and attempt rejoin even if leave fails
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'Activated' );
-            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( 'NewBotName' );
+            expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( mockServices, 'NewBotName' );
             expect( mockServices.messageService.leaveChat ).toHaveBeenCalled();
             expect( mockServices.messageService.joinChat ).toHaveBeenCalled();
             expect( mockServices.logger.warn ).toHaveBeenCalledWith(

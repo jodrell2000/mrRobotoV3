@@ -143,6 +143,15 @@ services.logger.info( '======================================= Application Start
   services.logger.debug( '🚀 Starting application async function' );
 
   try {
+    const framework = services.frameworkSpecification;
+    const requiresChatAuthToken = framework?.startup?.requiresChatAuthToken ?? true;
+    const supportsPublicMessages = framework?.startup?.requiresPublicMessagePolling
+      ?? framework?.capabilities?.publicMessages?.supported
+      ?? true;
+    const supportsPrivateMessages = framework?.startup?.requiresPrivateMessagePolling
+      ?? framework?.capabilities?.privateMessages?.supported
+      ?? true;
+
     // Wait for database initialization to complete
     services.logger.debug( '⏳ Waiting for database service initialization...' );
     let maxWaitTime = 30000; // 30 seconds max wait
@@ -160,24 +169,34 @@ services.logger.info( '======================================= Application Start
       services.logger.info( '✅ Database service initialized successfully' );
     }
 
-    // Fetch and configure CometChat token from Gateway API (CRITICAL - must happen before bot operations)
-    try {
-      const dynamicToken = await services.hangUserService.getCometChatToken( services );
-      services.openchatApi.setAuthToken( dynamicToken );
-      services.logger.info( '✅ CometChat auth token successfully configured' );
-    } catch ( tokenError ) {
-      // HARD FAIL - authentication is critical for bot operation
-      services.logger.error( `❌ Failed to fetch CometChat token: ${ tokenError.message }` );
-      services.logger.error( '❌ Cannot start bot without valid authentication' );
-
-      // Exit with error code
-      process.exit( 1 );
+    if ( requiresChatAuthToken ) {
+      // Fetch and configure the framework's chat token before bot operations
+      try {
+        const dynamicToken = await services.hangUserService.getCometChatToken( services );
+        if ( services.messagingAdapter ) services.messagingAdapter.setAuthToken( dynamicToken );
+        else services.openchatApi.setAuthToken( dynamicToken );
+        services.logger.info( '✅ CometChat auth token successfully configured' );
+      } catch ( tokenError ) {
+        services.logger.error( `❌ Failed to fetch CometChat token: ${ tokenError.message }` );
+        services.logger.error( '❌ Cannot start bot without valid chat authentication' );
+        process.exit( 1 );
+      }
+    } else {
+      services.logger.info( 'ℹ️ Selected framework does not require CometChat authentication' );
     }
 
     // Fetch bot's nickname using BOT_UID and hangUserService
     services.logger.debug( '🔍 About to fetch bot nickname' );
     try {
-      const botNickname = await services.hangUserService.getUserNicknameByUuid( services, services.config.BOT_UID );
+      const profileResult = services.platformActions
+        ? await services.platformActions.getUserProfile( services.config.BOT_UID )
+        : null;
+      if ( profileResult?.supported === false || profileResult?.success === false ) {
+        throw new Error( profileResult.error );
+      }
+      const botNickname = profileResult?.data?.nickname ||
+        ( profileResult ? profileResult.data?.data?.nickname : undefined ) ||
+        await services.hangUserService.getUserNicknameByUuid( services, services.config.BOT_UID );
       services.setState( 'botNickname', botNickname );
       services.logger.info( `🤖 Bot nickname resolved and stored: ${ botNickname }` );
     } catch ( err ) {
@@ -206,13 +225,20 @@ services.logger.info( '======================================= Application Start
       const savedBotName = services.dataService.getValue( 'botData.CHAT_NAME' );
       if ( savedBotName ) {
         services.logger.debug( `🔄 Syncing bot name to TT.fm platform: ${ savedBotName }` );
-        await services.hangUserService.updateHangNickname( services, savedBotName );
+        const identityResult = services.platformActions
+          ? await services.platformActions.updateBotIdentity( savedBotName )
+          : null;
+        if ( identityResult?.supported === false || identityResult?.success === false ) {
+          throw new Error( identityResult.error );
+        }
+        if ( !identityResult ) await services.hangUserService.updateHangNickname( services, savedBotName );
         services.logger.info( `✅ Bot name synced to TT.fm: ${ savedBotName }` );
 
-        // Leave and rejoin CometChat to refresh display name
-        try {
+        // Leave and rejoin framework chat to refresh display name
+        if ( requiresChatAuthToken ) try {
           services.logger.debug( '🔄 Leaving CometChat to refresh display name...' );
-          await services.messageService.leaveChat( services.config.HANGOUT_ID );
+          if ( services.messagingAdapter ) await services.messagingAdapter.leaveRoom( services.config.HANGOUT_ID );
+          else await services.messageService.leaveChat( services.config.HANGOUT_ID );
           services.logger.debug( '✅ Left CometChat group' );
         } catch ( leaveError ) {
           services.logger.warn( `⚠️ Failed to leave CometChat (will still try to rejoin): ${ leaveError.message }` );
@@ -223,10 +249,11 @@ services.logger.info( '======================================= Application Start
       // Don't throw - this is not critical for bot operation
     }
 
-    // Join the chat group before processing messages
-    try {
+    // Join the framework chat before processing messages
+    if ( requiresChatAuthToken ) try {
       services.logger.debug( '🔄 Joining chat group...' );
-      await services.messageService.joinChat( services.config.HANGOUT_ID );
+      if ( services.messagingAdapter ) await services.messagingAdapter.joinRoom( services.config.HANGOUT_ID );
+      else await services.messageService.joinChat( services.config.HANGOUT_ID );
       services.logger.debug( '✅ Successfully joined chat group' );
     } catch ( joinError ) {
       services.logger.error( `❌ Error joining chat group: ${ joinError }` );
@@ -251,11 +278,11 @@ services.logger.info( '======================================= Application Start
       setTimeout( processPublicMessages, roomBot.publicMessageInterval );
     };
 
-    // Start public message processing
-    setTimeout( processPublicMessages, 1000 );
+    // Start public message processing only when the framework supports it.
+    if ( supportsPublicMessages ) setTimeout( processPublicMessages, 1000 );
 
     // Private message processing at fixed 1 second interval
-    setInterval( async () => {
+    if ( supportsPrivateMessages ) setInterval( async () => {
       try {
         await roomBot.processNewPrivateMessages();
       } catch ( error ) {

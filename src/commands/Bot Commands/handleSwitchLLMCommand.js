@@ -4,7 +4,7 @@ const description = 'Switch LLM backend (gemma or mistral)';
 const example = 'switchllm mistral';
 const hidden = false;
 const config = require( '../../config' );
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 
 /**
  * Handle the !switchllm command for switching LLM backends
@@ -24,7 +24,7 @@ async function handleSwitchLLMCommand ( commandParams ) {
         // Check if user has required permissions (owner only)
         const senderRole = stateService.getUserRole( context.sender );
 
-        if ( !hasPermission( senderRole, requiredRole ) ) {
+        if ( !hasPermission( services, senderRole, requiredRole ) ) {
             const response = '❌ Only the room owner can switch LLM backends.';
             await messageService.sendResponse( response, {
                 responseChannel,

@@ -165,32 +165,4 @@ describe( 'hangUserService.getCometChatToken', () => {
   } );
 } );
 
-test( 'should use correct endpoint URL', async () => {
-  makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
-
-  await getCometChatToken();
-
-  const callArgs = makeRequest.mock.calls[ 0 ];
-  expect( callArgs[ 0 ] ).toBe( 'https://gateway.prod.tt.fm/api/user-service/comet-chat/user-token' );
-} );
-
-test( 'should use GET method', async () => {
-  makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
-
-  await getCometChatToken();
-
-  const callArgs = makeRequest.mock.calls[ 0 ];
-  expect( callArgs[ 1 ].method ).toBe( 'GET' );
-} );
-
-test( 'should include accept header for JSON', async () => {
-  makeRequest.mockResolvedValueOnce( { cometAuthToken: 'token123' } );
-
-  await getCometChatToken();
-
-  const callArgs = makeRequest.mock.calls[ 0 ];
-  expect( callArgs[ 2 ].accept ).toBe( 'application/json' );
-} );
-} );
-
 

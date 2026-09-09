@@ -1,4 +1,3 @@
-const { applyPatch } = require( 'fast-json-patch' );
 const fs = require( 'fs' ).promises;
 const path = require( 'path' );
 
@@ -175,56 +174,25 @@ class Bot {
   }
 
   async _applyStatePatch ( message, statePatch ) {
-    // Validate that we have state before applying patches
-    if ( !this.state ) {
-      throw new Error( 'Cannot apply patch - state not available' );
-    }
+    const applyPatch = this.services.frameworkSpecification?.state?.applyPatch ||
+      require( '../siteFrameworks/hangfm/applyHangStatePatch.js' );
+    if ( !applyPatch ) throw new Error( 'Selected framework does not support state patches' );
 
-    const validOperations = statePatch.filter( operation => {
-      try {
-        // For remove operations, check if the path exists
-        if ( operation.op === 'remove' ) {
-          const pathParts = operation.path.split( '/' ).slice( 1 ); // Remove empty first element
-          let current = this.state;
-
-          // Traverse the path to see if it exists
-          for ( const part of pathParts ) {
-            if ( current && typeof current === 'object' && part in current ) {
-              current = current[ part ];
-            } else {
-              // this.services.logger.debug( `Skipping remove operation - path does not exist: ${ operation.path }` );
-              return false; // Skip this operation
-            }
-          }
-        }
-        return true; // Operation is valid
-      } catch ( validateError ) {
-        // this.services.logger.debug( `Skipping invalid operation: ${ JSON.stringify( operation ) } - ${ validateError.message }` );
-        return false;
-      }
-    } );
-
-    // Only apply if we have valid operations
-    if ( validOperations.length > 0 ) {
-      const patchResult = applyPatch(
-        this.state,
-        validOperations,
-        true,  // validate operation
-        false  // mutate document
-      );
+    const patchResult = applyPatch( this.state, statePatch );
+    if ( patchResult.appliedOperations > 0 ) {
 
       // Update the bot's state with the patched state
       this.state = patchResult.newDocument;
-      this.services.hangoutState = patchResult.newDocument;
+      const normalizeState = this.services.frameworkSpecification?.translators?.normalizeState;
+      if ( this.services.stateService ) {
+        this.services.stateService.setPlatformState( patchResult.newDocument, normalizeState, this.services.config );
+      } else {
+        this.services.hangoutState = patchResult.newDocument;
+      }
 
       // this.services.logger.debug( `State updated via patch for message: ${ message.name }` );
       // this.services.logger.debug( `Applied ${ validOperations.length } patch operations` );
 
-      if ( validOperations.length < statePatch.length ) {
-        // this.services.logger.debug( `Skipped ${ statePatch.length - validOperations.length } invalid operations` );
-      }
-    } else {
-      // this.services.logger.debug( `No valid operations to apply for message: ${ message.name }` );
     }
   }
 
@@ -252,6 +220,35 @@ class Bot {
     // Now initialize the state service
     await this.services.initializeStateService();
     this.services.logger.debug( 'StateService initialized successfully with validated state' );
+  }
+
+  async _dispatchNormalizedHangEvents ( message, previousState, initialState = false ) {
+    const coordinator = this.services.platformEventCoordinator;
+    if ( coordinator ) {
+      const currentState = this.services.stateService?.getState?.();
+      if ( initialState ) return coordinator.dispatchRoomState( currentState, previousState );
+      return coordinator.dispatchHangMessage( message, { previousState, currentState } );
+    }
+
+    const translateEvent = this.services.frameworkSpecification?.translators?.translateEvent;
+    const dispatcher = this.services.eventDispatcher;
+    const stateService = this.services.stateService;
+
+    if ( !translateEvent || !dispatcher || !stateService ) return;
+
+    const includeRaw = process.env.NODE_ENV === 'test' || this.services.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG';
+    const events = translateEvent( message, {
+      previousState,
+      currentState: stateService.getState(),
+      roomId: stateService.getRoom()?.id || this.services.config.HANGOUT_ID,
+      config: this.services.config,
+      includeRaw,
+      initialState
+    } );
+
+    for ( const event of events ) {
+      await dispatcher.dispatch( event, { bot: this, services: this.services } );
+    }
   }
 
   _seedAfkServiceFromState () {
@@ -449,9 +446,18 @@ class Bot {
   }
 
   async _joinCometChat () {
+    const framework = this.services.frameworkSpecification;
+    if ( framework && !framework.startup?.requiresChatAuthToken ) {
+      this.services.logger.debug( 'Skipping OpenChat join; selected framework owns chat transport' );
+      return;
+    }
+
     this.services.logger.debug( 'Joining the chat...' );
     try {
-      const result = await this.services.messageService.joinChat( this.services.config.HANGOUT_ID );
+      const messagingAdapter = this.services.messagingAdapter;
+      const result = await ( messagingAdapter
+        ? messagingAdapter.joinRoom( this.services.config.HANGOUT_ID )
+        : this.services.messageService.joinChat( this.services.config.HANGOUT_ID ) );
 
       // Check if this was an "already joined" success case
       if ( result?.data?.alreadyMember ) {
@@ -468,6 +474,13 @@ class Bot {
 
   async _createSocketConnection () {
     this.services.logger.debug( 'Using socket adapter from serviceContainer...' );
+    if ( !this.services.socketAdapter && this.services.socket ) {
+      this.socketAdapter = this.services.socket;
+      this.socket = this.services.socket;
+      if ( typeof this.socketAdapter.connect === 'function' ) await this.socketAdapter.connect();
+      this.services.logger.debug( '✅ Socket adapter registered' );
+      return;
+    }
     if ( !this.services.socketAdapter ) {
       throw new Error( 'Socket adapter not initialized - check config and adapter initialization in serviceContainer' );
     }
@@ -532,6 +545,8 @@ class Bot {
         throw stateError;
       }
 
+      await this._dispatchNormalizedHangEvents( { name: 'roomStateReceived' }, undefined, true );
+
       // Seed afkService from initial room state — handles users/DJs already
       // present when the bot (re)starts, since no addedDj/userJoined events
       // fire for them during the join callback
@@ -561,9 +576,10 @@ class Bot {
 
   async _joinRoomWithTimeout () {
     const timeoutMs = 1000 * 60; // 60 seconds
+    const socketAdapter = this.socketAdapter || this.socket;
 
     return Promise.race( [
-      this.socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN ),
+      socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN ),
       new Promise( ( _, reject ) =>
         setTimeout( () => reject( new Error( `Socket join room timeout after ${ timeoutMs / 1000 } seconds` ) ), timeoutMs )
       )
@@ -572,13 +588,22 @@ class Bot {
 
   _setupReconnectHandler () {
     this.services.logger.debug( '✅ Setting up reconnect handler...' );
+    const socketAdapter = this.socketAdapter || this.socket;
 
-    this.socketAdapter.on( "reconnect", async () => {
+    socketAdapter.on( "reconnect", async () => {
       this.services.logger.debug( '🔄 Reconnecting to room...' );
       try {
-        const { state } = await this.socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN );
+        const { state } = await socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN );
+        const previousNormalizedState = this.services.stateService?.getState?.();
         this.state = state;
         this.services.hangoutState = state;
+        const normalizeState = this.services.frameworkSpecification?.translators?.normalizeState;
+        if ( normalizeState && this.services.stateService ) {
+          this.services.stateService.setPlatformState( state, normalizeState, this.services.config );
+        } else {
+          this.services.hangoutState = state;
+        }
+        await this._dispatchNormalizedHangEvents( { name: 'roomStateReceived' }, previousNormalizedState, true );
         this.services.logger.debug( '🔄 Reconnected successfully' );
       } catch ( error ) {
         this.services.logger.error( `❌ Reconnection failed: ${ error }` );
@@ -600,8 +625,10 @@ class Bot {
   }
 
   _setupStatefulMessageListener () {
-    this.socketAdapter.on( 'statefulMessage', async ( message ) => {
+    const socketAdapter = this.socketAdapter || this.socket;
+    socketAdapter.on( 'statefulMessage', async ( message ) => {
       // this.services.logger.debug( `statefulMessage - ${ message.name }` );
+      const previousNormalizedState = this.services.stateService?.getState?.();
 
       // Log payload to file
       await this._writeSocketMessagesToLogFile( 'statefulMessage.log', message );
@@ -634,23 +661,13 @@ class Bot {
       }
 
       // Handler logic based on message.name
-      try {
-        const handlers = require( '../handlers' );
-        const handlerFn = handlers[ message.name ];
-        if ( typeof handlerFn === 'function' ) {
-          this.services.logger.debug( `Calling handler for statefulMessage: ${ message.name }` );
-          await handlerFn( message, this.state, this.services );
-        } else {
-          this.services.logger.debug( `No handler found for statefulMessage: ${ message.name }` );
-        }
-      } catch ( err ) {
-        this.services.logger.error( `Error calling handler for statefulMessage ${ message.name }: ${ err.message }` );
-      }
+      await this._dispatchNormalizedHangEvents( message, previousNormalizedState );
     } );
   }
 
   _setupStatelessMessageListener () {
-    this.socketAdapter.on( "statelessMessage", async ( payload ) => {
+    const socketAdapter = this.socketAdapter || this.socket;
+    socketAdapter.on( "statelessMessage", async ( payload ) => {
       this.services.logger.debug( `statelessMessage - ${ payload.name }` );
 
       // Log payload to file
@@ -661,7 +678,8 @@ class Bot {
   }
 
   _setupServerMessageListener () {
-    this.socketAdapter.on( "serverMessage", async ( payload ) => {
+    const socketAdapter = this.socketAdapter || this.socket;
+    socketAdapter.on( "serverMessage", async ( payload ) => {
       // this.services.logger.debug( `serverMessage - ${ payload.message.name }` );
 
       // Log payload to file
@@ -691,7 +709,8 @@ class Bot {
   }
 
   _setupErrorListener () {
-    this.socketAdapter.on( "error", async ( message ) => {
+    const socketAdapter = this.socketAdapter || this.socket;
+    socketAdapter.on( "error", async ( message ) => {
       this.services.logger.debug( `Socket error: ${ message }` );
 
       // Log message to file
@@ -840,7 +859,9 @@ class Bot {
   async _fetchNewMessages () {
     // Fetch ALL messages (not pre-filtered) so we can record AFK activity for
     // regular chat messages before filtering down to commands for processing.
-    const allMessages = await this.services.messageService.fetchGroupMessages( this.services.config.HANGOUT_ID, {
+    const fetchChatMessages = this.services.messagingAdapter?.fetchChatMessages ||
+      this.services.messageService.fetchGroupMessages.bind( this.services.messageService );
+    const allMessages = await fetchChatMessages( this.services.config.HANGOUT_ID, {
       lastID: this.lastMessageIDs.id,
       fromTimestamp: this.lastMessageIDs.fromTimestamp,
       filterCommands: false,
@@ -1022,7 +1043,9 @@ class Bot {
       };
 
       // Fetch new messages from the API
-      const userMessages = await this.services.privateMessageService.fetchNewPrivateUserMessages( userUUID, options );
+      const fetchPrivateMessages = this.services.messagingAdapter?.fetchPrivateMessages ||
+        this.services.privateMessageService.fetchNewPrivateUserMessages.bind( this.services.privateMessageService );
+      const userMessages = await fetchPrivateMessages( userUUID, options );
 
       if ( !userMessages || userMessages.length === 0 ) {
         return [];
@@ -1065,9 +1088,15 @@ class Bot {
   }
 
   async _processSingleMessage ( message ) {
+    const normalizeMessage = this.services.frameworkSpecification?.translators?.normalizeMessage;
+    const normalizedMessage = normalizeMessage
+      ? normalizeMessage( message, this.services.config )
+      : message;
+
     // Check for duplicate processing (additional safety check)
-    if ( message.isPrivateMessage ) {
-      const sender = message.sender?.uid || message.sender || '';
+    if ( normalizedMessage.visibility === 'private' ) {
+      const sender = normalizedMessage.sender?.id || normalizedMessage.sender?.uid ||
+        ( typeof normalizedMessage.sender === 'string' ? normalizedMessage.sender : '' );
 
       // Silently ignore messages from unknown/invalid users
       if ( !sender || sender === '' ) {
@@ -1076,36 +1105,37 @@ class Bot {
 
       const userTracking = this.lastPrivateMessageTracking[ sender ];
 
-      if ( userTracking && userTracking.lastMessageId === message.id ) {
+      if ( userTracking && userTracking.lastMessageId === normalizedMessage.id ) {
         // Silently skip duplicate messages
         return;
       }
     }
 
-    this._updateMessageTracking( message );
+    this._updateMessageTracking( normalizedMessage );
 
-    const chatMessage = this._extractChatMessage( message );
+    const chatMessage = this._extractChatMessage( normalizedMessage );
     if ( !chatMessage ) {
       return;
     }
 
     // Extract sender UUID - handle both direct string and object with uid property
-    const sender = message?.sender?.uid || message?.sender || '';
+    const sender = normalizedMessage.sender?.id || normalizedMessage.sender?.uid ||
+      ( typeof normalizedMessage.sender === 'string' ? normalizedMessage.sender : '' );
 
     if ( this._shouldIgnoreMessage( sender ) ) {
       return;
     }
 
-    await this._handleMessage( chatMessage, sender, message );
+    await this._handleMessage( chatMessage, sender, normalizedMessage );
   }
 
   _updateMessageTracking ( message ) {
     const previousId = this.lastMessageIDs.id;
 
     // Handle private message tracking
-    if ( message.isPrivateMessage ) {
+    if ( message.visibility === 'private' || message.isPrivateMessage ) {
       // Update private message tracking for the sender
-      const sender = message.sender?.uid || message.sender || '';
+      const sender = message.sender?.id || message.sender?.uid || message.sender || '';
       if ( sender ) {
         const normalizedTimestamp = this._normalizeTimestamp( message.sentAt );
 
@@ -1133,7 +1163,7 @@ class Bot {
   }
 
   _extractChatMessage ( message ) {
-    const messageText = message?.data?.metadata?.chatMessage?.message ?? ''
+    const messageText = message?.content ?? message?.data?.metadata?.chatMessage?.message ?? ''
     // this.services.logger.debug( `[_extractChatMessage] Chat: ${ messageText }` );
     return messageText
   }
@@ -1227,9 +1257,9 @@ class Bot {
         // Persist the updated tracking state
         this.services.setState( 'lastPrivateMessageTracking', this.lastPrivateMessageTracking );
 
-        // this.services.logger.debug( `✅ Removed private message tracking for user: ${ userUUID }` );
+        this.services.logger.debug( `✅ Removed private message tracking for user: ${ userUUID }` );
       } else {
-        // this.services.logger.debug( `No private message tracking found for user: ${ userUUID }` );
+        this.services.logger.debug( `No private message tracking found for user: ${ userUUID }` );
       }
     } catch ( error ) {
       this.services.logger.error( `Error removing private message tracking for user ${ userUUID }: ${ error.message }` );
@@ -1253,8 +1283,11 @@ class Bot {
   }
 
   getConnectionStatus () {
+    const socketAdapter = this.socketAdapter || this.socket;
     return {
-      isConnected: this.socketAdapter ? this.socketAdapter.isConnected() : false,
+      isConnected: socketAdapter
+        ? ( typeof socketAdapter.isConnected === 'function' ? socketAdapter.isConnected() : true )
+        : false,
       hasState: !!this.state,
       lastMessageId: this.lastMessageIDs?.id,
       lastTimestamp: this.lastMessageIDs?.fromTimestamp
@@ -1270,13 +1303,15 @@ class Bot {
       // this.services.logger.debug( 'Saved private message tracking state' );
     }
 
-    if ( this.socketAdapter ) {
+    const socketAdapter = this.socketAdapter || this.socket;
+    if ( socketAdapter ) {
       try {
-        await this.socketAdapter.disconnect();
+        if ( typeof socketAdapter.disconnect === 'function' ) await socketAdapter.disconnect();
       } catch ( error ) {
         this.services.logger.warn( `Error disconnecting socket adapter: ${ error.message }` );
       }
       this.socketAdapter = null;
+      this.socket = null;
     }
 
     this.state = null;

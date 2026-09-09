@@ -1,5 +1,3 @@
-const services = require( '../services/serviceContainer.js' );
-
 /**
  * Updates the stored previous song vote counts from vote patches
  * @param {Object} message - The stateful message containing vote patches

@@ -1,5 +1,5 @@
 const config = require( '../../config.js' );
-const { hasPermission } = require( '../../lib/roleUtils' );
+const { hasPermission } = require( '../../services/permissionService.js' );
 
 const requiredRole = 'MODERATOR';
 const description = 'Manage bot personality presets';
@@ -128,7 +128,7 @@ async function handleShowAllPersonality ( personalityName, services, context, re
 
     try {
         const senderRole = stateService.getUserRole( context.sender );
-        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+        if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
             const response = '❌ Only the room owner can view full personality details. Use `show` for a brief overview.';
             await messageService.sendResponse( response, {
                 responseChannel,
@@ -206,7 +206,7 @@ async function handleSavePersonality ( personalityName, description, services, c
 
     try {
         const senderRole = stateService.getUserRole( context.sender );
-        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+        if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
             const response = '❌ Only the room owner can save personalities.';
             await messageService.sendResponse( response, {
                 responseChannel,
@@ -310,7 +310,7 @@ async function handleUpdatePersonality ( personalityName, description, services,
 
     try {
         const senderRole = stateService.getUserRole( context.sender );
-        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+        if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
             const response = '❌ Only the room owner can update personalities.';
             await messageService.sendResponse( response, {
                 responseChannel,
@@ -495,7 +495,12 @@ async function handleActivatePersonality ( personalityName, services, context, r
         if ( botName ) {
             await dataService.setValue( 'botData.CHAT_NAME', botName );
             // Update bot name on TT.fm platform
-            await services.hangUserService.updateHangNickname( services, botName );
+            const identityResult = services.platformActions
+                ? await services.platformActions.updateBotIdentity( botName )
+                : await services.hangUserService.updateHangNickname( services, botName );
+            if ( identityResult?.supported === false || identityResult?.success === false ) {
+                throw new Error( identityResult.error );
+            }
 
             // Leave and rejoin CometChat to refresh display name in chat window
             try {
@@ -584,7 +589,7 @@ async function handleDeletePersonality ( personalityName, services, context, res
 
     try {
         const senderRole = stateService.getUserRole( context.sender );
-        if ( !hasPermission( senderRole, 'OWNER' ) ) {
+        if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
             const response = '❌ Only the room owner can delete personalities.';
             await messageService.sendResponse( response, {
                 responseChannel,

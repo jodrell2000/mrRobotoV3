@@ -46,7 +46,7 @@ describe( 'handleEscortmeCommand', () => {
         it( 'should have correct metadata', () => {
             expect( handleEscortmeCommand.requiredRole ).toBe( 'USER' );
             expect( handleEscortmeCommand.description ).toBe( 'Schedule removal after current song' );
-            expect( handleEscortmeCommand.example ).toBe( 'escortme' );
+            expect( handleEscortmeCommand.example ).toBe( 'escortme | escortme stop' );
             expect( handleEscortmeCommand.hidden ).toBe( false );
         } );
     } );

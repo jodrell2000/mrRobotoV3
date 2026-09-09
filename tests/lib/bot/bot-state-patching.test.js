@@ -43,6 +43,7 @@ describe( 'Bot - State Patching', () => {
     };
 
     bot.socket = mockSocket;
+    bot.socketAdapter = mockSocket;
 
     // Set initial state
     bot.state = {

@@ -2,6 +2,7 @@
 const { v4: uuidv4 } = require( 'uuid' );
 const openchatApi = require( './openchatApi.js' );
 const config = require( '../config.js' );
+const normalizeOutgoingMessage = require( '../siteFrameworks/hangfm/normalizeHangOutgoingMessage.js' );
 const { logger } = require( '../lib/logging.js' );
 const { buildUrl, makeRequest } = require( '../lib/buildUrl' );
 
@@ -164,11 +165,20 @@ const groupMessageService = {
 
             const response = await openchatApi.sendMessage( payload );
 
+            const normalizedMessage = ( options.services?.frameworkSpecification?.translators?.normalizeOutgoingMessage || normalizeOutgoingMessage )( message, {
+                roomId: room,
+                senderId: senderUid,
+                senderName,
+                mentions,
+                isEphemeral: false
+            } );
+
             // logger.debug( `📤 [sendGroupMessage] Message sent to chat: "${ message.substring( 0, 60 ) }${ message.length > 60 ? '...' : '' }"` );
 
             return {
                 message: message,
-                messageResponse: response.data
+                messageResponse: response.data,
+                normalizedMessage
             };
 
         } catch ( err ) {

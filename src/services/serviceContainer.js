@@ -23,6 +23,9 @@ const DocumentationService = require( './documentationService.js' );
 const RateLimiterService = require( './rateLimiterService.js' );
 const VerificationService = require( './verificationService.js' );
 const AdapterService = require( './AdapterService.js' );
+const EventDispatcher = require( './eventDispatcher.js' );
+const PlatformEventCoordinator = require( './platformEventCoordinator.js' );
+const createPlatformActions = require( './platformActions.js' );
 
 // Shared state that all services can access and modify
 const sharedState = {
@@ -84,12 +87,24 @@ const initializeAdapters = async () => {
     logger.debug( 'Initializing adapter service...' );
 
     // Create AdapterService with current config
-    services.adapterService = new AdapterService( config, logger );
+    services.adapterService = new AdapterService( config, logger, {
+      messageService,
+      privateMessageService,
+      openchatApi: services.openchatApi
+    } );
 
     // Initialize and validate configuration
     await services.adapterService.initialize();
 
-    // Register socket adapter
+    // Register selected framework and adapters
+    services.frameworkSpecification = services.adapterService.getFrameworkSpecification();
+    services.platformActions = createPlatformActions( services );
+    services.platformEventCoordinator = new PlatformEventCoordinator( {
+      framework: services.frameworkSpecification,
+      dispatcher: services.eventDispatcher,
+      services,
+      logger
+    } );
     services.socketAdapter = services.adapterService.getSocketAdapter();
     services.socketAdapter.setLogger( logger );
     logger.info( `✅ Socket adapter initialized for framework: ${ services.adapterService.getFramework() }` );
@@ -98,6 +113,7 @@ const initializeAdapters = async () => {
     services.apiAdapter = services.adapterService.getApiAdapter();
     services.apiAdapter.setLogger( logger );
     logger.info( `✅ API adapter initialized for framework: ${ services.adapterService.getFramework() }` );
+    services.messagingAdapter = services.adapterService.getMessagingAdapter();
 
   } catch ( err ) {
     logger.error( `❌ Failed to initialize adapters: ${ err.message }` );
@@ -133,6 +149,11 @@ const services = {
   adapterService: null, // Will be initialized async - adapter orchestrator
   socketAdapter: null, // Will be initialized async - socket adapter for the configured framework
   apiAdapter: null, // Will be initialized async - API adapter for the configured framework
+  messagingAdapter: null, // Will be initialized async - messaging adapter for the configured framework
+  frameworkSpecification: null, // Will be initialized async - selected site framework
+  eventDispatcher: new EventDispatcher( logger ),
+  platformEventCoordinator: null,
+  platformActions: null,
   data: {}, // Will be populated by initializeData()
 
   // Shared state
@@ -194,7 +215,12 @@ const services = {
       throw new Error( `Cannot initialize StateService: hangoutState is missing essential properties: ${ missingProps.join( ', ' ) } - initial state may not be fully loaded` );
     }
 
-    this.stateService = new StateService( this.hangoutState, this );
+    const normalizeState = this.frameworkSpecification?.translators?.normalizeState;
+    const normalizedState = normalizeState
+      ? normalizeState( this.hangoutState, this.config )
+      : undefined;
+
+    this.stateService = new StateService( this.hangoutState, this, normalizedState );
     this.logger.debug( 'StateService initialized with valid hangout state' );
   }
 };
@@ -208,6 +234,45 @@ services.documentationService = new DocumentationService( {
   services: services
 } );
 services.verificationService = new VerificationService( services );
+
+services.eventDispatcher.registerHandler( 'roomStateReceived', async ( event, context ) => {
+  const state = event.payload?.state;
+  if ( state && context.services?.stateService ) {
+    context.services.stateService.setNormalizedState( state );
+  }
+} );
+
+services.eventDispatcher.registerHandler( 'stateChanged', async ( event, context ) => {
+  const state = event.payload?.state;
+  if ( state && context.services?.stateService ) {
+    context.services.stateService.setNormalizedState( state );
+  }
+} );
+
+services.eventDispatcher.registerHandler( 'djQueueChanged', async ( event, context ) => {
+  const state = context.services?.stateService?.getState();
+  if ( state && event.payload?.djQueue ) state.djQueue = event.payload.djQueue;
+} );
+
+services.eventDispatcher.registerHandler( 'trackStarted', async ( event, context ) => {
+  const state = context.services?.stateService?.getState();
+  if ( state ) state.nowPlaying = event.payload?.playback || null;
+} );
+
+services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context ) => {
+  const state = context.services?.stateService?.getState();
+  if ( state?.nowPlaying?.playId === event.payload?.playId ) state.nowPlaying = null;
+} );
+
+services.eventDispatcher.registerHandler( 'voteChanged', async ( event, context ) => {
+  const state = context.services?.stateService?.getState();
+  if ( state && event.payload?.votes ) state.votes = event.payload.votes;
+} );
+
+services.eventDispatcher.registerHandler( 'roomSettingsChanged', async ( event, context ) => {
+  const state = context.services?.stateService?.getState();
+  if ( state && event.payload?.roomSettings ) state.roomSettings = event.payload.roomSettings;
+} );
 
 // Initialize retry service connection to OpenChat API
 const openchatApi = require( './openchatApi.js' );

@@ -207,6 +207,7 @@ describe( 'VerificationService', () => {
         } );
 
         it( 'should accept artist and track parameters', async () => {
+            jest.spyOn( verificationService, '_searchMusicBrainz' ).mockResolvedValueOnce( { searches: {} } );
             const result = await verificationService._searchMusicBrainz( 'Test Artist', 'Test Track' );
 
             expect( result ).toHaveProperty( 'searches' );

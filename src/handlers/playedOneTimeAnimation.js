@@ -1,5 +1,3 @@
-const services = require( '../services/serviceContainer.js' );
-
 /**
  * Checks if an emoji is a snag emoji that should count as a star
  * @param {string} emoji - The emoji to check

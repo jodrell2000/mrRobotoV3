@@ -199,7 +199,15 @@ class TokenService {
                 return this.services.messageService.formatMention( senderUuid );
             }
 
-            // Fallback: try to get nickname from hangUserService
+            const stateUser = this.services?.stateService?.getUser?.( senderUuid );
+            if ( stateUser?.nickname && stateUser.nickname !== senderUuid ) return stateUser.nickname;
+
+            if ( this.services?.stateService?.getUserProfile ) {
+                const profile = await this.services.stateService.getUserProfile( senderUuid );
+                if ( profile?.nickname ) return profile.nickname;
+            }
+
+            // Compatibility fallback for legacy services
             if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
                 try {
                     const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, senderUuid );
@@ -229,7 +237,7 @@ class TokenService {
             }
 
             // Get the list of DJs and use the first one (current DJ)
-            const djs = this.services.stateService._getDjs?.();
+            const djs = this.services.stateService.getDjQueue?.() || this.services.stateService._getDjs?.();
 
             if ( !djs || !Array.isArray( djs ) || djs.length === 0 ) {
                 return 'No DJ';
@@ -242,7 +250,15 @@ class TokenService {
                 return this.services.messageService.formatMention( djUuid );
             }
 
-            // Fallback: try to get nickname from hangUserService
+            const stateUser = this.services?.stateService?.getUser?.( djUuid );
+            if ( stateUser?.nickname && stateUser.nickname !== djUuid ) return stateUser.nickname;
+
+            if ( this.services?.stateService?.getUserProfile ) {
+                const profile = await this.services.stateService.getUserProfile( djUuid );
+                if ( profile?.nickname ) return profile.nickname;
+            }
+
+            // Compatibility fallback for legacy services
             if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
                 try {
                     const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, djUuid );

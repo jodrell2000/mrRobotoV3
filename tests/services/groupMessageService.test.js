@@ -674,10 +674,14 @@ describe( 'groupMessageService', () => {
         }
       } );
 
-      expect( result ).toEqual( {
+      expect( result ).toEqual( expect.objectContaining( {
         message: 'Hello world',
-        messageResponse: { data: { id: 'sent-msg-123' } }
-      } );
+        messageResponse: { data: { id: 'sent-msg-123' } },
+        normalizedMessage: expect.objectContaining( {
+          content: 'Hello world',
+          visibility: 'public'
+        } )
+      } ) );
 
       buildCustomDataSpy.mockRestore();
     } );
