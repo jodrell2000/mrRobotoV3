@@ -39,7 +39,8 @@ describe( 'Bot - Message Processing', () => {
       },
       messageService: {
         joinChat: jest.fn().mockResolvedValue(),
-        fetchGroupMessages: jest.fn().mockResolvedValue( [] )
+        fetchGroupMessages: jest.fn().mockResolvedValue( [] ),
+        returnLatestGroupMessageId: jest.fn().mockResolvedValue( null )
       },
       parseCommands: jest.fn(),
       commandService: jest.fn(),
@@ -216,6 +217,75 @@ describe( 'Bot - Message Processing', () => {
 
         await expect( bot._fetchNewMessages() ).resolves.not.toThrow();
       } );
+    } );
+  } );
+
+  describe( '_initializeMessageTracking', () => {
+    let originalDateNow;
+
+    beforeEach( () => {
+      originalDateNow = Date.now;
+      Date.now = jest.fn().mockReturnValue( 1757462400000 );
+      mockServices.stateService = {
+        _getAllUsers: jest.fn().mockReturnValue( [
+          { uuid: 'test-bot-uid-789' },
+          { uuid: 'user-1' }
+        ] )
+      };
+      mockServices.setState = jest.fn();
+    } );
+
+    afterEach( () => {
+      Date.now = originalDateNow;
+    } );
+
+    test( 'sets a startup timestamp when seeding from the latest group message', async () => {
+      mockServices.getState = jest.fn().mockReturnValue( null );
+      mockServices.messageService.returnLatestGroupMessageId.mockResolvedValue( 'latest-before-startup' );
+
+      await bot._initializeMessageTracking();
+
+      expect( bot.lastMessageIDs ).toEqual( {
+        id: 'latest-before-startup',
+        fromTimestamp: 1757462400
+      } );
+      expect( mockServices.updateLastMessageId ).toHaveBeenCalledWith( 'latest-before-startup', 1757462400 );
+    } );
+
+    test( 'refreshes persisted public and private cursors to the startup timestamp', async () => {
+      mockServices.getState = jest.fn( key => {
+        if ( key === 'lastMessageId' ) return 'persisted-public-id';
+        if ( key === 'lastMessageTimestamp' ) return 1111111111;
+        if ( key === 'lastPrivateMessageTracking' ) {
+          return {
+            'user-1': { lastMessageId: 'old-private-id', lastTimestamp: 1111111111 }
+          };
+        }
+        return null;
+      } );
+
+      await bot._initializeMessageTracking();
+
+      expect( bot.lastMessageIDs ).toEqual( {
+        id: 'persisted-public-id',
+        fromTimestamp: 1757462400
+      } );
+      expect( bot.lastPrivateMessageTracking[ 'user-1' ] ).toEqual( {
+        lastMessageId: 'old-private-id',
+        lastTimestamp: 1757462400
+      } );
+      expect( mockServices.updateLastMessageId ).toHaveBeenCalledWith( 'persisted-public-id', 1757462400 );
+      expect( mockServices.setState ).toHaveBeenCalledWith( 'lastPrivateMessageTracking', bot.lastPrivateMessageTracking );
+    } );
+
+    test( 'uses startup timestamp even when no latest group message exists', async () => {
+      mockServices.getState = jest.fn().mockReturnValue( null );
+      mockServices.messageService.returnLatestGroupMessageId.mockResolvedValue( null );
+
+      await bot._initializeMessageTracking();
+
+      expect( bot.lastMessageIDs ).toEqual( { fromTimestamp: 1757462400 } );
+      expect( mockServices.updateLastMessageId ).toHaveBeenCalledWith( undefined, 1757462400 );
     } );
   } );
 

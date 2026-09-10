@@ -473,6 +473,28 @@ describe('Bot - Private Message Tracking', () => {
       expect(mockServices.setState).toHaveBeenCalledWith('lastPrivateMessageTracking', bot.lastPrivateMessageTracking);
     });
 
+    test('should refresh all startup private tracking timestamps to startup baseline', async () => {
+      const startupTimestamp = 1757462400;
+      bot.lastPrivateMessageTracking = {
+        'user-1': { lastMessageId: 'old-msg-1', lastTimestamp: 1111111111 }
+      };
+      mockServices.stateService = {
+        _getAllUsers: jest.fn().mockReturnValue([
+          { uuid: mockServices.config.BOT_UID },
+          { uuid: 'user-1' },
+          { uuid: 'user-2' }
+        ])
+      };
+
+      await bot._initializePrivateMessageTrackingForAllUsers(startupTimestamp);
+
+      expect(bot.lastPrivateMessageTracking).toEqual({
+        'user-1': { lastMessageId: 'old-msg-1', lastTimestamp: startupTimestamp },
+        'user-2': { lastMessageId: null, lastTimestamp: startupTimestamp }
+      });
+      expect(mockServices.setState).toHaveBeenCalledWith('lastPrivateMessageTracking', bot.lastPrivateMessageTracking);
+    });
+
     test('should not re-initialize tracking for existing users', async () => {
       const userUUID = 'already-tracked-user';
       const existingTracking = {

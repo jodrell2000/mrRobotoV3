@@ -273,14 +273,16 @@ class Bot {
   }
 
   async _initializeMessageTracking () {
+    const startupTimestamp = Math.floor( Date.now() / 1000 );
+
     // Initialize lastMessageIDs from service container state
     const lastMessageId = this.services.getState( 'lastMessageId' );
-    const lastMessageTimestamp = this.services.getState( 'lastMessageTimestamp' );
 
     if ( lastMessageId ) {
       this.lastMessageIDs.id = lastMessageId;
-      this.lastMessageIDs.fromTimestamp = lastMessageTimestamp;
-      this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }, timestamp: ${ lastMessageTimestamp }` );
+      this.lastMessageIDs.fromTimestamp = startupTimestamp;
+      this.services.updateLastMessageId( lastMessageId, startupTimestamp );
+      this.services.logger.debug( `Initialized message tracking with ID: ${ lastMessageId }, startup timestamp: ${ startupTimestamp }` );
     } else {
       this.services.logger.debug( 'No previous message ID found, will fetch from latest messages' );
 
@@ -289,14 +291,18 @@ class Bot {
         const latestMessageId = await this.services.messageService.returnLatestGroupMessageId();
         if ( latestMessageId ) {
           this.lastMessageIDs.id = latestMessageId;
-          // Don't set fromTimestamp on initial fetch - let it be undefined so we get latest batch as baseline
-          this.services.updateLastMessageId( latestMessageId, undefined );
-          this.services.logger.debug( `Initialized tracking with latest message ID: ${ latestMessageId }` );
+          this.lastMessageIDs.fromTimestamp = startupTimestamp;
+          this.services.updateLastMessageId( latestMessageId, startupTimestamp );
+          this.services.logger.debug( `Initialized tracking with latest message ID: ${ latestMessageId }, startup timestamp: ${ startupTimestamp }` );
         } else {
-          this.services.logger.debug( 'No messages found to establish baseline, starting fresh' );
+          this.lastMessageIDs.fromTimestamp = startupTimestamp;
+          this.services.updateLastMessageId( undefined, startupTimestamp );
+          this.services.logger.debug( `No messages found to establish baseline, starting from startup timestamp: ${ startupTimestamp }` );
         }
       } catch ( error ) {
-        this.services.logger.warn( `Could not fetch latest message ID: ${ error.message }` );
+        this.lastMessageIDs.fromTimestamp = startupTimestamp;
+        this.services.updateLastMessageId( undefined, startupTimestamp );
+        this.services.logger.warn( `Could not fetch latest message ID, starting from startup timestamp ${ startupTimestamp }: ${ error.message }` );
       }
     }
 
@@ -326,10 +332,10 @@ class Bot {
     // }
 
     // Initialize enhanced private message tracking for all current users in the hangout
-    await this._initializePrivateMessageTrackingForAllUsers();
+    await this._initializePrivateMessageTrackingForAllUsers( startupTimestamp );
   }
 
-  async _initializePrivateMessageTrackingForAllUsers () {
+  async _initializePrivateMessageTrackingForAllUsers ( startupTimestamp ) {
     try {
       // Get all users currently in the hangout
       const allUsers = this.services.stateService._getAllUsers();
@@ -343,35 +349,12 @@ class Bot {
           continue;
         }
 
-        // Only initialize if we don't already have tracking for this user
-        if ( !this.lastPrivateMessageTracking[ userUUID ] ) {
-          try {
-            const lastMessageId = await this.services.privateMessageService.returnLastUserMessage( userUUID );
-            if ( lastMessageId ) {
-              this.lastPrivateMessageTracking[ userUUID ] = {
-                lastMessageId: lastMessageId,
-                lastTimestamp: Math.floor( Date.now() / 1000 ) // Current timestamp in seconds as fallback
-              };
-              this.services.logger.debug( `Initialized private message tracking for user ${ userUUID }: ${ lastMessageId }` );
-            } else {
-              // Set to null to indicate we've checked but found no messages
-              this.lastPrivateMessageTracking[ userUUID ] = {
-                lastMessageId: null,
-                lastTimestamp: null
-              };
-              this.services.logger.debug( `No previous private messages found for user ${ userUUID }` );
-            }
-          } catch ( error ) {
-            this.services.logger.warn( `Failed to initialize private message tracking for user ${ userUUID }: ${ error.message }` );
-            // Set to null to indicate initialization was attempted
-            this.lastPrivateMessageTracking[ userUUID ] = {
-              lastMessageId: null,
-              lastTimestamp: null
-            };
-          }
-        } else {
-          this.services.logger.debug( `Private message tracking already exists for user ${ userUUID }: ${ JSON.stringify( this.lastPrivateMessageTracking[ userUUID ] ) }` );
-        }
+        const existingTracking = this.lastPrivateMessageTracking[ userUUID ];
+        this.lastPrivateMessageTracking[ userUUID ] = {
+          lastMessageId: existingTracking?.lastMessageId || null,
+          lastTimestamp: startupTimestamp
+        };
+        this.services.logger.debug( `Initialized private message tracking for user ${ userUUID } at startup timestamp: ${ startupTimestamp }` );
       }
 
       // Persist the updated tracking state
