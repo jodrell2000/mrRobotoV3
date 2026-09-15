@@ -143,6 +143,9 @@ services.logger.info( '======================================= Application Start
   services.logger.debug( '🚀 Starting application async function' );
 
   try {
+    if ( services.initializationPromise ) await services.initializationPromise;
+    if ( services.initializationError ) throw services.initializationError;
+
     const framework = services.frameworkSpecification;
     const requiresChatAuthToken = framework?.startup?.requiresChatAuthToken ?? true;
     const supportsPublicMessages = framework?.startup?.requiresPublicMessagePolling
@@ -350,27 +353,42 @@ services.logger.info( '======================================= Application Start
     await new Promise( resolve => setTimeout( resolve, 2000 ) );
 
     // Validate that we have initial state data before declaring success
-    services.logger.debug( '🔍 Starting state validation...' );
-    try {
-      const allUserData = services.hangoutState?.allUserData || {};
-      const userCount = Object.keys( allUserData ).length;
-      services.logger.debug( `🔍 State validation: userCount = ${ userCount }` );
+    if ( framework?.startup?.requiresInitialState ?? true ) {
+      services.logger.debug( '🔍 Starting state validation...' );
+      try {
+        if ( framework.id === 'wavezfm' ) {
+          const normalizedState = services.stateService?.getState?.();
+          const roomId = normalizedState?.room?.id || services.hangoutState?.room?.id || services.hangoutState?.roomId;
 
-      if ( userCount === 0 ) {
-        services.logger.error( '❌ CRITICAL ERROR: allUserData is empty - no initial state loaded' );
-        services.logger.error( '❌ This indicates the stateful message processing failed to apply initial state patches' );
-        services.logger.error( '❌ The bot cannot operate without proper state initialization' );
-        services.logger.error( '❌ Check logs for JSON Patch application errors and ensure stateful messages are being processed correctly' );
-        services.logger.error( '❌ EXITING APPLICATION DUE TO EMPTY STATE' );
+          if ( !roomId ) {
+            throw new Error( 'Normalized Wavez room state is missing a room ID' );
+          }
+
+          services.logger.info( `✅ Wavez state validation passed for room ${ roomId }` );
+        } else {
+        const allUserData = services.hangoutState?.allUserData || {};
+        const userCount = Object.keys( allUserData ).length;
+        services.logger.debug( `🔍 State validation: userCount = ${ userCount }` );
+
+        if ( userCount === 0 ) {
+          services.logger.error( '❌ CRITICAL ERROR: allUserData is empty - no initial state loaded' );
+          services.logger.error( '❌ This indicates the stateful message processing failed to apply initial state patches' );
+          services.logger.error( '❌ The bot cannot operate without proper state initialization' );
+          services.logger.error( '❌ Check logs for JSON Patch application errors and ensure stateful messages are being processed correctly' );
+          services.logger.error( '❌ EXITING APPLICATION DUE TO EMPTY STATE' );
+          process.exit( 1 );
+        }
+
+        services.logger.info( `✅ State validation passed: ${ userCount } users loaded in allUserData` );
+        }
+      } catch ( stateError ) {
+        services.logger.error( `❌ CRITICAL ERROR: Failed to validate initial state: ${ stateError.message }` );
+        services.logger.error( '❌ Cannot proceed without valid state - exiting application' );
+        services.logger.error( '❌ EXITING APPLICATION DUE TO STATE ERROR' );
         process.exit( 1 );
       }
-
-      services.logger.info( `✅ State validation passed: ${ userCount } users loaded in allUserData` );
-    } catch ( stateError ) {
-      services.logger.error( `❌ CRITICAL ERROR: Failed to validate initial state: ${ stateError.message }` );
-      services.logger.error( '❌ Cannot proceed without valid state - exiting application' );
-      services.logger.error( '❌ EXITING APPLICATION DUE TO STATE ERROR' );
-      process.exit( 1 );
+    } else {
+      services.logger.info( 'ℹ️ Selected framework does not require initial room state validation' );
     }
     services.logger.debug( '✅ State validation completed successfully' );
 
@@ -379,13 +397,19 @@ services.logger.info( '======================================= Application Start
     // Send startup message to group
     services.logger.debug( '📤 Preparing to send startup message...' );
     try {
-      const botMention = services.messageService.formatMention( services.config.BOT_UID );
+      const botMention = services.config.BOT_UID
+        ? services.frameworkSpecification?.formatters
+          ? services.messageService.formatMention( services.config.BOT_UID, services )
+          : services.messageService.formatMention( services.config.BOT_UID )
+        : services.config.CHAT_NAME || services.getState( 'botNickname' ) || 'Bot';
       services.logger.debug( `📤 Sending startup message with bot mention: ${ botMention }` );
 
       // Use configured WEB_DOCS_URL (set by deployment script)
       const docsUrl = services.config.WEB_DOCS_URL || `http://localhost:${ services.config.PORT }`;
 
-      await services.messageService.sendGroupMessage( `${ botMention } is online. Click here for help, information and available commands: ${ docsUrl }`, { services } );
+      const startupMessage = `${ botMention } is online. Click here for help, information and available commands: ${ docsUrl }`;
+      if ( services.messagingAdapter ) await services.messagingAdapter.sendChatMessage( startupMessage, { services } );
+      else await services.messageService.sendGroupMessage( startupMessage, { services } );
 
       services.logger.info( "✅ Startup message sent to group" );
     } catch ( error ) {

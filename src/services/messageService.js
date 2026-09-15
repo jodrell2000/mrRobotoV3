@@ -21,10 +21,16 @@ const messageService = {
    * @param {string} userUuid - The UUID of the user to mention
    * @returns {string} Formatted mention string
    */
-  formatMention: function ( userUuid ) {
+  formatMention: function ( userUuid, services ) {
     if ( !userUuid ) {
       throw new Error( 'userUuid is required for formatting mentions' );
     }
+
+    const frameworkFormatter = services?.frameworkSpecification?.formatters?.formatMention;
+    if ( frameworkFormatter ) {
+      return frameworkFormatter( userUuid, services );
+    }
+
     return `<@uid:${ userUuid }>`;
   },
 
@@ -83,10 +89,13 @@ const messageService = {
     const { responseChannel = 'request', isPrivateMessage = false, sender, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null } = options;
 
     const logger = require( '../lib/logging.js' ).logger;
+    const sendPublicMessage = () => services?.messagingAdapter?.sendChatMessage
+      ? services.messagingAdapter.sendChatMessage( message, { services, senderUid, senderName, senderAvatarId, senderColor } )
+      : this.sendGroupMessage( message, { services, senderUid, senderName, senderAvatarId, senderColor } );
 
     // If responseChannel is 'public', always send to group chat
     if ( responseChannel === 'public' ) {
-      return await this.sendGroupMessage( message, { services, senderUid, senderName, senderAvatarId, senderColor } );
+      return await sendPublicMessage();
     }
 
     // If responseChannel is 'request', send back to the same channel as the request
@@ -96,12 +105,12 @@ const messageService = {
         return await this.sendPrivateMessage( message, sender, services );
       } else {
         // Original was public, send public response
-        return await this.sendGroupMessage( message, { services, senderUid, senderName, senderAvatarId, senderColor } );
+        return await sendPublicMessage();
       }
     }
 
     // Default fallback to group message
-    return await this.sendGroupMessage( message, { services, senderUid, senderName, senderAvatarId, senderColor } );
+    return await sendPublicMessage();
   },
 
   /**

@@ -196,7 +196,9 @@ class TokenService {
 
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
-                return this.services.messageService.formatMention( senderUuid );
+                return this.services.frameworkSpecification?.formatters
+                    ? this.services.messageService.formatMention( senderUuid, this.services )
+                    : this.services.messageService.formatMention( senderUuid );
             }
 
             const stateUser = this.services?.stateService?.getUser?.( senderUuid );
@@ -247,7 +249,9 @@ class TokenService {
 
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
-                return this.services.messageService.formatMention( djUuid );
+                return this.services.frameworkSpecification?.formatters
+                    ? this.services.messageService.formatMention( djUuid, this.services )
+                    : this.services.messageService.formatMention( djUuid );
             }
 
             const stateUser = this.services?.stateService?.getUser?.( djUuid );

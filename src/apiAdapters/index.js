@@ -6,6 +6,7 @@
  */
 
 const HangFmApiAdapter = require( './HangFmApiAdapter' );
+const WavezFmApiAdapter = require( './WavezFmApiAdapter' );
 
 /**
  * Load an API adapter based on framework name
@@ -19,11 +20,13 @@ function loadApiAdapter ( frameworkName, config ) {
     switch ( frameworkName ) {
         case 'hangfm':
             return new HangFmApiAdapter( config );
+        case 'wavezfm':
+            return new WavezFmApiAdapter( config );
 
         default:
             throw new Error(
                 `API adapter not found for framework: ${ frameworkName }. ` +
-                `Supported frameworks: hangfm`
+                `Supported frameworks: hangfm, wavezfm`
             );
     }
 }

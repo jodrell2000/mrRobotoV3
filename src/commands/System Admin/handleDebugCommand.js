@@ -31,9 +31,14 @@ async function handleDebugCommand ( { command, args, services, context, response
 
         // Check bot status
         response += `\n**Bot Status:**\n`;
+        response += `• Framework: ${ services.frameworkSpecification?.displayName || services.config.API_FRAMEWORK || 'Unknown' }\n`;
         response += `• Bot instance: ${ services.bot ? '✅ Available' : '❌ Missing' }\n`;
         response += `• Socket connection: ${ services.socketAdapter && services.socketAdapter.isConnected() ? '✅ Connected' : '❌ Disconnected' }\n`;
-        response += `• Hangout state: ${ services.hangoutState ? '✅ Available' : '❌ Missing' }\n`;
+        if ( services.frameworkSpecification?.startup?.requiresInitialState ?? true ) {
+            response += `• Room state: ${ services.hangoutState ? '✅ Available' : '❌ Missing' }\n`;
+        } else {
+            response += '• Room state: ℹ️ Not required by framework\n';
+        }
 
         // Check message processing flags
         if ( services.bot ) {
@@ -57,9 +62,27 @@ async function handleDebugCommand ( { command, args, services, context, response
 
         // Configuration check
         response += `\n**Configuration:**\n`;
-        response += `• Bot UID: ${ services.config.BOT_UID ? '✅ Set' : '❌ Missing' }\n`;
-        response += `• Hangout ID: ${ services.config.HANGOUT_ID ? '✅ Set' : '❌ Missing' }\n`;
-        response += `• CometChat API Key: ${ services.config.COMETCHAT_API_KEY ? '✅ Set' : '❌ Missing' }\n`;
+        if ( services.config.API_FRAMEWORK === 'wavezfm' ) {
+            response += `• Wavez room ID: ${ services.config.WAVEZFM_ROOM_ID ? '✅ Set' : '❌ Missing' }\n`;
+            response += `• Wavez API URL: ${ services.config.WAVEZFM_API_BASE_URL || 'Missing' }\n`;
+            response += `• Wavez bot token: ${ services.config.WAVEZFM_ROOM_BOT_TOKEN ? '✅ Set' : '❌ Missing' }\n`;
+        } else {
+            response += `• Bot UID: ${ services.config.BOT_UID ? '✅ Set' : '❌ Missing' }\n`;
+            response += `• Hangout ID: ${ services.config.HANGOUT_ID ? '✅ Set' : '❌ Missing' }\n`;
+            response += `• CometChat API Key: ${ services.config.COMETCHAT_API_KEY ? '✅ Set' : '❌ Missing' }\n`;
+        }
+
+        if ( services.config.API_FRAMEWORK === 'wavezfm' ) {
+            response = [
+                '🔍 Wavez Debug',
+                `Framework: ${ services.frameworkSpecification?.displayName || 'Wavez.fm' }`,
+                `Realtime: ${ services.socketAdapter?.isConnected?.() ? 'connected' : 'disconnected' }`,
+                'Room state: not required',
+                `Messages: ${ services.messagingAdapter ? 'ready' : 'missing' }`,
+                `Room ID: ${ services.config.WAVEZFM_ROOM_ID ? 'set' : 'missing' }`,
+                `API: ${ services.config.WAVEZFM_API_BASE_URL || 'missing' }`
+            ].join( '\n' );
+        }
 
         await messageService.sendResponse( response, {
             responseChannel,

@@ -6,6 +6,7 @@
  */
 
 const HangFmSocketAdapter = require( './HangFmSocketAdapter' );
+const WavezFmSocketAdapter = require( './WavezFmSocketAdapter' );
 
 /**
  * Load a socket adapter based on framework name
@@ -19,11 +20,13 @@ function loadSocketAdapter ( frameworkName, config ) {
     switch ( frameworkName ) {
         case 'hangfm':
             return new HangFmSocketAdapter( config );
+        case 'wavezfm':
+            return new WavezFmSocketAdapter( config );
 
         default:
             throw new Error(
                 `Socket adapter not found for framework: ${ frameworkName }. ` +
-                `Supported frameworks: hangfm`
+                `Supported frameworks: hangfm, wavezfm`
             );
     }
 }

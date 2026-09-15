@@ -9,6 +9,7 @@ const userJoined = require( '../../src/handlers/userJoined' );
 // Mock the services
 jest.mock( '../../src/services/serviceContainer.js', () => ( {
     messageService: {
+        sendResponse: jest.fn().mockResolvedValue( undefined ),
         sendGroupMessage: jest.fn().mockResolvedValue( undefined ),
         sendGroupPictureMessage: jest.fn().mockResolvedValue( undefined ),
         formatMention: jest.fn().mockImplementation( ( uuid ) => `<@uid:${ uuid }>` )
@@ -71,8 +72,8 @@ describe( 'userJoined handler', () => {
 
         await userJoined( message, {}, services );
 
-        expect( services.messageService.sendGroupMessage )
-            .toHaveBeenCalledWith( "Hi <@uid:123-456>, welcome to 'Test Hangout'", { services } );
+        expect( services.messageService.sendResponse )
+            .toHaveBeenCalledWith( "Hi <@uid:123-456>, welcome to 'Test Hangout'", { responseChannel: 'public', services } );
     } );
 
     it( 'should use default template if none in data service', async () => {
@@ -93,8 +94,8 @@ describe( 'userJoined handler', () => {
 
         await userJoined( message, {}, services );
 
-        expect( services.messageService.sendGroupMessage )
-            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, <@uid:123-456>!", { services } );
+        expect( services.messageService.sendResponse )
+            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, <@uid:123-456>!", { responseChannel: 'public', services } );
     } );
 
     it( 'should handle missing nickname gracefully', async () => {
@@ -163,12 +164,12 @@ describe( 'userJoined handler', () => {
 
         await userJoined( message, {}, services );
 
-        expect( services.messageService.sendGroupMessage )
-            .toHaveBeenCalledWith( '🎉 Hey <@uid:123-456>, welcome to the amazing Test Hangout! 🎵', { services } );
+        expect( services.messageService.sendResponse )
+            .toHaveBeenCalledWith( '🎉 Hey <@uid:123-456>, welcome to the amazing Test Hangout! 🎵', { responseChannel: 'public', services } );
     } );
 
     it( 'should log error if message sending fails', async () => {
-        services.messageService.sendGroupMessage.mockRejectedValueOnce( new Error( 'Network error' ) );
+        services.messageService.sendResponse.mockRejectedValueOnce( new Error( 'Network error' ) );
 
         const message = {
             statePatch: [ {
@@ -259,7 +260,10 @@ describe( 'userJoined handler', () => {
         it( 'should send standard welcome when welcomeMessages.json does not exist', async () => {
             fs.existsSync.mockReturnValue( false );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
+                expect.stringContaining( 'Hi <@uid:' ),
+                { responseChannel: 'public', services }
+            );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
 
@@ -269,9 +273,9 @@ describe( 'userJoined handler', () => {
                 [ mockUuid ]: { messages: [ 'Hey {username}, great to see you!' ], pictures: [] }
             } ) );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupMessage ).toHaveBeenCalledWith(
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
                 `Hey <@uid:${ mockUuid }>, great to see you!`,
-                { services }
+                { responseChannel: 'public', services }
             );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
@@ -285,19 +289,22 @@ describe( 'userJoined handler', () => {
                 }
             } ) );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupPictureMessage ).toHaveBeenCalledWith(
-                'Welcome back!',
-                'https://media.giphy.com/welcome.gif',
-                services
+            // Picture URL is now included in the message text for adapter-aware sending
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
+                'Welcome back!\nhttps://media.giphy.com/welcome.gif',
+                { responseChannel: 'public', services }
             );
-            expect( services.messageService.sendGroupMessage ).not.toHaveBeenCalled();
+            expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
 
         it( 'should fall back to standard welcome when user has no entry in file', async () => {
             fs.existsSync.mockReturnValue( true );
             fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
+                expect.stringContaining( "welcome to 'Test Hangout'" ),
+                { responseChannel: 'public', services }
+            );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
 
@@ -305,7 +312,10 @@ describe( 'userJoined handler', () => {
             fs.existsSync.mockReturnValue( true );
             fs.readFileSync.mockReturnValue( 'not valid json{{' );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
+                expect.stringContaining( "welcome to 'Test Hangout'" ),
+                { responseChannel: 'public', services }
+            );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
 
@@ -315,7 +325,10 @@ describe( 'userJoined handler', () => {
                 [ mockUuid ]: { messages: [], pictures: [ 'https://media.giphy.com/img.gif' ] }
             } ) );
             await userJoined( baseMessage, {}, services );
-            expect( services.messageService.sendGroupMessage ).toHaveBeenCalled();
+            expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
+                expect.stringContaining( "welcome to 'Test Hangout'" ),
+                { responseChannel: 'public', services }
+            );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
         } );
     } );

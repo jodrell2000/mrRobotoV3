@@ -17,7 +17,10 @@ const hidden = false;
 async function handlePingCommand ( commandParams ) {
   const { services, context, responseChannel = 'request' } = commandParams;
   const { messageService, config } = services;
-  const response = `🏓 Pong! ${ messageService.formatMention( config.BOT_UID ) } is alive and responding.`;
+  const botMention = services.frameworkSpecification?.formatters
+    ? messageService.formatMention( config.BOT_UID, services )
+    : messageService.formatMention( config.BOT_UID );
+  const response = `🏓 Pong! ${ botMention } is alive and responding.`;
   await messageService.sendResponse( response, {
     responseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,

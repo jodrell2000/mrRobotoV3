@@ -5,6 +5,11 @@ const parseCommands = require( './parseCommands.js' );
 const commandService = require( './commandService.js' );
 const playlistService = require( './playlistService.js' );
 const { hangSocketServices } = require( './hangSocketServices.js' );
+const { announceTrackStarted, announceTrackEnded } = require( '../handlers/trackAnnouncer.js' );
+const userJoinedHandler = require( '../handlers/userJoined.js' );
+const { handleUserJoinedEvent } = userJoinedHandler;
+const playedSongHandler = require( '../handlers/playedSong.js' );
+const { handlePlayedSongEvent } = playedSongHandler;
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
@@ -204,10 +209,11 @@ const services = {
     }
 
     // Check if hangoutState has essential properties that indicate it's properly loaded
+    const isWavez = this.frameworkSpecification?.id === 'wavezfm';
     const hasAllUserData = this.hangoutState.hasOwnProperty( 'allUserData' );
     const hasAllUsers = this.hangoutState.hasOwnProperty( 'allUsers' );
 
-    if ( !hasAllUserData || !hasAllUsers ) {
+    if ( !isWavez && ( !hasAllUserData || !hasAllUsers ) ) {
       const missingProps = [];
       if ( !hasAllUserData ) missingProps.push( 'allUserData' );
       if ( !hasAllUsers ) missingProps.push( 'allUsers' );
@@ -257,11 +263,18 @@ services.eventDispatcher.registerHandler( 'djQueueChanged', async ( event, conte
 services.eventDispatcher.registerHandler( 'trackStarted', async ( event, context ) => {
   const state = context.services?.stateService?.getState();
   if ( state ) state.nowPlaying = event.payload?.playback || null;
+  await announceTrackStarted( event, context.services );
+  await handlePlayedSongEvent( event, context );
 } );
 
 services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context ) => {
   const state = context.services?.stateService?.getState();
+  await announceTrackEnded( event, context.services );
   if ( state?.nowPlaying?.playId === event.payload?.playId ) state.nowPlaying = null;
+} );
+
+services.eventDispatcher.registerHandler( 'userJoined', async ( event, context ) => {
+  await handleUserJoinedEvent( event, context );
 } );
 
 services.eventDispatcher.registerHandler( 'voteChanged', async ( event, context ) => {
@@ -307,9 +320,11 @@ const initializeServices = async () => {
   }
 };
 
-// Call initializeServices but don't block module export
-initializeServices().catch( err => {
+// Call initializeServices but don't block module export. Startup code can await
+// this promise before reading framework-dependent configuration.
+services.initializationPromise = initializeServices().catch( err => {
   logger.error( 'Failed to initialize services:', err );
+  services.initializationError = err;
 } );
 
 module.exports = services;

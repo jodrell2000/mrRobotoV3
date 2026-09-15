@@ -90,8 +90,11 @@ function translateHangEvent ( message, context = {} ) {
     }
 
     if ( messageName === 'userJoined' || userPatch?.op === 'add' ) {
+        const userId = paths.find( path => path.startsWith( '/allUserData/' ) )?.split( '/' )[ 2 ];
+        const user = userId && currentState?.usersById?.[ userId ];
         events.push( createEvent( 'userJoined', {
-            userId: paths.find( path => path.startsWith( '/allUserData/' ) )?.split( '/' )[ 2 ]
+            userId,
+            user: user || { id: userId } // Fallback to minimal user object if full data not available
         }, { ...options, eventKey: messageName || paths.join( ',' ) } ) );
     }
 

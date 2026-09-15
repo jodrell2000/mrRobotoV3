@@ -793,5 +793,36 @@ describe( 'groupMessageService', () => {
 
       sendGroupMessageSpy.mockRestore();
     } );
+
+    test( 'should send Wavez image URLs as public message content', async () => {
+      const sendChatMessage = jest.fn().mockResolvedValue( { success: true } );
+      const services = {
+        frameworkSpecification: { id: 'wavezfm' },
+        messagingAdapter: { sendChatMessage }
+      };
+
+      await expect( groupMessageService.sendGroupPictureMessage(
+        'Check this image!',
+        'https://example.com/image.jpg',
+        services
+      ) ).resolves.toEqual( { success: true } );
+
+      expect( sendChatMessage ).toHaveBeenCalledWith(
+        'Check this image!\nhttps://example.com/image.jpg',
+        expect.objectContaining( { services } )
+      );
+    } );
+
+    test( 'should reject invalid Wavez image URLs before sending', async () => {
+      const sendChatMessage = jest.fn();
+      const services = {
+        frameworkSpecification: { id: 'wavezfm' },
+        messagingAdapter: { sendChatMessage }
+      };
+
+      await expect( groupMessageService.sendGroupPictureMessage( 'Test', 'image.jpg', services ) )
+        .rejects.toThrow( 'Image URL must be a valid HTTP or HTTPS URL' );
+      expect( sendChatMessage ).not.toHaveBeenCalled();
+    } );
   } );
 } );

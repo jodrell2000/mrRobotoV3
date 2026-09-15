@@ -211,6 +211,24 @@ const groupMessageService = {
      */
     sendGroupPictureMessage: async function ( message, imageUrl, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null ) {
         try {
+            if ( services?.frameworkSpecification?.id === 'wavezfm' && services.messagingAdapter?.sendChatMessage ) {
+                let parsedImageUrl;
+                try {
+                    parsedImageUrl = new URL( imageUrl );
+                } catch {
+                    throw new Error( 'Image URL must be a valid HTTP or HTTPS URL' );
+                }
+
+                if ( ![ 'http:', 'https:' ].includes( parsedImageUrl.protocol ) ) {
+                    throw new Error( 'Image URL must be a valid HTTP or HTTPS URL' );
+                }
+
+                return await services.messagingAdapter.sendChatMessage(
+                    `${ message }\n${ imageUrl }`,
+                    { services, senderUid, senderName, senderAvatarId, senderColor }
+                );
+            }
+
             const messageOptions = {
                 message: message,
                 images: [ imageUrl ],

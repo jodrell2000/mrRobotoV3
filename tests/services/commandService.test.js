@@ -409,7 +409,7 @@ describe( 'commandService', () => {
       // If it fails as unknown, that's also valid (means props doesn't exist in chat.json)
       expect( result ).toBeDefined();
       expect( result.shouldRespond ).toBeDefined();
-      
+
       if ( result.success ) {
         // If successful, it should be a dynamic command response
         expect( result.response ).toBe( 'Dynamic command: props' );
@@ -433,7 +433,7 @@ describe( 'commandService', () => {
 
       expect( result ).toBeDefined();
       expect( result.shouldRespond ).toBeDefined();
-      
+
       if ( result.success ) {
         // If successful, it should resolve to the target command
         expect( result.response ).toBe( 'Dynamic command: props' );

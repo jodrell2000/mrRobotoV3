@@ -35,13 +35,22 @@ class AdapterService {
     async initialize () {
         try {
             // Load framework metadata before validating framework-specific configuration
+            if ( !this.config.API_FRAMEWORK ) {
+                throw new Error( 'API_FRAMEWORK not set. Configure API_FRAMEWORK=hangfm or another supported framework in .env' );
+            }
+
             this.framework = loadFramework( this.config.API_FRAMEWORK );
             this._validateConfig();
+            if ( this.framework.commandPrefix ) {
+                this.config.COMMAND_SWITCH = this.framework.commandPrefix;
+            }
 
             // Load adapters based on framework
             this.socketAdapter = loadSocketAdapter( this.framework.id, this.config );
             this.apiAdapter = loadApiAdapter( this.framework.id, this.config );
             this.messagingAdapter = loadMessagingAdapter( this.framework.id, {
+                config: this.config,
+                apiAdapter: this.apiAdapter,
                 messageService: this.dependencies.messageService,
                 privateMessageService: this.dependencies.privateMessageService,
                 openchatApi: this.dependencies.openchatApi

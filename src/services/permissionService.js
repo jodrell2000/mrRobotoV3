@@ -1,7 +1,9 @@
 function hasPermission ( services, platformRole, requiredLevel ) {
     const framework = services?.frameworkSpecification;
+    const normalizedRole = String( platformRole || '' ).trim().toLowerCase();
+
     if ( framework?.resolveCommandPermissions ) {
-        const resolvedLevel = framework.resolveCommandPermissions( platformRole );
+        const resolvedLevel = framework.resolveCommandPermissions( normalizedRole );
         const levels = {
             OWNER: [ 'OWNER' ],
             MODERATOR: [ 'OWNER', 'MODERATOR' ],
@@ -12,7 +14,7 @@ function hasPermission ( services, platformRole, requiredLevel ) {
     }
 
     const { hasPermission: legacyHasPermission } = require( '../lib/roleUtils.js' );
-    return legacyHasPermission( platformRole, requiredLevel );
+    return legacyHasPermission( normalizedRole, requiredLevel );
 }
 
 module.exports = { hasPermission };

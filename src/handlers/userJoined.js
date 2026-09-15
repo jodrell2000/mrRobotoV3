@@ -117,7 +117,11 @@ async function getPersonalizedWelcome ( userData, services ) {
     if ( messages.length === 0 ) return null;
 
     const randomMessage = messages[ Math.floor( Math.random() * messages.length ) ];
-    const tokenContext = { username: services.messageService.formatMention( userData.userUUID ) };
+    const tokenContext = {
+      username: services.frameworkSpecification?.formatters
+        ? services.messageService.formatMention( userData.userUUID, services )
+        : services.messageService.formatMention( userData.userUUID )
+    };
 
     let processedMessage;
     if ( services.tokenService ) {
@@ -147,10 +151,25 @@ async function sendWelcomeMessage ( userData, services ) {
   // Check for per-user personalized welcome first
   const personalized = await getPersonalizedWelcome( userData, services );
   if ( personalized ) {
-    if ( personalized.picture ) {
+    // Always use adapter-aware response path (sendResponse routes through messagingAdapter)
+    if ( typeof services.messageService?.sendResponse === 'function' ) {
+      // Include picture URL in message if available (format depends on framework support)
+      const messageWithPicture = personalized.picture
+        ? `${ personalized.message }\n${ personalized.picture }`
+        : personalized.message;
+      await services.messageService.sendResponse( messageWithPicture, { responseChannel: 'public', services } );
+      return;
+    }
+
+    // Fallback for legacy systems without sendResponse (should not reach here in normal operation)
+    if ( personalized.picture && typeof services.messageService?.sendGroupPictureMessage === 'function' ) {
       await services.messageService.sendGroupPictureMessage( personalized.message, personalized.picture, services );
-    } else {
+      return;
+    }
+
+    if ( typeof services.messageService?.sendGroupMessage === 'function' ) {
       await services.messageService.sendGroupMessage( personalized.message, { services } );
+      return;
     }
     return;
   }
@@ -164,7 +183,9 @@ async function sendWelcomeMessage ( userData, services ) {
 
   // Prepare context for token replacement
   const tokenContext = {
-    username: services.messageService.formatMention( userData.userUUID )
+    username: services.frameworkSpecification?.formatters
+      ? services.messageService.formatMention( userData.userUUID, services )
+      : services.messageService.formatMention( userData.userUUID )
   };
 
   // Use TokenService if available for more comprehensive token replacement
@@ -179,8 +200,8 @@ async function sendWelcomeMessage ( userData, services ) {
       .replace( '{hangoutName}', hangoutName );
   }
 
-  // Send the personalized welcome message
-  await services.messageService.sendGroupMessage( personalizedMessage, { services } );
+  // Send the personalized welcome message via the adapter-aware response layer
+  await services.messageService.sendResponse( personalizedMessage, { responseChannel: 'public', services } );
 }
 
 /**
@@ -256,4 +277,86 @@ async function userJoined ( message, state, services ) {
   }
 }
 
+/**
+ * Normalized handler for userJoined events (works with both Hang and Wavez)
+ * Sends welcome messages and handles user setup via normalized event payloads
+ * @param {Object} event - Normalized userJoined event with payload.userId and payload.user
+ * @param {Object} context - Context object with services and bot
+ */
+async function handleUserJoinedEvent ( event, context ) {
+  const userId = event.payload?.userId;
+  const userObj = event.payload?.user;
+  const services = context.services;
+
+  if ( !userId || !services ) {
+    services?.logger?.debug?.( 'handleUserJoinedEvent: missing userId or services' );
+    return;
+  }
+
+  try {
+    // Get full user data from stateService if not already in event payload
+    let user = userObj;
+    if ( !user || !user.nickname ) {
+      user = services.stateService?.getUser?.( userId );
+    }
+
+    if ( !user || !user.nickname ) {
+      services.logger?.debug?.( `handleUserJoinedEvent: no user data found for ${ userId }` );
+      return;
+    }
+
+    // Track user in AFK monitor
+    if ( services.afkService ) {
+      services.afkService.addUser( userId, user.nickname );
+      services.afkService.recordActivity( userId, 'joinedRoom' );
+    }
+
+    // Upsert DJ in database (only if databaseService is available and initialized)
+    if ( services.databaseService && services.databaseService.initialized ) {
+      try {
+        const result = services.databaseService.insertOrUpdateDjNickname( {
+          uuid: userId,
+          nickname: user.nickname
+        } );
+        if ( result.action === 'inserted' ) {
+          services.logger?.debug?.( `Inserted new DJ in database: ${ userId } (${ user.nickname })` );
+        } else if ( result.action === 'updated' ) {
+          services.logger?.debug?.( `Updated DJ nickname in database: ${ userId } (${ result.oldNickname } → ${ result.newNickname })` );
+        }
+      } catch ( err ) {
+        services.logger?.error?.( `Failed to upsert DJ in database: ${ err.message }` );
+      }
+    }
+
+    // Initialize private message tracking for the new user
+    if ( services.bot && typeof services.bot.initializePrivateMessageTrackingForUser === 'function' ) {
+      try {
+        await services.bot.initializePrivateMessageTrackingForUser( userId, true );
+        services.logger?.debug?.( `✅ Private message tracking initialized for new user: ${ userId } with timestamp set to now` );
+      } catch ( error ) {
+        services.logger?.warn?.( `Failed to initialize private message tracking for user ${ userId }: ${ error.message }` );
+      }
+    }
+
+    // Check if user should be welcomed (skip ghost users)
+    if ( user.profile?.avatarId === 'ghost' ) {
+      services.logger?.debug?.( `Skipping welcome message for ghost user: ${ userId } (nickname: ${ user.nickname })` );
+      return;
+    }
+
+    // Check if welcome message feature is enabled
+    if ( !services.featuresService?.isFeatureEnabled?.( 'welcomeMessage' ) ) {
+      services.logger?.debug?.( 'Welcome message feature is disabled, skipping welcome message' );
+      return;
+    }
+
+    // Send welcome message
+    await sendWelcomeMessage( { userUUID: userId, nickname: user.nickname, avatarId: user.profile?.avatarId }, services );
+
+  } catch ( error ) {
+    services?.logger?.error?.( `[handleUserJoinedEvent] Error: ${ error.message }` );
+  }
+}
+
 module.exports = userJoined;
+module.exports.handleUserJoinedEvent = handleUserJoinedEvent;

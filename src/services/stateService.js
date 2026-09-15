@@ -147,14 +147,14 @@ class StateService {
         if ( this.normalizedState ) {
             const user = this.getUser( uuid );
             if ( !user ) throw new Error( `User with ID ${ uuid } not found in the room` );
-            return user.platformRole || 'user';
+            return String( user.platformRole || 'user' ).trim().toLowerCase();
         }
         const allUsers = this._getAllUsers();
         const user = allUsers.find( u => u.uuid === uuid );
         if ( !user ) {
             throw new Error( `User with UUID ${ uuid } not found in the room` );
         }
-        return user.highestRole || "user";
+        return String( user.highestRole || 'user' ).trim().toLowerCase();
     }
 
     /**

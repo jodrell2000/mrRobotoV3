@@ -40,7 +40,10 @@ async function handleEchoCommand ( commandParams ) {
     ? context.sender
     : null;
 
-  const response = `🔊 Echo: ${ args } (from ${ messageService.formatMention( senderUuid ) })`;
+  const senderMention = services.frameworkSpecification?.formatters
+    ? messageService.formatMention( senderUuid, services )
+    : messageService.formatMention( senderUuid );
+  const response = `🔊 Echo: ${ args } (from ${ senderMention })`;
   await messageService.sendResponse( response, {
     responseChannel: actualResponseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,

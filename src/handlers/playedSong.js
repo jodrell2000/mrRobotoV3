@@ -6,47 +6,6 @@ if ( !global.playedSongTimer ) global.playedSongTimer = null;
 if ( !global.previousPlayedSong ) global.previousPlayedSong = null;
 
 /**
- * Announces the just-finished song with vote counts to the public chat
- * @param {Object} previousSongInfo - Previous song information object
- * @param {Object} services - Services container
- */
-async function announceJustPlayed ( previousSongInfo, services ) {
-  try {
-    // services.logger.debug( '[playedSong] Starting announceJustPlayed with data:', previousSongInfo );
-
-    let messageTemplate = services.dataService.getValue( 'editableMessages.justPlayedMessage' );
-    if ( !messageTemplate ) {
-      // Fallback to old structure for backward compatibility
-      messageTemplate = services.dataService.getValue( 'justPlayedMessage' ) ||
-        `{username} played...
-      {trackName} by {artistName}
-      Stats: 👍 {likes} 👎 {dislikes} ❤️ {stars}`;
-    }
-
-    // services.logger.debug( '[playedSong] Using justPlayedMessage template:', messageTemplate );
-
-    // Replace placeholders with actual values
-    const djMention = services.messageService.formatMention( previousSongInfo.djUuid );
-    // services.logger.debug( '[playedSong] DJ mention formatted as:', djMention );
-
-    const announcement = messageTemplate
-      .replace( '{username}', djMention )
-      .replace( '{trackName}', previousSongInfo.trackName )
-      .replace( '{artistName}', previousSongInfo.artistName )
-      .replace( '{likes}', previousSongInfo.voteCounts.likes || 0 )
-      .replace( '{dislikes}', previousSongInfo.voteCounts.dislikes || 0 )
-      .replace( '{stars}', previousSongInfo.voteCounts.stars || 0 );
-
-    // services.logger.info( '[playedSong] Sending justPlayed announcement:', announcement );
-    await services.messageService.sendGroupMessage( announcement, { services } );
-    // services.logger.debug( '[playedSong] Successfully sent justPlayed announcement' );
-  } catch ( error ) {
-    services.logger.error( `[playedSong] Failed to announce just played song: ${ error.message }` );
-    services.logger.error( `[playedSong] Error stack: ${ error.stack }` );
-  }
-}
-
-/**
  * Extracts the new nowPlaying value from the state patch
  * @param {Object} message - The stateful message containing patch data
  * @returns {Object|null} The new nowPlaying value or undefined if not found in patch
@@ -169,35 +128,6 @@ function extractSongInfo ( message, services ) {
   return null;
 }
 
-/**
- * Announces the new song to the public chat
- * @param {Object} songInfo - Song information object
- * @param {Object} services - Services container
- */
-async function announceSong ( songInfo, services ) {
-  try {
-    let messageTemplate = services.dataService.getValue( 'editableMessages.nowPlayingMessage' );
-    if ( !messageTemplate ) {
-      // Fallback to old structure for backward compatibility
-      messageTemplate = services.dataService.getValue( 'nowPlayingMessage' ) || "{username} is now playing {trackName} by {artistName}";
-    }
-
-    // Replace placeholders with actual values
-    const djMention = services.messageService.formatMention( songInfo.djUuid );
-
-    const announcement = messageTemplate
-      .replace( '{username}', djMention )
-      .replace( '{trackName}', songInfo.trackName )
-      .replace( '{artistName}', songInfo.artistName );
-
-    await services.messageService.sendGroupMessage( announcement, { services } );
-  } catch ( error ) {
-    services.logger.error( `Failed to announce song: ${ error.message }` );
-  }
-}
-
-
-
 async function playedSong ( message, state, services ) {
   try {
     // services.logger.debug( `[playedSong] Handler called with message patches: ${ message.statePatch?.length || 0 } patches` );
@@ -264,95 +194,8 @@ async function playedSong ( message, state, services ) {
       }
     }
 
-    // Get the stored previous song info from the last playedSong call
-    const previousSongInfo = global.previousPlayedSong;
-    // services.logger.debug( `[playedSong] Previous stored song info: ${ !!previousSongInfo }` );
-    // if ( previousSongInfo ) {
-    //   services.logger.debug( `[playedSong] Previous stored song data: ${ JSON.stringify( previousSongInfo, null, 2 ) }` );
-    // }
-
-    // Check if justPlayed feature is enabled
-    const justPlayedEnabled = services.featuresService.isFeatureEnabled( 'justPlayed' );
-    // services.logger.debug( `[playedSong] justPlayed feature enabled: ${ justPlayedEnabled }` );
-
-    // Check if nowPlaying became null (song ended)
-    const nowPlayingBecameNull = message.statePatch?.some( patch =>
-      patch.op === 'replace' && patch.path === '/nowPlaying' && patch.value === null
-    );
-
     // Check if playId changed - this indicates a new song play even if song details aren't in the patch
     const playIdChanged = hasPlayIdChanged( message );
-
-    // Announce the just-finished song if we have a previous song and either:
-    // 1. Current song is different from previous, OR
-    // 2. Song ended (nowPlaying became null), OR
-    // 3. PlayId changed (indicating same song played again)
-    if ( previousSongInfo && justPlayedEnabled && ( currentSongInfo || nowPlayingBecameNull || playIdChanged ) ) {
-      let shouldAnnounce = false;
-
-      if ( nowPlayingBecameNull ) {
-        // services.logger.debug( '[playedSong] Song ended (nowPlaying became null) - will announce justPlayed' );
-        shouldAnnounce = true;
-      } else if ( currentSongInfo ) {
-        // services.logger.debug( '[playedSong] Checking if current song is different from previous...' );
-
-        const songChanged = (
-          currentSongInfo.trackName !== previousSongInfo.trackName ||
-          currentSongInfo.artistName !== previousSongInfo.artistName ||
-          currentSongInfo.djUuid !== previousSongInfo.djUuid
-        );
-
-        // Check if playId changed - this indicates a new song play even if song details are the same
-        const songPlayIdChanged = hasPlayIdChanged( message );
-
-        // services.logger.debug( `[playedSong] Song changed: ${ songChanged }, PlayId changed: ${ songPlayIdChanged }` );
-
-        if ( songChanged ) {
-          const comparison = {
-            newTrack: currentSongInfo.trackName,
-            oldTrack: previousSongInfo.trackName,
-            tracksDifferent: currentSongInfo.trackName !== previousSongInfo.trackName,
-            newArtist: currentSongInfo.artistName,
-            oldArtist: previousSongInfo.artistName,
-            artistsDifferent: currentSongInfo.artistName !== previousSongInfo.artistName,
-            newDJ: currentSongInfo.djUuid,
-            oldDJ: previousSongInfo.djUuid,
-            djsDifferent: currentSongInfo.djUuid !== previousSongInfo.djUuid
-          };
-          // services.logger.debug( `[playedSong] Song comparison: ${ JSON.stringify( comparison, null, 2 ) }` );
-          shouldAnnounce = true;
-        } else if ( songPlayIdChanged ) {
-          // services.logger.debug( '[playedSong] PlayId changed - will announce justPlayed (same song played again)' );
-          shouldAnnounce = true;
-        } else {
-          // services.logger.debug( '[playedSong] Not announcing justPlayed - same song as previous and no playId change' );
-        }
-      } else {
-        // services.logger.debug( '[playedSong] PlayId changed but no current song info - will announce justPlayed using previous song data' );
-        shouldAnnounce = true;
-      }
-
-      if ( shouldAnnounce ) {
-        // services.logger.info( `[playedSong] Announcing justPlayed for: ${ previousSongInfo.trackName } by ${ previousSongInfo.artistName }` );
-
-        // Use the stored vote counts (which get updated by votedOnSong and playedOneTimeAnimation handlers)
-        // If no vote counts are stored, fall back to current hangout state
-        const voteCounts = previousSongInfo.voteCounts || services.hangoutState?.voteCounts || { likes: 0, dislikes: 0, stars: 0 };
-        const previousSongWithVotes = { ...previousSongInfo, voteCounts };
-
-        await announceJustPlayed( previousSongWithVotes, services );
-      }
-    } else {
-      if ( !previousSongInfo ) {
-        // services.logger.debug( '[playedSong] No justPlayed announcement - no previous song stored' );
-      }
-      if ( !justPlayedEnabled ) {
-        // services.logger.debug( '[playedSong] No justPlayed announcement - feature disabled' );
-      }
-      if ( !currentSongInfo && !nowPlayingBecameNull ) {
-        // services.logger.debug( '[playedSong] No justPlayed announcement - no current song info extracted and nowPlaying did not become null' );
-      }
-    }
 
     // Store the current song info for the next playedSong call
     if ( currentSongInfo ) {
@@ -402,11 +245,6 @@ async function playedSong ( message, state, services ) {
       }
     }
 
-    // Announce the new song if the feature is enabled (after justPlayed announcement)
-    if ( services.featuresService.isFeatureEnabled( 'nowPlayingMessage' ) && songForProcessing ) {
-      await announceSong( songForProcessing, services );
-    }
-
     // Process 'newSong' triggers after all announcements (independent of nowPlayingMessage feature)
     if ( services.triggerService && songForProcessing ) {
       const triggerContext = {
@@ -451,7 +289,9 @@ async function playedSong ( message, state, services ) {
 
           if ( currentDj && escortQueue[ currentDj.uuid ] ) {
             // Current DJ has escortme enabled - remove them
-            const djMention = services.messageService.formatMention( currentDj.uuid );
+            const djMention = services.frameworkSpecification?.formatters
+              ? services.messageService.formatMention( currentDj.uuid, services )
+              : services.messageService.formatMention( currentDj.uuid );
 
             // Clear the escort flag BEFORE removal to prevent double-removal
             delete escortQueue[ currentDj.uuid ];
@@ -509,4 +349,204 @@ async function playedSong ( message, state, services ) {
   }
 }
 
+/**
+ * Normalized handler for trackStarted events - handles DB recording, triggers, AFK/escort removal, auto-upvote
+ * Framework-agnostic: reads only from normalized event payloads and stateService
+ * @param {Object} event - Normalized trackStarted event with playback info
+ * @param {Object} context - Handler context containing services
+ */
+async function handlePlayedSongEvent ( event, context ) {
+  const services = context.services;
+  if ( !services ) {
+    console.error( '[handlePlayedSongEvent] No services provided in context' );
+    return;
+  }
+
+  try {
+    const playback = event.payload?.playback;
+    const song = playback?.song;
+    const djId = playback?.djId;
+
+    // Validate we have required song data
+    if ( !djId || !song?.artist || !song?.title ) {
+      services.logger.debug( '[handlePlayedSongEvent] Insufficient song data in event payload, skipping processing' );
+      return;
+    }
+
+    // --- DATABASE LOGIC: Record song play ---
+    if ( services.databaseService && services.databaseService.initialized ) {
+      try {
+        const votes = services.stateService?.getVotes?.() || { likes: 0, dislikes: 0, stars: 0 };
+
+        // Upsert song
+        services.databaseService.upsertSong( {
+          songId: song.id || `${ song.artist }-${ song.title }`,
+          artistName: song.artist,
+          trackName: song.title,
+          sevenDigitalId: song.sevenDigitalId,
+          spotifyId: song.spotifyId,
+          appleId: song.appleId,
+          youtubeId: song.youtubeId
+        } );
+
+        // Record song play (use vote counts from global.previousPlayedSong if available)
+        let voteCounts = { likes: 0, dislikes: 0, stars: 0 };
+        if ( global.previousPlayedSong && global.previousPlayedSong.voteCounts ) {
+          voteCounts = global.previousPlayedSong.voteCounts;
+        } else {
+          voteCounts = votes;
+        }
+
+        services.databaseService.recordSongPlay( {
+          songId: song.id || `${ song.artist }-${ song.title }`,
+          djUuid: djId,
+          djNickname: playback.djNickname,
+          artistName: song.artist,
+          trackName: song.title,
+          likes: voteCounts.likes || 0,
+          dislikes: voteCounts.dislikes || 0,
+          stars: voteCounts.stars || 0
+        } );
+
+        services.logger.debug( `[handlePlayedSongEvent] Recorded song play: ${ song.artist } - ${ song.title } by DJ ${ djId }` );
+      } catch ( err ) {
+        services.logger.error( `[handlePlayedSongEvent] Failed to record song play in database: ${ err.message }` );
+      }
+    }
+
+    // --- TRIGGER EXECUTION: Execute 'newSong' triggers ---
+    if ( services.triggerService ) {
+      try {
+        const triggerContext = {
+          eventData: {
+            songInfo: {
+              djId,
+              djNickname: playback.djNickname,
+              artist: song.artist,
+              title: song.title
+            },
+            triggerType: 'newSong'
+          }
+        };
+        await services.triggerService.executeTrigger( 'newSong', triggerContext );
+      } catch ( err ) {
+        services.logger.error( `[handlePlayedSongEvent] Failed to execute newSong trigger: ${ err.message }` );
+      }
+    }
+
+    // --- AFK REMOVAL: Process pending AFK DJ removals when song changes ---
+    if ( services.afkService && services.platformActions ) {
+      try {
+        const pendingRemovals = services.afkService.getPendingRemovals();
+        for ( const uuid of pendingRemovals ) {
+          services.afkService.clearPendingRemoval( uuid );
+          try {
+            const snapshot = services.afkService.getActivitySnapshot().find( e => e.uuid === uuid );
+            const djName = snapshot?.nickname || uuid;
+
+            // Try platformActions first (adapter-aware), fallback to hangSocketServices
+            const result = services.platformActions
+              ? await services.platformActions.removeFromDJQueue( uuid )
+              : services.hangSocketServices && await services.hangSocketServices.removeDj( services, uuid );
+
+            if ( result && !result.success ) throw new Error( result.error || 'Removal failed' );
+
+            await services.messageService.sendResponse(
+              `🚫 ${ djName } has been removed from the decks for inactivity.`,
+              { responseChannel: 'public', services }
+            );
+          } catch ( err ) {
+            services.logger.error( `[handlePlayedSongEvent] Failed to remove pending AFK DJ ${ uuid }: ${ err.message }` );
+          }
+        }
+      } catch ( err ) {
+        services.logger.error( `[handlePlayedSongEvent] Error processing AFK removals: ${ err.message }` );
+      }
+    }
+
+    // --- ESCORT REMOVAL: Remove DJ if they have escortme enabled ---
+    if ( services.dataService && services.messageService && services.platformActions ) {
+      try {
+        const djs = services.stateService?._getDjs?.() || [];
+        if ( djs.length > 0 ) {
+          const currentDj = djs[ 0 ]; // Position 0 = currently playing
+          const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+
+          if ( currentDj && escortQueue[ currentDj.uuid ] ) {
+            // Current DJ has escortme enabled - remove them
+            const djMention = services.messageService.formatMention( currentDj.uuid, services );
+
+            // Clear the escort flag BEFORE removal to prevent double-removal
+            delete escortQueue[ currentDj.uuid ];
+            services.dataService.setValue( 'escortQueue', escortQueue );
+
+            try {
+              // Try platformActions first (adapter-aware), fallback to hangSocketServices
+              const result = services.platformActions
+                ? await services.platformActions.removeFromDJQueue( currentDj.uuid )
+                : services.hangSocketServices && await services.hangSocketServices.removeDj( services, currentDj.uuid );
+
+              if ( result && !result.success ) throw new Error( result.error || 'Removal failed' );
+
+              // Notify the room
+              await services.messageService.sendResponse(
+                `👋 ${ djMention } had enabled escortme and has left the decks.`,
+                { responseChannel: 'public', services }
+              );
+
+              services.logger.info( `[handlePlayedSongEvent] Escort removal executed for DJ ${ djMention } (${ currentDj.uuid })` );
+            } catch ( err ) {
+              services.logger.error( `[handlePlayedSongEvent] Failed to execute escort removal for ${ djMention }: ${ err.message }` );
+            }
+          }
+        }
+      } catch ( err ) {
+        services.logger.error( `[handlePlayedSongEvent] Error processing escort removals: ${ err.message }` );
+      }
+    }
+
+    // --- AUTO-UPVOTE TIMER: Start 90-second auto-upvote timer ---
+    try {
+      // Cancel any existing timer
+      if ( global.playedSongTimer ) {
+        clearTimeout( global.playedSongTimer );
+        global.playedSongTimer = null;
+      }
+
+      // Start a new timer for 90 seconds
+      global.playedSongTimer = setTimeout( async () => {
+        try {
+          const result = services.platformActions
+            ? await services.platformActions.voteOnTrack( 'up' )
+            : services.hangSocketServices && await services.hangSocketServices.upVote( services );
+
+          if ( result && !result.success ) throw new Error( result.error || 'Upvote failed' );
+          services.logger.debug( '[handlePlayedSongEvent] Auto-upvote executed after 90 seconds' );
+        } catch ( err ) {
+          services.logger.error( `[handlePlayedSongEvent] Error in auto-upvote timer: ${ err.message }` );
+        }
+        global.playedSongTimer = null;
+      }, 90000 );
+
+      services.logger.debug( '[handlePlayedSongEvent] Started 90-second auto-upvote timer' );
+    } catch ( err ) {
+      services.logger.error( `[handlePlayedSongEvent] Error setting up auto-upvote timer: ${ err.message }` );
+    }
+
+    // --- Update global previousPlayedSong for next song tracking ---
+    const votes = services.stateService?.getVotes?.() || { likes: 0, dislikes: 0, stars: 0 };
+    global.previousPlayedSong = {
+      djId,
+      djNickname: playback.djNickname,
+      song,
+      voteCounts: votes
+    };
+
+  } catch ( error ) {
+    services.logger.error( `[handlePlayedSongEvent] Unhandled error: ${ error.message }` );
+    services.logger.error( `[handlePlayedSongEvent] Error stack: ${ error.stack }` );
+  }
+}
+
 module.exports = playedSong;
+module.exports.handlePlayedSongEvent = handlePlayedSongEvent;

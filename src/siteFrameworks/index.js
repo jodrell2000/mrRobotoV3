@@ -1,7 +1,9 @@
 const hangfm = require( './hangfm/framework.js' );
+const wavezfm = require( './wavezfm/framework.js' );
 
 const frameworks = {
-    hangfm
+    hangfm,
+    wavezfm
 };
 
 function loadFramework ( frameworkId ) {

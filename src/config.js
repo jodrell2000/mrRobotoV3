@@ -23,8 +23,12 @@ module.exports = {
   HANGOUT_SLUG: process.env.HANGOUT_SLUG, // e.g., 'i-love-the-80s'
   HANGOUT_LANGUAGE: process.env.HANGOUT_LANGUAGE || 'da', // Language code for hang.fm URL
   // Adapter configuration for multi-site support
-  API_FRAMEWORK: process.env.API_FRAMEWORK || 'hangfm', // Framework selector: 'hangfm' for Hang.fm
+  API_FRAMEWORK: process.env.API_FRAMEWORK, // Framework selector: must be set explicitly (e.g. 'hangfm')
   SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'https://socket.prod.tt.fm', // WebSocket server URL
+  WAVEZFM_API_BASE_URL: process.env.WAVEZFM_API_BASE_URL || 'https://api.wavez.fm',
+  WAVEZFM_ROOM_ID: process.env.WAVEZFM_ROOM_ID,
+  WAVEZFM_ROOM_SLUG: process.env.WAVEZFM_ROOM_SLUG,
+  WAVEZFM_ROOM_BOT_TOKEN: process.env.WAVEZFM_ROOM_BOT_TOKEN,
   // Web documentation server
   PORT: process.env.PORT || 8080,
   WEB_DOCS_URL: process.env.WEB_DOCS_URL, // Auto-configured by deployment script

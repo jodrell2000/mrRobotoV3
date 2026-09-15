@@ -83,6 +83,39 @@ describe( 'Hang.fm H3 event translation', () => {
         expect( events.some( event => event.type === 'userLeft' ) ).toBe( false );
     } );
 
+    test( 'translates a user addition as room entry', () => {
+        const userId = 'user-1';
+        const currentState = {
+            usersById: {
+                [ userId ]: {
+                    id: userId,
+                    nickname: 'TestUser',
+                    platformRole: 'user',
+                    isPresent: true
+                }
+            },
+            djQueue: []
+        };
+
+        const events = translateHangEvent( {
+            statePatch: [ {
+                op: 'add',
+                path: `/allUserData/${ userId }`,
+                value: {
+                    userProfile: { nickname: 'TestUser' }
+                }
+            } ]
+        }, {
+            ...baseContext,
+            currentState
+        } );
+
+        expect( events ).toContainEqual( expect.objectContaining( {
+            type: 'userJoined',
+            payload: expect.objectContaining( { userId } )
+        } ) );
+    } );
+
     test( 'translates a user removal as room departure', () => {
         const events = translateHangEvent( {
             statePatch: [ { op: 'remove', path: '/allUserData/user-1' } ]

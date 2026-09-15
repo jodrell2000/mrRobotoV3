@@ -24,6 +24,13 @@ const validConfig = {
     BOT_UID: 'f3efc54f-1090-4a83-b5e4-73328eb649d1'
 };
 
+const validWavezConfig = {
+    API_FRAMEWORK: 'wavezfm',
+    WAVEZFM_API_BASE_URL: 'https://api.wavez.fm',
+    WAVEZFM_ROOM_ID: '4d36ef70-55c7-4c50-927d-b1394f30fd5e',
+    WAVEZFM_ROOM_BOT_TOKEN: 'test-token'
+};
+
 describe( 'AdapterService H2 framework integration', () => {
     const logger = {
         info: jest.fn(),
@@ -51,6 +58,39 @@ describe( 'AdapterService H2 framework integration', () => {
         const service = new AdapterService( { ...validConfig, API_FRAMEWORK: 'unknown' }, logger );
 
         await expect( service.initialize() ).rejects.toThrow( 'Site framework not found' );
+        expect( loadSocketAdapter ).not.toHaveBeenCalled();
+        expect( loadApiAdapter ).not.toHaveBeenCalled();
+    } );
+
+    test( 'requires an explicit framework selection', async () => {
+        const service = new AdapterService( { ...validConfig, API_FRAMEWORK: undefined }, logger );
+
+        await expect( service.initialize() ).rejects.toThrow( 'API_FRAMEWORK not set' );
+        expect( loadSocketAdapter ).not.toHaveBeenCalled();
+        expect( loadApiAdapter ).not.toHaveBeenCalled();
+    } );
+
+    test( 'loads Wavez when selected without requiring Hang credentials', async () => {
+        const service = new AdapterService( validWavezConfig, logger );
+
+        await service.initialize();
+
+        expect( service.getFramework() ).toBe( 'wavezfm' );
+        expect( service.getFrameworkSpecification().capabilities.publicMessages ).toEqual(
+            expect.objectContaining( { supported: true } )
+        );
+        expect( service.getFrameworkSpecification().capabilities.voting ).toEqual(
+            expect.objectContaining( { supported: false } )
+        );
+        expect( loadSocketAdapter ).toHaveBeenCalledWith( 'wavezfm', validWavezConfig );
+        expect( loadApiAdapter ).toHaveBeenCalledWith( 'wavezfm', validWavezConfig );
+        expect( validWavezConfig.COMMAND_SWITCH ).toBe( '!' );
+    } );
+
+    test( 'rejects missing Wavez configuration when Wavez is selected', async () => {
+        const service = new AdapterService( { ...validWavezConfig, WAVEZFM_ROOM_BOT_TOKEN: undefined }, logger );
+
+        await expect( service.initialize() ).rejects.toThrow( 'WAVEZFM_ROOM_BOT_TOKEN not set' );
         expect( loadSocketAdapter ).not.toHaveBeenCalled();
         expect( loadApiAdapter ).not.toHaveBeenCalled();
     } );

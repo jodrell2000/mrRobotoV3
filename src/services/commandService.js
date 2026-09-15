@@ -2,7 +2,7 @@ const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const fs = require( 'fs' );
 const path = require( 'path' );
-const { hasPermission } = require( '../lib/roleUtils' );
+const { hasPermission } = require( './permissionService.js' );
 
 /**
  * Check if a command is disabled in botConfig.json
@@ -160,10 +160,14 @@ async function processCommand ( command, messageRemainder, services, context = {
 
       // Check user's role and command permissions
       const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
-      const userRole = await serviceContainer.stateService.getUserRole( senderUuid );
+      const messageRole = context.fullMessage?.roomRole || context.fullMessage?.platformRole;
+      const userRole = messageRole ||
+        ( typeof serviceContainer.stateService?.getUserRole === 'function'
+          ? await serviceContainer.stateService.getUserRole( senderUuid )
+          : 'user' );
       const commandLevel = commands[ trimmedCommand ].requiredRole || 'USER';
 
-      if ( !hasPermission( userRole, commandLevel ) ) {
+      if ( !hasPermission( serviceContainer, userRole, commandLevel ) ) {
         const response = `❌ You don't have permission to use the "${ trimmedCommand }" command. Required role: ${ commandLevel }`;
         await serviceContainer.messageService.sendResponse( response, {
           responseChannel: 'request',

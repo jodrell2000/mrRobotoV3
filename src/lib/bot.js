@@ -10,6 +10,8 @@ class Bot {
     this.deferredPatches = []; // Store patches that arrive before state is available
     this.isProcessingPublicMessages = false; // Flag to prevent concurrent public message processing
     this.isProcessingPrivateMessages = false; // Flag to prevent concurrent private message processing
+    this.processedRealtimeMessageIds = new Set();
+    this.realtimeMessageStartupTimestamp = Date.now();
     // Dynamic backoff state for public messages
     this.publicMessageInterval = 1000; // Start at 1 second
     this.publicMessageBackoffStep = 1000; // Increase by 1 second each timeout
@@ -98,6 +100,9 @@ class Bot {
     this._setupStatefulMessageListener();
     this._setupStatelessMessageListener();
     this._setupServerMessageListener();
+    if ( this.services.frameworkSpecification?.id === 'wavezfm' ) {
+      this._setupWavezMessageListener();
+    }
 
     // CRITICAL: Add another delay to ensure all listeners are registered
     this.services.logger.debug( 'Ensuring all listeners are registered...' );
@@ -201,6 +206,12 @@ class Bot {
   // ========================================================
 
   async _initializeStateServiceSafely () {
+    const requiresInitialState = this.services.frameworkSpecification?.startup?.requiresInitialState ?? true;
+    if ( !requiresInitialState ) {
+      this.services.logger.debug( 'Skipping initial state validation for selected framework' );
+      return;
+    }
+
     // Validate that state is properly set up before initializing StateService
     if ( !this.services.hangoutState ) {
       throw new Error( 'hangoutState is not set - state initialization failed' );
@@ -274,6 +285,15 @@ class Bot {
 
   async _initializeMessageTracking () {
     const startupTimestamp = Math.floor( Date.now() / 1000 );
+    const requiresPublicMessagePolling = this.services.frameworkSpecification?.startup?.requiresPublicMessagePolling ?? true;
+
+    if ( !requiresPublicMessagePolling ) {
+      this.lastMessageIDs.fromTimestamp = startupTimestamp;
+      this.services.updateLastMessageId( undefined, startupTimestamp );
+      this.services.logger.debug( `Skipping public message tracking initialization for selected framework; startup timestamp: ${ startupTimestamp }` );
+      await this._initializePrivateMessageTrackingForAllUsers( startupTimestamp );
+      return;
+    }
 
     // Initialize lastMessageIDs from service container state
     const lastMessageId = this.services.getState( 'lastMessageId' );
@@ -337,6 +357,12 @@ class Bot {
 
   async _initializePrivateMessageTrackingForAllUsers ( startupTimestamp ) {
     try {
+      const supportsPrivateMessages = this.services.frameworkSpecification?.capabilities?.privateMessages?.supported ?? true;
+      if ( !supportsPrivateMessages ) {
+        this.services.logger.debug( 'Skipping private message tracking initialization for selected framework' );
+        return;
+      }
+
       // Get all users currently in the hangout
       const allUsers = this.services.stateService._getAllUsers();
       this.services.logger.debug( `Initializing private message tracking for ${ allUsers.length } users in hangout` );
@@ -482,15 +508,22 @@ class Bot {
       const connection = await this._joinRoomWithTimeout();
       this.services.logger.debug( '✅ Room joined successfully, setting up state...' );
 
+      let initialState = connection.state;
+      if ( this.services.frameworkSpecification?.id === 'wavezfm' && this.services.apiAdapter?.getRoomState ) {
+        const roomState = await this.services.apiAdapter.getRoomState();
+        initialState = roomState?.data || roomState;
+        this.services.logger.debug( '✅ Wavez room state hydrated over HTTP' );
+      }
+
       // CRITICAL: Set state immediately to prevent race conditions
-      this.state = connection.state;
-      this.services.hangoutState = connection.state;
+      this.state = initialState;
+      this.services.hangoutState = initialState;
 
       // Initialize global.previousPlayedSong with currently playing song from initial state
-      if ( connection.state?.nowPlaying?.song && connection.state?.djs?.length > 0 ) {
-        const currentSong = connection.state.nowPlaying.song;
-        const currentDJ = connection.state.djs[ 0 ]; // First DJ is typically the current one
-        const currentVoteCounts = connection.state.voteCounts || { likes: 0, dislikes: 0, stars: 0 };
+      if ( initialState?.nowPlaying?.song && initialState?.djs?.length > 0 ) {
+        const currentSong = initialState.nowPlaying.song;
+        const currentDJ = initialState.djs[ 0 ]; // First DJ is typically the current one
+        const currentVoteCounts = initialState.voteCounts || { likes: 0, dislikes: 0, stars: 0 };
 
         global.previousPlayedSong = {
           djUuid: currentDJ.uuid,
@@ -576,6 +609,13 @@ class Bot {
     socketAdapter.on( "reconnect", async () => {
       this.services.logger.debug( '🔄 Reconnecting to room...' );
       try {
+        if ( this.services.frameworkSpecification?.id === 'wavezfm' ) {
+          const refreshedState = await this.services.apiAdapter?.getRoomState?.();
+          this.services.logger.debug( '🔄 Wavez state refreshed after reconnect' );
+          this.services.platformEventCoordinator?.dispatchRoomState?.( refreshedState?.data, undefined );
+          return;
+        }
+
         const { state } = await socketAdapter.joinRoom( this.services.config.HANGOUT_ID, this.services.config.BOT_USER_TOKEN );
         const previousNormalizedState = this.services.stateService?.getState?.();
         this.state = state;
@@ -701,6 +741,126 @@ class Bot {
 
       // TODO: Add specific error handling logic
     } );
+  }
+
+  _setupWavezMessageListener () {
+    const socketAdapter = this.socketAdapter || this.socket;
+    socketAdapter.on( 'message_created', async ( packet ) => {
+      const normalizeMessage = this.services.frameworkSpecification?.translators?.normalizeMessage;
+      const normalizedMessage = normalizeMessage
+        ? normalizeMessage( packet, this.services.config )
+        : packet;
+      const messageId = normalizedMessage.id;
+      const senderId = normalizedMessage.sender?.id;
+      const createdAt = Date.parse( normalizedMessage.createdAt || packet?.timestamp || '' );
+      const botId = packet?.payload?.bot === true ||
+        String( senderId || '' ).startsWith( 'room-bot:' ) ||
+        senderId === this.services.config.WAVEZFM_BOT_USER_ID;
+
+      if ( !messageId || botId ) return;
+      if ( this.processedRealtimeMessageIds.has( messageId ) ) return;
+      if ( Number.isFinite( createdAt ) && createdAt < this.realtimeMessageStartupTimestamp ) return;
+
+      this.processedRealtimeMessageIds.add( messageId );
+      if ( this.processedRealtimeMessageIds.size > 1000 ) {
+        const oldestId = this.processedRealtimeMessageIds.values().next().value;
+        this.processedRealtimeMessageIds.delete( oldestId );
+      }
+
+      try {
+        await this._processSingleMessage( packet );
+      } catch ( error ) {
+        this.services.logger.error( `Error processing Wavez message ${ messageId }: ${ error.message }` );
+      }
+    } );
+
+    for ( const eventName of [ 'track_started', 'track_ended', 'vote_updated', 'votes_snapshot' ] ) {
+      socketAdapter.on( eventName, async packet => {
+        await this._dispatchWavezPlaybackEvent( packet );
+      } );
+      // Diagnostic: confirms whether the underlying client has more than one listener for this
+      // event (would explain a single packet producing duplicate dispatches/announcements)
+      const listenerCount = socketAdapter.getListenerCount?.( eventName );
+      if ( listenerCount !== undefined ) {
+        this.services.logger.debug( `🔍 [WavezListener] ${ eventName } listenerCount=${ listenerCount } after registration` );
+      }
+    }
+
+    socketAdapter.on( 'room_state_snapshot', async packet => {
+      await this._handleWavezRoomStateSnapshot( packet );
+    } );
+  }
+
+  async _dispatchWavezPlaybackEvent ( packet, previousState, currentState ) {
+    if ( !this._wavezDispatchCallCounter ) this._wavezDispatchCallCounter = 0;
+    this._wavezDispatchCallCounter++;
+    this.services.logger.debug(
+      `🔍 [WavezDispatch] call #${ this._wavezDispatchCallCounter } for event=${ packet?.event }, trackId=${ packet?.payload?.trackId || 'none' }`
+    );
+
+    const translateEvent = this.services.frameworkSpecification?.translators?.translateEvent;
+    const dispatcher = this.services.eventDispatcher;
+    if ( !translateEvent || !dispatcher ) return;
+
+    if ( packet.event === 'track_started' || packet.event === 'track_ended' ) {
+      if ( !this._wavezExplicitPlaybackTrackIds ) this._wavezExplicitPlaybackTrackIds = new Set();
+      if ( packet.payload?.trackId ) {
+        this._wavezExplicitPlaybackTrackIds.add( packet.payload.trackId );
+        if ( this._wavezExplicitPlaybackTrackIds.size > 100 ) {
+          const oldestTrackId = this._wavezExplicitPlaybackTrackIds.values().next().value;
+          this._wavezExplicitPlaybackTrackIds.delete( oldestTrackId );
+        }
+      }
+    }
+
+    const events = translateEvent( packet, {
+      config: this.services.config,
+      previousState: previousState || this._previousWavezState,
+      currentState: currentState || this.services.stateService?.getState?.()
+    } );
+
+    for ( const event of events ) {
+      await dispatcher.dispatch( event, { bot: this, services: this.services } );
+    }
+
+    // Keep _previousWavezState in sync after explicit events so the room_state_snapshot
+    // fallback below doesn't compare against a stale nowPlaying from an earlier snapshot
+    if ( packet.event === 'track_started' || packet.event === 'track_ended' ) {
+      this._previousWavezState = this.services.stateService?.getState?.() || this._previousWavezState;
+    }
+  }
+
+  async _handleWavezRoomStateSnapshot ( packet ) {
+    const normalizeState = this.services.frameworkSpecification?.translators?.normalizeState;
+    if ( !normalizeState ) return;
+
+    const payload = packet.payload || {};
+    const normalizedState = normalizeState( {
+      data: {
+        room: {
+          id: payload.roomId,
+          name: payload.roomName,
+          slug: payload.roomSlug,
+          description: payload.roomDescription
+        },
+        snapshot: payload,
+        bot: payload.bot,
+        currentUser: payload.currentUser
+      }
+    }, this.services.config );
+    const previousState = this._previousWavezState || this.services.stateService?.getState?.();
+
+    const currentPlayId = normalizedState.nowPlaying?.playId;
+    const previousPlayId = previousState?.nowPlaying?.playId;
+    // Guard against the track this fallback is about to end having already been
+    // explicitly handled — not the incoming track, which may be undefined (empty queue)
+    const explicitlyHandled = previousPlayId && this._wavezExplicitPlaybackTrackIds?.has( previousPlayId );
+    if ( previousPlayId && previousPlayId !== currentPlayId && !explicitlyHandled ) {
+      await this._dispatchWavezPlaybackEvent( packet, previousState, normalizedState );
+    }
+
+    this._previousWavezState = normalizedState;
+    this.services.stateService?.setNormalizedState?.( normalizedState );
   }
 
   // ========================================================
@@ -1138,10 +1298,11 @@ class Bot {
     } else {
       // Handle public message tracking (existing logic)
       this.lastMessageIDs.id = message.id;
-      this.lastMessageIDs.fromTimestamp = message.updatedAt;
-      this.services.updateLastMessageId( message.id, message.updatedAt );
+      const messageTimestamp = message.updatedAt || message.createdAt || message.sentAt;
+      this.lastMessageIDs.fromTimestamp = messageTimestamp;
+      this.services.updateLastMessageId( message.id, messageTimestamp );
 
-      this.services.logger.debug( `💾 [_updateMessageTracking] Public message ID: ${ previousId } → ${ message.id }, timestamp: ${ message.updatedAt }` );
+      this.services.logger.debug( `💾 [_updateMessageTracking] Public message ID: ${ previousId } → ${ message.id }, timestamp: ${ messageTimestamp }` );
     }
   }
 

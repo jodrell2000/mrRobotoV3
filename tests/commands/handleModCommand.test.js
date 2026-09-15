@@ -5,6 +5,7 @@ const handleModCommand = require( '../../src/commands/Moderator Commands/handleM
 const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} ) => ( {
     stateService: {
         getUserRole: jest.fn().mockReturnValue( role ),
+        getUsers: jest.fn().mockReturnValue( Object.values( allUserData ) ),
         _getAllUserData: jest.fn().mockReturnValue( allUserData ),
         _getDjs: jest.fn().mockReturnValue( djs )
     },

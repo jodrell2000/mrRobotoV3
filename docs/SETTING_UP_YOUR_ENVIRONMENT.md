@@ -19,6 +19,7 @@ This guide will walk you through setting up your environment for the bot. Expect
    - [Step 5a: Configure OpenChat Base URL (Optional)](#step-5a-configure-openchat-base-url-optional)
    - [Step 6: Getting the Bot UUID](#step-6-getting-the-bot-uuid)
    - [Step 7: Tell the bot which Hangout enter](#step-7-tell-the-bot-which-hangout-enter)
+   - [Step 7a: Finding the Wavez Room ID](#step-7a-finding-the-wavez-room-id)
    - [Step 8: Configuring the Command Prefix](#step-8-configuring-the-command-prefix)
    - [Step 9: Adding a Google API key for Machine Learning services (optional)](#step-9-adding-a-google-api-key-for-machine-learning-services-optional)
    - [Step 10: Adding a Mistral API key for Machine Learning services (optional)](#step-10-adding-a-mistral-api-key-for-machine-learning-services-optional)\n   - [Step 11: Adding Last.fm API Credentials (optional)](#step-11-adding-lastfm-api-credentials-optional)
@@ -207,6 +208,30 @@ Next we need to tell the Bot which Hangout it should appear in
       ```
    * Copy the uuid value and paste it into your .env file replacing paste-hangout-uuid-here
 
+## Step 7a: Finding the Wavez Room ID
+**Time: ~2 minutes**
+
+If you are configuring a Wavez.fm bot, the room ID may not be the same as the last part of the public room URL. To find the API room ID:
+
+   * Open the Wavez room in your browser
+   * Open the browser Developer Tools
+   * Go to the Network tab
+   * Look for a network request called `tracks`
+   * Select that request and check its Headers
+   * Examine the request URL shown in the headers. The URL contains the `roomId` value
+   * Copy that value into your `.env` file as `WAVEZFM_ROOM_ID`
+
+For Wavez, the relevant `.env` values are:
+
+```dotenv
+API_FRAMEWORK=wavezfm
+WAVEZFM_ROOM_ID=paste-your-wavez-room-id-here
+WAVEZFM_ROOM_BOT_TOKEN=paste-your-wavez-room-bot-token-here
+WAVEZFM_API_BASE_URL=https://api.wavez.fm
+```
+
+> 🔒 **SECURITY WARNING**: Your Wavez room bot token is a secret. Never paste it into documentation, commit it to Git, or share it publicly.
+
 ## Step 8: Configuring the Command Prefix
 **Time: ~1 minutes**
 Finally, you need to decide how the bot will identify commands. The Bot will ignore everything in chat and Private messages unless it starts with this character
@@ -337,16 +362,16 @@ The bot can verify artist and track information using Last.fm's extensive music 
 
 > 💡 **NOTE**: Last.fm API access is completely free. There are no billing concerns.
 
-## Step 12: Adapter Configuration (Optional - Advanced)
+## Step 12: Adapter Configuration
 **Time: ~2 minutes**
 
-The bot supports multi-site architecture through adapters. Most users can skip this step and use the default Hang.fm configuration. This is only needed if you're setting up the bot to work with a different website.
+The bot supports multi-site architecture through adapters. You must explicitly choose which site framework to use in your `.env` file.
 
 ### Configuration Variables
 
-Two optional environment variables control the adapter framework:
+These environment variables control the adapter framework:
 
-* **API_FRAMEWORK** - Selects which site adapter to use (default: `hangfm`)
+* **API_FRAMEWORK** - Selects which site adapter to use. This is required.
   ```
   API_FRAMEWORK=hangfm
   ```
@@ -356,7 +381,7 @@ Two optional environment variables control the adapter framework:
   SOCKET_SERVER_URL=https://socket.prod.tt.fm
   ```
 
-> 💡 **NOTE**: Unless you're working with a different music website, you don't need to configure these. The defaults work perfectly for Hang.fm.
+> 💡 **NOTE**: Use `API_FRAMEWORK=hangfm` for Hang.fm. Future site integrations, such as Wavez.fm, will use their own framework name and site-specific credentials.
 
 ## Understanding Data Files
 **Time: ~10 minutes**

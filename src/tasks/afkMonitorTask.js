@@ -49,7 +49,9 @@ async function runAfkMonitorTick ( services ) {
         const inactiveMs = now - entry.mostRecent.getTime();
         const inactiveMinutes = Math.floor( inactiveMs / 60000 );
         const nickname = entry.nickname || dj.uuid;
-        const mention = services.messageService.formatMention( dj.uuid );
+        const mention = services.frameworkSpecification?.formatters
+            ? services.messageService.formatMention( dj.uuid, services )
+            : services.messageService.formatMention( dj.uuid );
         services.logger.debug( `[afkMonitor]   ${ nickname } — last active: ${ entry.mostRecent.toISOString() } (${ ( inactiveMs / 60000 ).toFixed( 1 ) } min ago) warningLevel=${ entry.warningLevel }` );
 
         if ( entry.warningLevel === 3 && inactiveMs >= removeMs ) {

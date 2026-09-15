@@ -21,13 +21,15 @@ async function parseCommand ( commandText, services ) {
     const trimmedCommand = commandText.trim();
     // logger.debug( `[parseCommand] Processing message: ${ trimmedCommand }` );
 
-    // Check if the command starts with the command switch
-    if ( !trimmedCommand.startsWith( config.COMMAND_SWITCH ) ) {
+    const commandSwitch = services.frameworkSpecification?.commandPrefix || config.COMMAND_SWITCH;
+
+    // Check if the command starts with the framework-specific command switch
+    if ( !commandSwitch || !trimmedCommand.startsWith( commandSwitch ) ) {
       return Promise.resolve( false );
     }
 
     // Extract the command name and remainder
-    const commandPart = trimmedCommand.slice( config.COMMAND_SWITCH.length ).trim();
+    const commandPart = trimmedCommand.slice( commandSwitch.length ).trim();
     const spaceIndex = commandPart.indexOf( ' ' );
 
     let command, remainder;

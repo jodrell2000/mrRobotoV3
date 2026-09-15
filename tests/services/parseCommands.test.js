@@ -111,6 +111,21 @@ describe( 'parseCommands', () => {
     // Don't test debug output - it's an implementation detail
   } );
 
+  test( 'uses the selected framework command prefix', async () => {
+    const result = await parseCommands( '!ping', {
+      logger: { debug: jest.fn(), warn: jest.fn(), error: jest.fn() },
+      config: { COMMAND_SWITCH: '/' },
+      frameworkSpecification: { commandPrefix: '!' }
+    } );
+
+    expect( result ).toEqual( {
+      isCommand: true,
+      command: 'ping',
+      remainder: '',
+      originalText: '!ping'
+    } );
+  } );
+
   test( 'handles errors gracefully', async () => {
     // Mock services logger to throw an error
     mockServices.logger.debug.mockImplementationOnce( () => {

@@ -39,6 +39,12 @@ const framework = {
         realtime: 'ttfmSocket',
         chat: 'openchat'
     },
+    formatters: {
+        formatMention ( userUuid ) {
+            if ( !userUuid ) throw new Error( 'userUuid is required for formatting mentions' );
+            return `<@uid:${ userUuid }>`;
+        }
+    },
     translators: {
         normalizeState: require( './normalizeHangState.js' ),
         translateEvent: require( './translateHangEvent.js' ),

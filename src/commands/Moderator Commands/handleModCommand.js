@@ -10,9 +10,11 @@ const hidden = false;
 
 async function handleListUsers ( services, context, responseChannel ) {
     const { stateService, messageService } = services;
-    const allUserData = stateService._getAllUserData();
-    const nicknames = Object.values( allUserData )
-        .map( u => u?.userProfile?.nickname )
+    const users = typeof stateService?.getUsers === 'function'
+        ? stateService.getUsers()
+        : Object.values( stateService._getAllUserData() );
+    const nicknames = users
+        .map( user => user?.nickname || user?.userProfile?.nickname )
         .filter( Boolean )
         .sort( ( a, b ) => a.localeCompare( b ) );
 
@@ -139,7 +141,8 @@ async function handleModCommand ( commandParams ) {
     const { args, services, context, responseChannel = 'request' } = commandParams;
     const { stateService, messageService } = services;
 
-    const senderRole = stateService.getUserRole( context.sender );
+    const senderRole = context?.fullMessage?.roomRole || context?.fullMessage?.platformRole ||
+        ( typeof stateService?.getUserRole === 'function' ? stateService.getUserRole( context.sender ) : 'user' );
     if ( !hasPermission( services, senderRole, 'MODERATOR' ) ) {
         const response = '❌ You need at least moderator permissions to use this command.';
         await messageService.sendResponse( response, {
