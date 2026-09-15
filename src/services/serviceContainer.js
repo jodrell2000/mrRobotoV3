@@ -14,6 +14,10 @@ const playedOneTimeAnimationHandler = require( '../handlers/playedOneTimeAnimati
 const { handlePlayedOneTimeAnimationEvent } = playedOneTimeAnimationHandler;
 const votedOnSongHandler = require( '../handlers/votedOnSong.js' );
 const { handleVotedOnSongEvent } = votedOnSongHandler;
+const addedDjHandler = require( '../handlers/addedDj.js' );
+const { handleAddedDjEvent } = addedDjHandler;
+const removedDjHandler = require( '../handlers/removedDj.js' );
+const { handleRemovedDjEvent } = removedDjHandler;
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
@@ -289,6 +293,14 @@ services.eventDispatcher.registerHandler( 'voteChanged', async ( event, context 
   const state = context.services?.stateService?.getState();
   if ( state && event.payload?.votes ) state.votes = event.payload.votes;
   await handleVotedOnSongEvent( event, context );
+} );
+
+services.eventDispatcher.registerHandler( 'djAdded', async ( event, context ) => {
+  await handleAddedDjEvent( event, context );
+} );
+
+services.eventDispatcher.registerHandler( 'djRemoved', async ( event, context ) => {
+  await handleRemovedDjEvent( event, context );
 } );
 
 services.eventDispatcher.registerHandler( 'roomSettingsChanged', async ( event, context ) => {

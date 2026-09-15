@@ -87,6 +87,33 @@ function translateHangEvent ( message, context = {} ) {
             djQueue: currentState.djQueue,
             reason: messageName || 'statePatch'
         }, { ...options, eventKey: messageName || paths.join( ',' ) } ) );
+
+        // Emit specific djAdded/djRemoved events for position 0 (the decks)
+        if ( messageName === 'addedDj' || ( message.statePatch && message.statePatch.some( p => p.op === 'add' && p.path === '/djs/0' ) ) ) {
+            const djPatch = message.statePatch?.find( p => p.op === 'add' && p.path === '/djs/0' );
+            const userId = djPatch?.value?.uuid;
+            const nickname = userId && currentState?.usersById?.[ userId ]?.nickname || userId;
+            if ( userId ) {
+                events.push( createEvent( 'djAdded', {
+                    userId,
+                    nickname,
+                    position: 0
+                }, { ...options, eventKey: `djAdded:${ userId }` } ) );
+            }
+        }
+
+        if ( messageName === 'removedDj' || ( message.statePatch && message.statePatch.some( p => p.op === 'remove' && p.path === '/djs/0' ) ) ) {
+            const djPatch = message.statePatch?.find( p => p.op === 'remove' && p.path === '/djs/0' );
+            const userId = djPatch?.value?.uuid || djPatch?.path?.split( '/' )[ 2 ];
+            const nickname = userId && currentState?.usersById?.[ userId ]?.nickname || userId;
+            if ( userId ) {
+                events.push( createEvent( 'djRemoved', {
+                    userId,
+                    nickname,
+                    position: 0
+                }, { ...options, eventKey: `djRemoved:${ userId }` } ) );
+            }
+        }
     }
 
     if ( messageName === 'userJoined' || userPatch?.op === 'add' ) {

@@ -1,6 +1,7 @@
 'use strict';
 
 const removedDj = require( '../../src/handlers/removedDj' );
+const { handleRemovedDjEvent } = require( '../../src/handlers/removedDj' );
 
 describe( 'removedDj handler', () => {
     let services;
@@ -227,6 +228,128 @@ describe( 'removedDj handler', () => {
                 ],
             };
             expect( () => removedDj( message, {}, services ) ).not.toThrow();
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-123', 'leftDecks' );
+        } );
+    } );
+
+    describe( 'handleRemovedDjEvent (normalized handler)', () => {
+        let services;
+
+        beforeEach( () => {
+            services = {
+                logger: {
+                    debug: jest.fn(),
+                    error: jest.fn(),
+                },
+                afkService: {
+                    recordActivity: jest.fn(),
+                },
+                dataService: {
+                    getValue: jest.fn().mockReturnValue( {} ),
+                    setValue: jest.fn(),
+                },
+                frameworkSpecification: { id: 'hangfm' }
+            };
+        } );
+
+        it( 'should return early if no services in context', async () => {
+            const event = { payload: { userId: 'user-123' } };
+            const context = {};
+
+            await handleRemovedDjEvent( event, context );
+            // Should not throw
+        } );
+
+        it( 'should return early if no userId in payload', async () => {
+            const event = { payload: {} };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( services.logger.debug ).toHaveBeenCalledWith( '[handleRemovedDjEvent] No userId in event payload' );
+            expect( services.afkService.recordActivity ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should record leftDecks activity for the user', async () => {
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-123', 'leftDecks' );
+        } );
+
+        it( 'should clear escort flag when user has escortme enabled', async () => {
+            const escortQueue = {
+                'user-123': { markedAt: Date.now() - 5000, removeAfterCurrent: true },
+                'other-user': { markedAt: Date.now() - 10000, removeAfterCurrent: false }
+            };
+            services.dataService.getValue.mockReturnValue( escortQueue );
+
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( services.dataService.getValue ).toHaveBeenCalledWith( 'escortQueue' );
+            expect( services.dataService.setValue ).toHaveBeenCalledWith( 'escortQueue', { 'other-user': escortQueue[ 'other-user' ] } );
+        } );
+
+        it( 'should not call setValue when user has no escort flag', async () => {
+            const escortQueue = { 'other-user': { markedAt: Date.now() - 10000 } };
+            services.dataService.getValue.mockReturnValue( escortQueue );
+
+            const event = { payload: { userId: 'user-456' } };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( services.dataService.getValue ).toHaveBeenCalled();
+            expect( services.dataService.setValue ).not.toHaveBeenCalled();
+        } );
+
+        it( 'should handle missing afkService gracefully', async () => {
+            const servicesWithoutAfk = { ...services, afkService: undefined };
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services: servicesWithoutAfk };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( servicesWithoutAfk.dataService.getValue ).toHaveBeenCalled();
+        } );
+
+        it( 'should handle missing dataService gracefully', async () => {
+            const servicesWithoutData = { ...services, dataService: undefined };
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services: servicesWithoutData };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( servicesWithoutData.afkService.recordActivity ).toHaveBeenCalledWith( 'user-123', 'leftDecks' );
+        } );
+
+        it( 'should handle dataService.getValue throwing error', async () => {
+            services.dataService.getValue.mockImplementation( () => {
+                throw new Error( 'dataService error' );
+            } );
+
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
+            expect( services.logger.error ).toHaveBeenCalledWith(
+                '[handleRemovedDjEvent] Error clearing escort flag for user-123: dataService error'
+            );
+        } );
+
+        it( 'should work for Wavez framework', async () => {
+            services.frameworkSpecification.id = 'wavezfm';
+            const event = { payload: { userId: 'user-123' } };
+            const context = { services };
+
+            await handleRemovedDjEvent( event, context );
+
             expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'user-123', 'leftDecks' );
         } );
     } );

@@ -78,6 +78,28 @@ function translateWavezEvent ( packet = {}, context = {} ) {
         events.push( createEvent( 'voteChanged', voteEvent, packet, context.config ) );
     }
 
+    if ( packet.event === 'queue_joined' ) {
+        // User joined the DJ queue - emit djAdded if joining at position 0 (the decks)
+        if ( payload.publicPosition === 0 ) {
+            events.push( createEvent( 'djAdded', {
+                userId: payload.userId,
+                nickname: payload.displayUsername || payload.username,
+                position: 0
+            }, packet, context.config ) );
+        }
+    }
+
+    if ( packet.event === 'queue_left' ) {
+        // User left the DJ queue - emit djRemoved if they were at position 0 (the decks)
+        if ( payload.publicPosition === 0 ) {
+            events.push( createEvent( 'djRemoved', {
+                userId: payload.userId,
+                nickname: payload.displayUsername || payload.username,
+                position: 0
+            }, packet, context.config ) );
+        }
+    }
+
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {
         const previousPlayId = context.previousState.nowPlaying?.playId;
         const currentPlayId = context.currentState.nowPlaying?.playId;
