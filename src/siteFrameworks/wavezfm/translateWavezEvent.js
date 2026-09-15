@@ -124,6 +124,14 @@ function translateWavezEvent ( packet = {}, context = {} ) {
                 displayUsername: payload.displayUsername
             }, packet, context.config ) );
         }
+        
+        // Also check if user left the room (isInRoom === false)
+        if ( payload.isInRoom === false ) {
+            events.push( createEvent( 'userLeft', {
+                userId: payload.userId,
+                nickname: payload.displayUsername || payload.username
+            }, packet, context.config ) );
+        }
     }
 
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {

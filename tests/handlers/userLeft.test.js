@@ -1,4 +1,5 @@
 const userLeft = require( '../../src/handlers/userLeft' );
+const { handleUserLeftEvent } = require( '../../src/handlers/userLeft' );
 
 describe( 'userLeft handler', () => {
   let mockServices;
@@ -340,4 +341,223 @@ describe( 'userLeft handler', () => {
       await expect( userLeft( mockMessage, mockState, servicesWithoutDataService ) ).resolves.not.toThrow();
     } );
   } );
+} );
+
+describe( 'handleUserLeftEvent (normalized handler)', () => {
+    let services;
+
+    beforeEach( () => {
+        services = {
+            logger: {
+                debug: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            },
+            stateService: {
+                getState: jest.fn().mockReturnValue( { usersById: {} } )
+            },
+            afkService: {
+                removeUser: jest.fn()
+            },
+            dataService: {
+                getValue: jest.fn().mockReturnValue( {} ),
+                setValue: jest.fn()
+            },
+            bot: {
+                removePrivateMessageTrackingForUser: jest.fn().mockResolvedValue( undefined )
+            }
+        };
+    } );
+
+    test( 'should return early if no userId in payload', async () => {
+        const event = { payload: {} };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.logger.debug ).toHaveBeenCalledWith( 'handleUserLeftEvent: missing userId or services' );
+    } );
+
+    test( 'should return early if no services in context', async () => {
+        const event = { payload: { userId: 'test-uuid' } };
+        const context = {};
+
+        await handleUserLeftEvent( event, context );
+    } );
+
+    test( 'should remove user from AFK monitor', async () => {
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.afkService.removeUser ).toHaveBeenCalledWith( userId );
+        expect( services.logger.debug ).toHaveBeenCalledWith( `User ${ userId } left the room` );
+    } );
+
+    test( 'should clear escort flag when user leaves', async () => {
+        const userId = 'test-user-id';
+        services.dataService.getValue.mockReturnValue( { [ userId ]: true } );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.dataService.getValue ).toHaveBeenCalledWith( 'escortQueue' );
+        expect( services.dataService.setValue ).toHaveBeenCalledWith( 'escortQueue', {} );
+        expect( services.logger.debug ).toHaveBeenCalledWith( `handleUserLeftEvent: cleared escortme flag for ${ userId }` );
+    } );
+
+    test( 'should handle escortQueue error gracefully', async () => {
+        const userId = 'test-user-id';
+        const error = new Error( 'Data service error' );
+        services.dataService.getValue.mockImplementation( () => {
+            throw error;
+        } );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.logger.error ).toHaveBeenCalledWith(
+            `handleUserLeftEvent: error clearing escort flag for ${ userId }: ${ error.message }`
+        );
+    } );
+
+    test( 'should remove private message tracking when user leaves', async () => {
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.bot.removePrivateMessageTrackingForUser ).toHaveBeenCalledWith( userId );
+        expect( services.logger.debug ).toHaveBeenCalledWith( `✅ Private message tracking removed for user who left: ${ userId }` );
+    } );
+
+    test( 'should handle private message tracking error gracefully', async () => {
+        const userId = 'test-user-id';
+        const error = new Error( 'Private message tracking error' );
+        services.bot.removePrivateMessageTrackingForUser.mockRejectedValue( error );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.logger.warn ).toHaveBeenCalledWith(
+            `handleUserLeftEvent: Failed to remove private message tracking for user ${ userId }: ${ error.message }`
+        );
+    } );
+
+    test( 'should remove user from state usersById', async () => {
+        const userId = 'test-user-id';
+        const mockUser = { id: userId, nickname: 'TestUser' };
+        services.stateService.getState.mockReturnValue( { usersById: { [ userId ]: mockUser } } );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.logger.debug ).toHaveBeenCalledWith(
+            `handleUserLeftEvent: Removed user ${ userId } from state.usersById`
+        );
+    } );
+
+    test( 'should handle missing stateService gracefully', async () => {
+        const servicesWithoutStateService = { ...services, stateService: undefined };
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services: servicesWithoutStateService };
+
+        await handleUserLeftEvent( event, context );
+
+        // Should not throw, just skip state update
+        expect( servicesWithoutStateService.afkService.removeUser ).toHaveBeenCalledWith( userId );
+    } );
+
+    test( 'should handle missing afkService gracefully', async () => {
+        const servicesWithoutAfk = { ...services, afkService: undefined };
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services: servicesWithoutAfk };
+
+        await handleUserLeftEvent( event, context );
+
+        // Should not throw
+        expect( servicesWithoutAfk.dataService.getValue ).toHaveBeenCalled();
+    } );
+
+    test( 'should handle missing dataService gracefully', async () => {
+        const servicesWithoutDataService = { ...services, dataService: undefined };
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services: servicesWithoutDataService };
+
+        await handleUserLeftEvent( event, context );
+
+        // Should not throw
+        expect( servicesWithoutDataService.afkService.removeUser ).toHaveBeenCalledWith( userId );
+    } );
+
+    test( 'should handle missing bot gracefully', async () => {
+        const servicesWithoutBot = { ...services, bot: undefined };
+        const userId = 'test-user-id';
+        const event = { payload: { userId } };
+        const context = { services: servicesWithoutBot };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( servicesWithoutBot.logger.debug ).toHaveBeenCalledWith(
+            'handleUserLeftEvent: Bot instance not available for private message tracking removal'
+        );
+    } );
+
+    test( 'should work with Wavez userLeft event structure', async () => {
+        const event = {
+            type: 'userLeft',
+            payload: {
+                userId: 'wavez-user-123',
+                nickname: 'WavezUser'
+            },
+            source: 'wavezfm'
+        };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.afkService.removeUser ).toHaveBeenCalledWith( 'wavez-user-123' );
+    } );
+
+    test( 'should work with Hang userLeft event structure', async () => {
+        const event = {
+            type: 'userLeft',
+            payload: {
+                userId: 'hang-user-456'
+            },
+            source: 'hangfm'
+        };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.afkService.removeUser ).toHaveBeenCalledWith( 'hang-user-456' );
+    } );
+
+    test( 'should handle errors gracefully', async () => {
+        const userId = 'test-user-id';
+        const error = new Error( 'Test error' );
+        services.afkService.removeUser.mockImplementation( () => {
+            throw error;
+        } );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUserLeftEvent( event, context );
+
+        expect( services.logger.error ).toHaveBeenCalledWith(
+            '[handleUserLeftEvent] Error: Test error'
+        );
+    } );
 } );

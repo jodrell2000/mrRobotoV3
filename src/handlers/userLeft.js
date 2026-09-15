@@ -68,4 +68,68 @@ async function userLeft ( message, state, services ) {
   }
 }
 
+/**
+ * Normalized handler for userLeft events (works with both Hang and Wavez)
+ * Handles cleanup when a user leaves the room: AFK removal, escort flag cleanup, private message tracking cleanup
+ * @param {Object} event - Normalized userLeft event with payload.userId
+ * @param {Object} context - Context object with services
+ */
+async function handleUserLeftEvent ( event, context ) {
+  const userId = event.payload?.userId;
+  const services = context.services;
+
+  if ( !userId || !services ) {
+    services?.logger?.debug?.( 'handleUserLeftEvent: missing userId or services' );
+    return;
+  }
+
+  try {
+    services.logger?.debug?.( `User ${ userId } left the room` );
+
+    // Remove user from AFK monitor
+    if ( services.afkService ) {
+      services.afkService.removeUser( userId );
+    }
+
+    // Clear escort flag when user disconnects from room
+    if ( services.dataService ) {
+      try {
+        const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+        if ( escortQueue[ userId ] ) {
+          delete escortQueue[ userId ];
+          services.dataService.setValue( 'escortQueue', escortQueue );
+          services.logger?.debug?.( `handleUserLeftEvent: cleared escortme flag for ${ userId }` );
+        }
+      } catch ( err ) {
+        services.logger?.error?.( `handleUserLeftEvent: error clearing escort flag for ${ userId }: ${ err.message }` );
+      }
+    }
+
+    // Remove private message tracking for the user who left
+    if ( services.bot && typeof services.bot.removePrivateMessageTrackingForUser === 'function' ) {
+      try {
+        await services.bot.removePrivateMessageTrackingForUser( userId );
+        services.logger?.debug?.( `✅ Private message tracking removed for user who left: ${ userId }` );
+      } catch ( error ) {
+        services.logger?.warn?.( `handleUserLeftEvent: Failed to remove private message tracking for user ${ userId }: ${ error.message }` );
+      }
+    } else {
+      services.logger?.debug?.( 'handleUserLeftEvent: Bot instance not available for private message tracking removal' );
+    }
+
+    // Update state: remove user from usersById
+    if ( services.stateService ) {
+      const state = services.stateService.getState();
+      if ( state && state.usersById && state.usersById[ userId ] ) {
+        delete state.usersById[ userId ];
+        services.logger?.debug?.( `handleUserLeftEvent: Removed user ${ userId } from state.usersById` );
+      }
+    }
+
+  } catch ( error ) {
+    services.logger?.error?.( `[handleUserLeftEvent] Error: ${ error.message }` );
+  }
+}
+
 module.exports = userLeft;
+module.exports.handleUserLeftEvent = handleUserLeftEvent;
