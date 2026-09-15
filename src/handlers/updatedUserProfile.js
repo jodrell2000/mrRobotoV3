@@ -33,4 +33,42 @@ async function updatedUserProfile(message, state, services) {
   }
 }
 
+/**
+ * Normalized handler for userProfileChanged events (works with both Hang and Wavez)
+ * Updates the DJ nickname in the database when a user's profile/nickname changes
+ * @param {Object} event - Normalized userProfileChanged event with payload.userId and payload.nickname
+ * @param {Object} context - Context object with services
+ */
+async function handleUpdatedUserProfileEvent(event, context) {
+  const userId = event.payload?.userId;
+  const newNickname = event.payload?.nickname;
+  const services = context.services;
+
+  if (!userId || !newNickname || !services) {
+    services?.logger?.debug?.('handleUpdatedUserProfileEvent: missing userId, nickname, or services');
+    return;
+  }
+
+  // Only update if databaseService is available and initialized
+  if (!services.databaseService || !services.databaseService.initialized) {
+    services.logger?.debug?.('handleUpdatedUserProfileEvent: databaseService not available or initialized');
+    return;
+  }
+
+  try {
+    const result = services.databaseService.insertOrUpdateDjNickname({
+      uuid: userId,
+      nickname: newNickname
+    });
+    if (result.action === 'inserted') {
+      services.logger?.debug?.(`Inserted new DJ in database: ${userId} (${newNickname})`);
+    } else if (result.action === 'updated') {
+      services.logger?.debug?.(`Updated DJ nickname in database: ${userId} (${result.oldNickname} → ${result.newNickname})`);
+    }
+  } catch (err) {
+    services.logger?.error?.(`handleUpdatedUserProfileEvent: Failed to update DJ nickname in database: ${err.message}`);
+  }
+}
+
 module.exports = updatedUserProfile;
+module.exports.handleUpdatedUserProfileEvent = handleUpdatedUserProfileEvent;

@@ -159,6 +159,24 @@ function translateHangEvent ( message, context = {} ) {
         }, { ...options, eventKey: paths.join( ',' ) } ) );
     }
 
+    // Check for user profile nickname updates
+    if ( paths.some( path => path.includes( '/userProfile/nickname' ) ) ) {
+        const nicknamePatch = message.statePatch?.find( p =>
+            p.path?.includes( '/userProfile/nickname' ) && p.path?.startsWith( '/allUserData/' )
+        );
+        if ( nicknamePatch && nicknamePatch.op === 'replace' ) {
+            const match = nicknamePatch.path.match( /^\/allUserData\/([^/]+)\/userProfile\/nickname$/ );
+            if ( match ) {
+                const userId = match[ 1 ];
+                const newNickname = nicknamePatch.value;
+                events.push( createEvent( 'userProfileChanged', {
+                    userId,
+                    nickname: newNickname
+                }, { ...options, eventKey: `userProfileChanged:${ userId }` } ) );
+            }
+        }
+    }
+
     events.push( ...translatePlaybackEvents( message, previousState, currentState, options ) );
     return events;
 }

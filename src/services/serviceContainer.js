@@ -20,6 +20,8 @@ const removedDjHandler = require( '../handlers/removedDj.js' );
 const { handleRemovedDjEvent } = removedDjHandler;
 const updatedRoomSettingsHandler = require( '../handlers/updatedRoomSettings.js' );
 const { handleUpdatedRoomSettingsEvent } = updatedRoomSettingsHandler;
+const updatedUserProfileHandler = require( '../handlers/updatedUserProfile.js' );
+const { handleUpdatedUserProfileEvent } = updatedUserProfileHandler;
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
@@ -309,6 +311,19 @@ services.eventDispatcher.registerHandler( 'roomSettingsChanged', async ( event, 
   const state = context.services?.stateService?.getState();
   if ( state && event.payload?.roomSettings ) state.roomSettings = event.payload.roomSettings;
   await handleUpdatedRoomSettingsEvent( event, context );
+} );
+
+services.eventDispatcher.registerHandler( 'userProfileChanged', async ( event, context ) => {
+  // Update user in state if available
+  const state = context.services?.stateService?.getState();
+  if ( state && event.payload?.userId && event.payload?.nickname ) {
+    const user = state.usersById?.[ event.payload.userId ];
+    if ( user ) {
+      user.nickname = event.payload.nickname;
+      if ( event.payload.displayUsername ) user.nickname = event.payload.displayUsername;
+    }
+  }
+  await handleUpdatedUserProfileEvent( event, context );
 } );
 
 // Initialize retry service connection to OpenChat API

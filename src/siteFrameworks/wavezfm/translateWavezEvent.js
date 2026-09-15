@@ -113,6 +113,19 @@ function translateWavezEvent ( packet = {}, context = {} ) {
         events.push( createEvent( 'roomSettingsChanged', { roomSettings }, packet, context.config ) );
     }
 
+    if ( packet.event === 'user_updated' ) {
+        // Map Wavez user_updated to normalized userProfileChanged event
+        // Only emit if displayUsername or username (nickname) is present
+        if ( payload.displayUsername || payload.username ) {
+            events.push( createEvent( 'userProfileChanged', {
+                userId: payload.userId,
+                nickname: payload.displayUsername || payload.username,
+                username: payload.username,
+                displayUsername: payload.displayUsername
+            }, packet, context.config ) );
+        }
+    }
+
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {
         const previousPlayId = context.previousState.nowPlaying?.playId;
         const currentPlayId = context.currentState.nowPlaying?.playId;
