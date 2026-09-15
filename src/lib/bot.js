@@ -1269,6 +1269,29 @@ class Bot {
       return;
     }
 
+    // Detect snag emoji (💜, ⭐️) in chat messages and emit emojiVote event
+    const snagEmojis = [ '💜', '⭐️' ];
+    for ( const emoji of snagEmojis ) {
+      if ( chatMessage.includes( emoji ) ) {
+        const event = {
+          type: 'emojiVote',
+          eventId: `emojiVote:${ sender }:${ Date.now() }`,
+          occurredAt: new Date().toISOString(),
+          source: this.services.frameworkSpecification?.id || 'unknown',
+          payload: {
+            emoji,
+            userId: sender,
+            messageId: normalizedMessage.id
+          }
+        };
+        try {
+          await this.services.eventDispatcher.dispatch( event, { bot: this, services: this.services } );
+        } catch ( err ) {
+          this.services.logger?.error?.( `Error dispatching emojiVote event: ${ err.message }` );
+        }
+      }
+    }
+
     await this._handleMessage( chatMessage, sender, normalizedMessage );
   }
 

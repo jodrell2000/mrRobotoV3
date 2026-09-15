@@ -81,6 +81,22 @@ function playedOneTimeAnimation ( message, state, services ) {
   // services.logger.debug( 'playedOneTimeAnimation handler called' );
 
   try {
+    // Emit normalized emojiVote event for the normalized handler to process
+    if ( services.eventDispatcher && message.params?.emoji && message.params?.userUuid ) {
+      const event = {
+        type: 'emojiVote',
+        eventId: `emojiVote:${ message.params.userUuid }:${ Date.now() }`,
+        occurredAt: new Date().toISOString(),
+        source: 'hangfm',
+        payload: {
+          emoji: message.params.emoji,
+          userId: message.params.userUuid
+        }
+      };
+      services.eventDispatcher.dispatch( event, { bot: services.bot, services } );
+    }
+
+    // Also run legacy logic for backward compatibility during transition
     // Handle snag emoji as star vote
     handleSnagEmojiVote( message, services );
 
@@ -96,4 +112,80 @@ function playedOneTimeAnimation ( message, state, services ) {
   }
 }
 
+/**
+ * Normalized handler for emoji vote events (works with both Hang and Wavez)
+ * Handles snag emoji as star/grab votes using framework-agnostic state access
+ * @param {Object} event - Normalized emojiVote event with payload.emoji and payload.userId
+ * @param {Object} context - Handler context containing services
+ */
+async function handlePlayedOneTimeAnimationEvent ( event, context ) {
+  const services = context.services;
+  if ( !services ) {
+    console.error( '[handlePlayedOneTimeAnimationEvent] No services provided in context' );
+    return;
+  }
+
+  try {
+    const emoji = event.payload?.emoji;
+    const userId = event.payload?.userId;
+
+    if ( !emoji ) {
+      services.logger?.debug?.( '[handlePlayedOneTimeAnimationEvent] No emoji in event payload' );
+      return;
+    }
+
+    if ( !isSnagEmoji( emoji ) ) {
+      services.logger?.debug?.( `[handlePlayedOneTimeAnimationEvent] Emoji ${ emoji } is not a snag emoji` );
+      return;
+    }
+
+    services.logger?.info?.( `[handlePlayedOneTimeAnimationEvent] Snag emoji ${ emoji } detected - counting as vote` );
+
+    // Determine the vote field name based on framework
+    const frameworkId = services.frameworkSpecification?.id;
+    const voteField = frameworkId === 'wavezfm' ? 'grabs' : 'stars';
+
+    // Get current votes from stateService
+    const currentVotes = services.stateService?.getVotes?.() || { likes: 0, dislikes: 0, stars: 0, grabs: 0 };
+    const currentCount = currentVotes[ voteField ] || 0;
+
+    // Increment the appropriate vote count
+    const newVotes = { ...currentVotes, [ voteField ]: currentCount + 1 };
+
+    // Update votes via stateService
+    if ( services.stateService?.setVotes ) {
+      services.stateService.setVotes( newVotes );
+      services.logger?.info?.( `[handlePlayedOneTimeAnimationEvent] Incremented current song ${ voteField } from ${ currentCount } to ${ newVotes[ voteField ] }` );
+    } else {
+      services.logger?.debug?.( '[handlePlayedOneTimeAnimationEvent] stateService.setVotes not available' );
+    }
+
+    // Also update stored previous song if it exists
+    if ( global.previousPlayedSong?.voteCounts && userId ) {
+      const djs = services.stateService?._getDjs?.() || [];
+      const currentDj = djs[ 0 ]?.uuid || djs[ 0 ]?.id;
+
+      // Only increment previous song votes if this emoji is from the current DJ playing that song
+      if ( currentDj && userId === currentDj ) {
+        const previousCount = global.previousPlayedSong.voteCounts[ voteField ] || 0;
+        global.previousPlayedSong.voteCounts = {
+          ...global.previousPlayedSong.voteCounts,
+          [ voteField ]: previousCount + 1
+        };
+        services.logger?.info?.( `[handlePlayedOneTimeAnimationEvent] Also incremented previous song ${ voteField } from ${ previousCount } to ${ global.previousPlayedSong.voteCounts[ voteField ] }` );
+      }
+    }
+
+    // Record emoji/snag activity in AFK monitor
+    if ( userId && services.afkService ) {
+      services.afkService.recordActivity( userId, 'emoji' );
+    }
+
+  } catch ( error ) {
+    services.logger?.error?.( `[handlePlayedOneTimeAnimationEvent] Error: ${ error.message }` );
+    services.logger?.error?.( `[handlePlayedOneTimeAnimationEvent] Stack: ${ error.stack }` );
+  }
+}
+
 module.exports = playedOneTimeAnimation;
+module.exports.handlePlayedOneTimeAnimationEvent = handlePlayedOneTimeAnimationEvent;

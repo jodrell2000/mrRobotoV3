@@ -81,6 +81,17 @@ class StateService {
         return { likes: votes.likes || 0, dislikes: votes.dislikes || 0, grabs: votes.grabs ?? votes.stars ?? 0 };
     }
 
+    setVotes ( votes ) {
+        if ( this.normalizedState ) {
+            this.normalizedState.votes = votes;
+        } else {
+            const state = this._getCurrentState();
+            if ( state ) {
+                state.voteCounts = votes;
+            }
+        }
+    }
+
     getRoomSettings () {
         if ( this.normalizedState ) return this.normalizedState.roomSettings || {};
         return this._getSettings();

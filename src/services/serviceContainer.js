@@ -10,6 +10,8 @@ const userJoinedHandler = require( '../handlers/userJoined.js' );
 const { handleUserJoinedEvent } = userJoinedHandler;
 const playedSongHandler = require( '../handlers/playedSong.js' );
 const { handlePlayedSongEvent } = playedSongHandler;
+const playedOneTimeAnimationHandler = require( '../handlers/playedOneTimeAnimation.js' );
+const { handlePlayedOneTimeAnimationEvent } = playedOneTimeAnimationHandler;
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
@@ -275,6 +277,10 @@ services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context )
 
 services.eventDispatcher.registerHandler( 'userJoined', async ( event, context ) => {
   await handleUserJoinedEvent( event, context );
+} );
+
+services.eventDispatcher.registerHandler( 'emojiVote', async ( event, context ) => {
+  await handlePlayedOneTimeAnimationEvent( event, context );
 } );
 
 services.eventDispatcher.registerHandler( 'voteChanged', async ( event, context ) => {
