@@ -105,9 +105,25 @@ function translateHangEvent ( message, context = {} ) {
     }
 
     if ( paths.some( path => path.startsWith( '/voteCounts/' ) ) ) {
-        events.push( createEvent( 'voteChanged', {
-            votes: currentState.votes
-        }, { ...options, eventKey: paths.join( ',' ) } ) );
+        const voteEvent = { votes: currentState.votes };
+        
+        // Check for user-specific vote patches and include user info
+        const userVotePatch = message.statePatch?.find( p => 
+            p.path?.startsWith( '/allUserData/' ) && p.path?.includes( '/songVotes/' ) 
+        );
+        if ( userVotePatch ) {
+            const userId = userVotePatch.path.split( '/' )[ 2 ];
+            if ( userId ) {
+                voteEvent.userId = userId;
+                // Determine vote type from path
+                if ( userVotePatch.path.includes( '/likes/' ) ) voteEvent.voteType = 'like';
+                else if ( userVotePatch.path.includes( '/dislikes/' ) ) voteEvent.voteType = 'dislike';
+                else if ( userVotePatch.path.includes( '/stars/' ) ) voteEvent.voteType = 'star';
+                voteEvent.active = userVotePatch.op === 'add' || userVotePatch.op === 'replace';
+            }
+        }
+        
+        events.push( createEvent( 'voteChanged', voteEvent, { ...options, eventKey: paths.join( ',' ) } ) );
     }
 
     if ( paths.some( path => path.startsWith( '/settings/' ) ) ) {

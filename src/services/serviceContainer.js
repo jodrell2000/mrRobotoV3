@@ -12,6 +12,8 @@ const playedSongHandler = require( '../handlers/playedSong.js' );
 const { handlePlayedSongEvent } = playedSongHandler;
 const playedOneTimeAnimationHandler = require( '../handlers/playedOneTimeAnimation.js' );
 const { handlePlayedOneTimeAnimationEvent } = playedOneTimeAnimationHandler;
+const votedOnSongHandler = require( '../handlers/votedOnSong.js' );
+const { handleVotedOnSongEvent } = votedOnSongHandler;
 const { logger } = require( '../lib/logging.js' );
 const config = require( '../config.js' );
 const hangUserService = require( './hangUserService.js' );
@@ -286,6 +288,7 @@ services.eventDispatcher.registerHandler( 'emojiVote', async ( event, context ) 
 services.eventDispatcher.registerHandler( 'voteChanged', async ( event, context ) => {
   const state = context.services?.stateService?.getState();
   if ( state && event.payload?.votes ) state.votes = event.payload.votes;
+  await handleVotedOnSongEvent( event, context );
 } );
 
 services.eventDispatcher.registerHandler( 'roomSettingsChanged', async ( event, context ) => {

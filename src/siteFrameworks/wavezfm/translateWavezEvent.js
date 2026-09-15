@@ -62,9 +62,20 @@ function translateWavezEvent ( packet = {}, context = {} ) {
     }
 
     if ( packet.event === 'vote_updated' || packet.event === 'votes_snapshot' ) {
-        events.push( createEvent( 'voteChanged', {
-            votes: normalizeVotes( payload )
-        }, packet, context.config ) );
+        const normalizedVotes = normalizeVotes( payload );
+        const voteEvent = { votes: normalizedVotes };
+        
+        // Include user-specific info for vote_updated events
+        if ( packet.event === 'vote_updated' && payload.userId && payload.type ) {
+            voteEvent.userId = payload.userId;
+            // Map Wavez vote types to normalized vote types
+            if ( payload.type === 'woot' ) voteEvent.voteType = 'like';
+            else if ( payload.type === 'meh' ) voteEvent.voteType = 'dislike';
+            else if ( payload.type === 'grab' ) voteEvent.voteType = 'grab';
+            voteEvent.active = payload.active !== false; // default to true
+        }
+        
+        events.push( createEvent( 'voteChanged', voteEvent, packet, context.config ) );
     }
 
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {
