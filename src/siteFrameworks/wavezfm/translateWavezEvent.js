@@ -100,6 +100,19 @@ function translateWavezEvent ( packet = {}, context = {} ) {
         }
     }
 
+    if ( packet.event === 'public_room_updated' ) {
+        // Map Wavez room settings to normalized roomSettings shape
+        const roomSettings = {
+            name: payload.name,
+            description: payload.description
+        };
+        // Include additional settings if present
+        if ( payload.queueLocked !== undefined ) roomSettings.queueLocked = payload.queueLocked;
+        if ( payload.allowExternalMediaEmbeds !== undefined ) roomSettings.allowExternalMediaEmbeds = payload.allowExternalMediaEmbeds;
+        
+        events.push( createEvent( 'roomSettingsChanged', { roomSettings }, packet, context.config ) );
+    }
+
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {
         const previousPlayId = context.previousState.nowPlaying?.playId;
         const currentPlayId = context.currentState.nowPlaying?.playId;
