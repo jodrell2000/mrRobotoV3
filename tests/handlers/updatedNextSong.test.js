@@ -1,4 +1,5 @@
 const updatedNextSong = require( '../../src/handlers/updatedNextSong' );
+const { handleUpdatedNextSongEvent } = require( '../../src/handlers/updatedNextSong' );
 
 describe( 'updatedNextSong handler', () => {
     const uuid = '8074ff02-a3b7-44d2-8c21-c6f2307530f4';
@@ -91,5 +92,94 @@ describe( 'updatedNextSong handler', () => {
     test( 'does nothing when stateService is absent', () => {
         delete services.stateService;
         expect( () => updatedNextSong( makeFieldLevelMessage( 0 ), {}, services ) ).not.toThrow();
+    } );
+} );
+
+describe( 'handleUpdatedNextSongEvent (normalized handler)', () => {
+    let services;
+
+    beforeEach( () => {
+        services = {
+            logger: {
+                debug: jest.fn(),
+                error: jest.fn()
+            },
+            afkService: {
+                recordActivity: jest.fn()
+            }
+        };
+    } );
+
+    test( 'should return early if no userId in payload', async () => {
+        const event = { payload: {} };
+        const context = { services };
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( services.logger.debug ).toHaveBeenCalledWith( 'handleUpdatedNextSongEvent: missing userId or services' );
+        expect( services.afkService.recordActivity ).not.toHaveBeenCalled();
+    } );
+
+    test( 'should return early if no services in context', async () => {
+        const event = { payload: { userId: 'test-uuid' } };
+        const context = {};
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( services.afkService.recordActivity ).not.toHaveBeenCalled();
+    } );
+
+    test( 'should return early if afkService not available', async () => {
+        const servicesWithoutAfk = { ...services, afkService: undefined };
+        const event = { payload: { userId: 'test-uuid' } };
+        const context = { services: servicesWithoutAfk };
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( servicesWithoutAfk.logger.debug ).toHaveBeenCalledWith( 'handleUpdatedNextSongEvent: afkService not available' );
+    } );
+
+    test( 'should record queue activity for user', async () => {
+        const userId = 'test-user-uuid';
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( services.afkService.recordActivity ).toHaveBeenCalledWith( userId, 'queue' );
+        expect( services.logger.debug ).toHaveBeenCalledWith(
+            `handleUpdatedNextSongEvent: Recorded queue activity for user ${ userId }`
+        );
+    } );
+
+    test( 'should handle afkService.recordActivity error gracefully', async () => {
+        const userId = 'test-user-uuid';
+        const error = new Error( 'AFK service error' );
+        services.afkService.recordActivity.mockImplementation( () => {
+            throw error;
+        } );
+        const event = { payload: { userId } };
+        const context = { services };
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( services.logger.error ).toHaveBeenCalledWith(
+            '[handleUpdatedNextSongEvent] Error: AFK service error'
+        );
+    } );
+
+    test( 'should work with nextSongUpdated event structure', async () => {
+        const event = {
+            type: 'nextSongUpdated',
+            payload: {
+                userId: 'hang-user-123'
+            },
+            source: 'hangfm'
+        };
+        const context = { services };
+
+        await handleUpdatedNextSongEvent( event, context );
+
+        expect( services.afkService.recordActivity ).toHaveBeenCalledWith( 'hang-user-123', 'queue' );
     } );
 } );

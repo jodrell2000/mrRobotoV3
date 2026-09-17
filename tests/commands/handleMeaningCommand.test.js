@@ -35,7 +35,15 @@ describe( 'handleMeaningCommand', () => {
                 } )
             },
             stateService: {
-                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' ),
+                getNowPlaying: jest.fn().mockReturnValue( {
+                    song: {
+                        trackName: 'Bohemian Rhapsody',
+                        artistName: 'Queen'
+                    }
+                } ),
+                getCurrentDj: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid' } ),
+                getUser: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid', nickname: 'TestDJ' } )
             },
             hangUserService: {
                 getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
@@ -145,6 +153,10 @@ describe( 'handleMeaningCommand', () => {
         it( 'should handle no song currently playing', async () => {
             const noSongServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
                 hangoutState: {}
             };
 
@@ -162,6 +174,10 @@ describe( 'handleMeaningCommand', () => {
         it( 'should handle missing song object', async () => {
             const noSongServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {} )
+                },
                 hangoutState: {
                     nowPlaying: {}
                 }
@@ -179,10 +195,21 @@ describe( 'handleMeaningCommand', () => {
         } );
 
         it( 'should handle missing track name', async () => {
-            mockServices.hangoutState.nowPlaying.song.trackName = null;
+            const noTrackServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: null,
+                            artistName: 'Queen'
+                        }
+                    } )
+                }
+            };
 
             const result = await handleMeaningCommand( {
-                services: mockServices,
+                services: noTrackServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -190,17 +217,28 @@ describe( 'handleMeaningCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'Missing song details' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noTrackServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 Unable to get song details. Please try again when a song is playing.',
                 expect.any( Object )
             );
         } );
 
         it( 'should handle missing artist name', async () => {
-            mockServices.hangoutState.nowPlaying.song.artistName = '';
+            const noArtistServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: 'Bohemian Rhapsody',
+                            artistName: ''
+                        }
+                    } )
+                }
+            };
 
             const result = await handleMeaningCommand( {
-                services: mockServices,
+                services: noArtistServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -265,6 +303,10 @@ describe( 'handleMeaningCommand', () => {
         it( 'should handle missing hangout state', async () => {
             const noStateServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
                 hangoutState: undefined
             };
 
@@ -307,6 +349,15 @@ describe( 'handleMeaningCommand', () => {
 
             const differentSongServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: 'Breaking Free',
+                            artistName: 'Test Artist'
+                        }
+                    } )
+                },
                 hangoutState: {
                     nowPlaying: {
                         song: {

@@ -245,27 +245,31 @@ class TokenService {
                 return 'No DJ';
             }
 
-            const djUuid = djs[ 0 ].uuid;
+            // Handle both Wavez (userId) and Hang (uuid) - get the right ID to look up the user
+            const djId = djs[ 0 ].userId || djs[ 0 ].uuid;
+            if ( !djId ) {
+                return 'No DJ';
+            }
 
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
                 return this.services.frameworkSpecification?.formatters
-                    ? this.services.messageService.formatMention( djUuid, this.services )
-                    : this.services.messageService.formatMention( djUuid );
+                    ? this.services.messageService.formatMention( djId, this.services )
+                    : this.services.messageService.formatMention( djId );
             }
 
-            const stateUser = this.services?.stateService?.getUser?.( djUuid );
-            if ( stateUser?.nickname && stateUser.nickname !== djUuid ) return stateUser.nickname;
+            const stateUser = this.services?.stateService?.getUser?.( djId );
+            if ( stateUser?.nickname && stateUser.nickname !== djId ) return stateUser.nickname;
 
             if ( this.services?.stateService?.getUserProfile ) {
-                const profile = await this.services.stateService.getUserProfile( djUuid );
+                const profile = await this.services.stateService.getUserProfile( djId );
                 if ( profile?.nickname ) return profile.nickname;
             }
 
             // Compatibility fallback for legacy services
             if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
                 try {
-                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, djUuid );
+                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, djId );
                     return nickname || 'Unknown DJ';
                 } catch ( error ) {
                     this.logger.debug( `[TokenService] Could not get DJ nickname: ${ error.message }` );
@@ -285,27 +289,21 @@ class TokenService {
      */
     async getUserList () {
         try {
-            // Get the hangout state from stateService
             if ( !this.services?.stateService ) {
                 return '';
             }
 
-            // StateService stores state in _getCurrentState() or via services.hangoutState
-            let state;
-            if ( typeof this.services.stateService._getCurrentState === 'function' ) {
-                state = this.services.stateService._getCurrentState();
-            } else if ( this.services.hangoutState ) {
-                state = this.services.hangoutState;
-            }
+            // Use framework-agnostic method (works for both Hang and Wavez)
+            const users = this.services.stateService.getUsers();
 
-            if ( !state?.allUserData || typeof state.allUserData !== 'object' ) {
+            if ( !Array.isArray( users ) || users.length === 0 ) {
                 return '';
             }
 
-            // Extract all nicknames from allUserData
-            const nicknames = Object.values( state.allUserData )
-                .filter( user => user?.userProfile?.nickname )
-                .map( user => user.userProfile.nickname );
+            // Extract nicknames from normalized user structure
+            const nicknames = users
+                .map( user => user?.nickname || user?.userProfile?.nickname )
+                .filter( Boolean );
 
             // Return comma-separated list
             return nicknames.join( ', ' );

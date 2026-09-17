@@ -35,7 +35,15 @@ describe( 'handlePopfactsCommand', () => {
         } )
       },
       stateService: {
-        getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+        getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' ),
+        getNowPlaying: jest.fn().mockReturnValue( {
+          song: {
+            trackName: 'Bohemian Rhapsody',
+            artistName: 'Queen'
+          }
+        } ),
+        getCurrentDj: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid' } ),
+        getUser: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid', nickname: 'TestDJ' } )
       },
       hangUserService: {
         getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
@@ -136,10 +144,17 @@ describe( 'handlePopfactsCommand', () => {
 
   describe( 'error handling', () => {
     it( 'should handle no song currently playing', async () => {
-      mockServices.hangoutState.nowPlaying = null;
+      const noSongServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( null )
+        },
+        hangoutState: { nowPlaying: null }
+      };
 
       const result = await handlePopfactsCommand( {
-        services: mockServices,
+        services: noSongServices,
         context: mockContext,
         responseChannel: 'public'
       } );
@@ -147,20 +162,27 @@ describe( 'handlePopfactsCommand', () => {
       expect( result.success ).toBe( false );
       expect( result.error ).toBe( 'No song currently playing' );
 
-      expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+      expect( noSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
         '🎵 No song is currently playing. Start a song first and try again!',
         expect.any( Object )
       );
 
       // AI should not be called
-      expect( mockServices.machineLearningService.askGoogleAI ).not.toHaveBeenCalled();
+      expect( noSongServices.machineLearningService.askGoogleAI ).not.toHaveBeenCalled();
     } );
 
     it( 'should handle missing song object', async () => {
-      mockServices.hangoutState.nowPlaying = { song: null };
+      const noSongServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( {} )
+        },
+        hangoutState: { nowPlaying: { song: null } }
+      };
 
       const result = await handlePopfactsCommand( {
-        services: mockServices,
+        services: noSongServices,
         context: mockContext,
         responseChannel: 'public'
       } );
@@ -168,17 +190,28 @@ describe( 'handlePopfactsCommand', () => {
       expect( result.success ).toBe( false );
       expect( result.error ).toBe( 'No song currently playing' );
 
-      expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+      expect( noSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
         '🎵 No song is currently playing. Start a song first and try again!',
         expect.any( Object )
       );
     } );
 
     it( 'should handle missing track name', async () => {
-      mockServices.hangoutState.nowPlaying.song.trackName = null;
+      const noTrackServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( {
+            song: {
+              trackName: null,
+              artistName: 'Queen'
+            }
+          } )
+        }
+      };
 
       const result = await handlePopfactsCommand( {
-        services: mockServices,
+        services: noTrackServices,
         context: mockContext,
         responseChannel: 'public'
       } );
@@ -186,17 +219,28 @@ describe( 'handlePopfactsCommand', () => {
       expect( result.success ).toBe( false );
       expect( result.error ).toBe( 'Missing song details' );
 
-      expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+      expect( noTrackServices.messageService.sendResponse ).toHaveBeenCalledWith(
         '🎵 Unable to get song details. Please try again when a song is playing.',
         expect.any( Object )
       );
     } );
 
     it( 'should handle missing artist name', async () => {
-      mockServices.hangoutState.nowPlaying.song.artistName = '';
+      const noArtistServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( {
+            song: {
+              trackName: 'Bohemian Rhapsody',
+              artistName: ''
+            }
+          } )
+        }
+      };
 
       const result = await handlePopfactsCommand( {
-        services: mockServices,
+        services: noArtistServices,
         context: mockContext,
         responseChannel: 'public'
       } );
@@ -260,10 +304,17 @@ describe( 'handlePopfactsCommand', () => {
     } );
 
     it( 'should handle missing hangout state', async () => {
-      mockServices.hangoutState = null;
+      const noStateServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( null )
+        },
+        hangoutState: null
+      };
 
       const result = await handlePopfactsCommand( {
-        services: mockServices,
+        services: noStateServices,
         context: mockContext,
         responseChannel: 'public'
       } );
@@ -291,54 +342,78 @@ describe( 'handlePopfactsCommand', () => {
     } );
 
     it( 'should handle different song titles and artists', async () => {
-      mockServices.hangoutState.nowPlaying.song = {
+      const differentSongServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( {
+            song: {
+              trackName: 'Imagine',
+              artistName: 'John Lennon'
+            }
+          } )
+        }
+      };
+      differentSongServices.hangoutState.nowPlaying.song = {
         trackName: 'Imagine',
         artistName: 'John Lennon'
       };
 
       const mockAIResponse = 'Some facts about Imagine.';
-      mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
+      differentSongServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
       // Mock the template from dataService
       const mockTemplate = 'The song I\'m currently listening to is {trackName} by {artistName}. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you\'re giving me three facts as part of the reply';
-      mockServices.dataService.getValue.mockReturnValue( mockTemplate );
+      differentSongServices.dataService.getValue.mockReturnValue( mockTemplate );
 
       await handlePopfactsCommand( {
-        services: mockServices,
+        services: differentSongServices,
         context: mockContext,
         responseChannel: 'public'
       } );
 
-      expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
+      expect( differentSongServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
         "The song I'm currently listening to is Imagine by John Lennon. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you're giving me three facts as part of the reply"
       );
 
-      expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+      expect( differentSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
         'Some facts about Imagine.',
         expect.any( Object )
       );
     } );
 
     it( 'should use default template when dataService returns null', async () => {
-      mockServices.hangoutState.nowPlaying.song = {
+      const defaultTemplateServices = {
+        ...mockServices,
+        stateService: {
+          ...mockServices.stateService,
+          getNowPlaying: jest.fn().mockReturnValue( {
+            song: {
+              trackName: 'Test Song',
+              artistName: 'Test Artist'
+            }
+          } )
+        }
+      };
+      defaultTemplateServices.hangoutState.nowPlaying.song = {
         trackName: 'Test Song',
         artistName: 'Test Artist'
       };
 
       const mockAIResponse = 'Default template facts.';
-      mockServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
+      defaultTemplateServices.machineLearningService.askGoogleAI.mockResolvedValue( mockAIResponse );
 
       // Mock dataService to return null (template not found)
-      mockServices.dataService.getValue.mockReturnValue( null );
+      defaultTemplateServices.dataService.getValue.mockReturnValue( null );
 
       await handlePopfactsCommand( {
-        services: mockServices,
+        services: defaultTemplateServices,
         context: mockContext,
         responseChannel: 'public'
       } );
 
       // Should still work with the default fallback template
-      expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
+      expect( defaultTemplateServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
         "The song I'm currently listening to is Test Song by Test Artist. Tell me three short interesting facts about the song and/or the artist. When searching note that it may or may not be a cover version. Do not tell me that you're giving me three facts as part of the reply"
       );
     } );

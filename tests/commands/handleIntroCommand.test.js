@@ -35,7 +35,15 @@ describe( 'handleIntroCommand', () => {
                 } )
             },
             stateService: {
-                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' ),
+                getNowPlaying: jest.fn().mockReturnValue( {
+                    song: {
+                        trackName: 'Bohemian Rhapsody',
+                        artistName: 'Queen'
+                    }
+                } ),
+                getCurrentDj: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid' } ),
+                getUser: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid', nickname: 'TestDJ' } )
             },
             hangUserService: {
                 getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
@@ -151,9 +159,18 @@ describe( 'handleIntroCommand', () => {
             const mockTemplate = 'I\'m listening to {artistName} with DJ {username}. Give me a brief introduction to this artist. Include when they started, their genre, and why they\'re notable. Keep it under 150 words.';
             mockServices.dataService.getValue.mockReturnValue( mockTemplate );
 
-            // Update mock to have Alice In Chains as artist
+            // Update mock to have Alice In Chains as artist and update stateService mock
             mockServices.hangoutState.nowPlaying.song.artistName = 'Alice In Chains';
             mockServices.hangoutState.nowPlaying.song.trackName = 'Rain When I Die';
+            mockServices.stateService.getNowPlaying.mockReturnValue( {
+                song: {
+                    trackName: 'Rain When I Die',
+                    artistName: 'Alice In Chains'
+                }
+            } );
+
+            // Update getUser mock to not have nickname, so it falls through to hangUserService
+            mockServices.stateService.getUser.mockReturnValue( { uuid: 'test-dj-uuid' } );
 
             // Mock the special character username
             mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( '𝖓𝖎𝖓𝖆🌙' );
@@ -188,6 +205,10 @@ describe( 'handleIntroCommand', () => {
         it( 'should handle no song currently playing', async () => {
             const noSongServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
                 hangoutState: {}
             };
 
@@ -205,6 +226,10 @@ describe( 'handleIntroCommand', () => {
         it( 'should handle missing song object', async () => {
             const noSongServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {} )
+                },
                 hangoutState: {
                     nowPlaying: {}
                 }
@@ -222,10 +247,21 @@ describe( 'handleIntroCommand', () => {
         } );
 
         it( 'should handle missing track name', async () => {
-            mockServices.hangoutState.nowPlaying.song.trackName = null;
+            const noTrackServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: null,
+                            artistName: 'Queen'
+                        }
+                    } )
+                }
+            };
 
             const result = await handleIntroCommand( {
-                services: mockServices,
+                services: noTrackServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -233,17 +269,28 @@ describe( 'handleIntroCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'Missing song details' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noTrackServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 Unable to get song details. Please try again when a song is playing.',
                 expect.any( Object )
             );
         } );
 
         it( 'should handle missing artist name', async () => {
-            mockServices.hangoutState.nowPlaying.song.artistName = '';
+            const noArtistServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: 'Bohemian Rhapsody',
+                            artistName: ''
+                        }
+                    } )
+                }
+            };
 
             const result = await handleIntroCommand( {
-                services: mockServices,
+                services: noArtistServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -308,6 +355,10 @@ describe( 'handleIntroCommand', () => {
         it( 'should handle missing hangout state', async () => {
             const noStateServices = {
                 ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
                 hangoutState: undefined
             };
 

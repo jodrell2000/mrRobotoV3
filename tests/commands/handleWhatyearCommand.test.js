@@ -35,7 +35,15 @@ describe( 'handleWhatyearCommand', () => {
                 } )
             },
             stateService: {
-                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+                getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' ),
+                getNowPlaying: jest.fn().mockReturnValue( {
+                    song: {
+                        trackName: 'Bohemian Rhapsody',
+                        artistName: 'Queen'
+                    }
+                } ),
+                getCurrentDj: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid' } ),
+                getUser: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid', nickname: 'TestDJ' } )
             },
             hangUserService: {
                 getUserNicknameByUuid: jest.fn().mockResolvedValue( 'TestDJ' )
@@ -126,10 +134,17 @@ describe( 'handleWhatyearCommand', () => {
 
     describe( 'error handling', () => {
         it( 'should handle no song currently playing', async () => {
-            mockServices.hangoutState.nowPlaying = null;
+            const noSongServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
+                hangoutState: { nowPlaying: null }
+            };
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: noSongServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -137,20 +152,27 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'No song currently playing' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 No song is currently playing. Start a song first and try again!',
                 expect.any( Object )
             );
 
             // AI should not be called
-            expect( mockServices.machineLearningService.askGoogleAI ).not.toHaveBeenCalled();
+            expect( noSongServices.machineLearningService.askGoogleAI ).not.toHaveBeenCalled();
         } );
 
         it( 'should handle missing song object', async () => {
-            mockServices.hangoutState.nowPlaying = { song: null };
+            const noSongServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {} )
+                },
+                hangoutState: { nowPlaying: { song: null } }
+            };
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: noSongServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -158,22 +180,28 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'No song currently playing' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 No song is currently playing. Start a song first and try again!',
                 expect.any( Object )
             );
         } );
 
         it( 'should handle missing track name', async () => {
-            mockServices.hangoutState.nowPlaying = {
-                song: {
-                    trackName: null,
-                    artistName: 'Queen'
+            const noTrackServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: null,
+                            artistName: 'Queen'
+                        }
+                    } )
                 }
             };
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: noTrackServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -181,22 +209,28 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'Missing song details' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noTrackServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 Unable to get song details. Please try again when a song is playing.',
                 expect.any( Object )
             );
         } );
 
         it( 'should handle missing artist name', async () => {
-            mockServices.hangoutState.nowPlaying = {
-                song: {
-                    trackName: 'Bohemian Rhapsody',
-                    artistName: null
+            const noArtistServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: 'Bohemian Rhapsody',
+                            artistName: null
+                        }
+                    } )
                 }
             };
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: noArtistServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -204,7 +238,7 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'Missing song details' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noArtistServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 Unable to get song details. Please try again when a song is playing.',
                 expect.any( Object )
             );
@@ -268,10 +302,17 @@ describe( 'handleWhatyearCommand', () => {
         } );
 
         it( 'should handle missing hangout state', async () => {
-            mockServices.hangoutState = null;
+            const noStateServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                },
+                hangoutState: null
+            };
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: noStateServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -279,7 +320,7 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'No song currently playing' );
 
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noStateServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 '🎵 No song is currently playing. Start a song first and try again!',
                 expect.any( Object )
             );
@@ -302,15 +343,27 @@ describe( 'handleWhatyearCommand', () => {
         } );
 
         it( 'should handle different song titles and artists', async () => {
-            mockServices.hangoutState.nowPlaying.song = {
+            const differentSongServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( {
+                        song: {
+                            trackName: 'Imagine',
+                            artistName: 'John Lennon'
+                        }
+                    } )
+                }
+            };
+            differentSongServices.hangoutState.nowPlaying.song = {
                 trackName: 'Imagine',
                 artistName: 'John Lennon'
             };
-            mockServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
-            mockServices.machineLearningService.askGoogleAI.mockResolvedValue( '1971' );
+            differentSongServices.dataService.getValue.mockReturnValue( 'In what year was the song {trackName} by {artistName} originally released?' );
+            differentSongServices.machineLearningService.askGoogleAI.mockResolvedValue( '1971' );
 
             const result = await handleWhatyearCommand( {
-                services: mockServices,
+                services: differentSongServices,
                 context: mockContext,
                 responseChannel: 'public'
             } );
@@ -318,7 +371,7 @@ describe( 'handleWhatyearCommand', () => {
             expect( result.success ).toBe( true );
             expect( result.response ).toBe( '1971' );
 
-            expect( mockServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
+            expect( differentSongServices.machineLearningService.askGoogleAI ).toHaveBeenCalledWith(
                 'In what year was the song Imagine by John Lennon originally released?'
             );
         } );

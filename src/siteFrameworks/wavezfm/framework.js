@@ -13,7 +13,7 @@ const framework = {
         userPresence: { supported: true },
         djQueueState: { supported: false },
         djQueueManagement: { supported: false },
-        removeFromDJQueue: { supported: false },
+        removeFromDJQueue: { supported: true },
         skipTrack: { supported: false },
         voting: { supported: false },
         botIdentityUpdate: { supported: false },

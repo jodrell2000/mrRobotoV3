@@ -14,6 +14,7 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
         this.logger = null;
         this.connected = false;
         this.client = null;
+        this.apiAdapter = null;
         this.listeners = new Map();
         this.roomUserIds = new Set();
         this.wavezEventLogCounter = 0;
@@ -21,6 +22,10 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
 
     setLogger ( logger ) {
         this.logger = logger;
+    }
+
+    setApiAdapter ( apiAdapter ) {
+        this.apiAdapter = apiAdapter;
     }
 
     async connect () {
@@ -153,8 +158,21 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
         unsupported( 'voteOnSong' );
     }
 
-    async removeDj () {
-        unsupported( 'removeDj' );
+    async removeDj ( userId ) {
+        if ( !this.apiAdapter ) {
+            const error = 'removeDj: apiAdapter not available';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] removeDj called for userId: "${ userId }"` );
+        try {
+            const result = await this.apiAdapter.removeFromQueue( userId );
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] removeFromQueue completed: ${ JSON.stringify( result ) }` );
+            return result;
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] removeDj failed: ${ error.message }` );
+            throw error;
+        }
     }
 
     async skipSong () {

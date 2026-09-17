@@ -293,6 +293,7 @@ describe( 'TokenService', () => {
                 getUserNicknameByUuid: jest.fn()
             };
             mockServices.stateService._getDjs = jest.fn();
+            mockServices.stateService.getDjQueue = jest.fn();
         } );
 
         describe( 'getSenderUsername', () => {
@@ -360,6 +361,18 @@ describe( 'TokenService', () => {
 
                 expect( result ).toBe( '<@uid:dj-123>' );
                 expect( mockServices.messageService.formatMention ).toHaveBeenCalledWith( 'dj-123' );
+            } );
+
+            it( 'should return formatted mention for current DJ using userId (Wavez)', async () => {
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'wavez-dj-123', position: 0, isPlaying: true },
+                    { userId: 'wavez-dj-456', position: 1, isPlaying: false }
+                ] );
+
+                const result = await tokenService.getDjUsername( {} );
+
+                expect( result ).toBe( '<@uid:wavez-dj-123>' );
+                expect( mockServices.messageService.formatMention ).toHaveBeenCalledWith( 'wavez-dj-123' );
             } );
 
             it( 'should return No DJ when no DJs are available', async () => {

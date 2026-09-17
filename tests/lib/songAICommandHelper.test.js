@@ -32,7 +32,23 @@ describe( 'songAICommandHelper', () => {
 
         const mockStateService = {
             getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' ),
-            _getDjs: jest.fn().mockReturnValue( [ { uuid: 'test-dj-uuid' } ] )
+            _getDjs: jest.fn().mockReturnValue( [ { uuid: 'test-dj-uuid' } ] ),
+            getNowPlaying: jest.fn().mockReturnValue( {
+                song: {
+                    trackName: 'Test Song',
+                    artistName: 'Test Artist'
+                }
+            } ),
+            getCurrentDj: jest.fn().mockReturnValue( { uuid: 'test-dj-uuid' } ),
+            getUser: jest.fn().mockImplementation( ( id ) => {
+                if ( id === 'test-user-uuid' ) return { uuid: 'test-user-uuid' };
+                if ( id === 'test-dj-uuid' ) return { uuid: 'test-dj-uuid' };
+                return null;
+            } ),
+            getUsers: jest.fn().mockReturnValue( [
+                { uuid: 'test-user-uuid' },
+                { uuid: 'test-dj-uuid' }
+            ] )
         };
 
         const mockLogger = {
@@ -64,7 +80,8 @@ describe( 'songAICommandHelper', () => {
 
         mockServices = {
             messageService: {
-                sendResponse: jest.fn()
+                sendResponse: jest.fn(),
+                formatMention: jest.fn( ( userId, services ) => `<@uid:${ userId }>` )
             },
             machineLearningService: {
                 askGoogleAI: jest.fn()
@@ -186,13 +203,21 @@ describe( 'songAICommandHelper', () => {
                 noSongMessage: 'Custom no song message'
             };
 
-            mockServices.hangoutState.nowPlaying = null;
+            const noSongServices = {
+                ...mockServices,
+                stateService: {
+                    ...mockServices.stateService,
+                    getNowPlaying: jest.fn().mockReturnValue( null )
+                }
+            };
 
-            const result = await executeSongAICommand( mockCommandParams, config );
+            const commandParams = { ...mockCommandParams, services: noSongServices };
+
+            const result = await executeSongAICommand( commandParams, config );
 
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'No song currently playing' );
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
+            expect( noSongServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 'Custom no song message',
                 expect.any( Object )
             );
@@ -380,33 +405,37 @@ describe( 'songAICommandHelper', () => {
 
         it( 'should replace single username with mention format', () => {
             const text = 'Gaz, you picked a great song!';
-            const hangoutState = {
-                allUserData: {
-                    'uuid-gaz': {
-                        userProfile: { nickname: 'Gaz' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-gaz', nickname: 'Gaz' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toBe( 'Gaz, you picked a great song!'.replace( 'Gaz', '<@uid:uuid-gaz>' ) );
         } );
 
         it( 'should replace multiple different usernames in text', () => {
             const text = 'Kelsi and Alice both loved this track. Alice really enjoyed it, and Kelsi agrees!';
-            const hangoutState = {
-                allUserData: {
-                    'uuid-kelsi': {
-                        userProfile: { nickname: 'Kelsi' }
-                    },
-                    'uuid-alice': {
-                        userProfile: { nickname: 'Alice' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-kelsi', nickname: 'Kelsi' },
+                        { uuid: 'uuid-alice', nickname: 'Alice' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toContain( '<@uid:uuid-kelsi>' );
             expect( result ).toContain( '<@uid:uuid-alice>' );
@@ -417,15 +446,18 @@ describe( 'songAICommandHelper', () => {
 
         it( 'should not replace partial matches (word boundaries)', () => {
             const text = 'This is a Garfield cat, not Gaz!';
-            const hangoutState = {
-                allUserData: {
-                    'uuid-gaz': {
-                        userProfile: { nickname: 'Gaz' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-gaz', nickname: 'Gaz' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             // Garfield should NOT be replaced, only Gaz
             expect( result ).toContain( 'Garfield' );
@@ -433,55 +465,63 @@ describe( 'songAICommandHelper', () => {
         } );
 
         it( 'should handle empty text gracefully', () => {
-            const hangoutState = {
-                allUserData: {
-                    'uuid-alice': {
-                        userProfile: { nickname: 'Alice' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-alice', nickname: 'Alice' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( '', hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( '', mockServices, mockLogger );
 
             expect( result ).toBe( '' );
         } );
 
         it( 'should handle null text gracefully', () => {
-            const hangoutState = {
-                allUserData: {
-                    'uuid-alice': {
-                        userProfile: { nickname: 'Alice' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-alice', nickname: 'Alice' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( null, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( null, mockServices, mockLogger );
 
             expect( result ).toBe( null );
         } );
 
-        it( 'should handle missing allUserData gracefully', () => {
+        it( 'should handle missing stateService gracefully', () => {
             const text = 'Hello Alice!';
+            const mockServices = {};
 
-            const result = replaceAllUsernamesWithMentions( text, {}, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toBe( text );
         } );
 
         it( 'should handle users without nickname gracefully', () => {
             const text = 'Hello Alice and Bob!';
-            const hangoutState = {
-                allUserData: {
-                    'uuid-alice': {
-                        userProfile: { nickname: 'Alice' }
-                    },
-                    'uuid-bob': {
-                        userProfile: {} // No nickname
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-alice', nickname: 'Alice' },
+                        { uuid: 'uuid-bob' } // No nickname
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             // Should replace Alice but not error on Bob
             expect( result ).toContain( '<@uid:uuid-alice>' );
@@ -490,26 +530,36 @@ describe( 'songAICommandHelper', () => {
 
         it( 'should escape special regex characters in usernames', () => {
             const text = 'Hello User_Name, you rock!';
-            const hangoutState = {
-                allUserData: {
-                    'uuid-special': {
-                        userProfile: { nickname: 'User_Name' }
-                    }
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-special', nickname: 'User_Name' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, hangoutState, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toContain( '<@uid:uuid-special>' );
         } );
 
         it( 'should handle errors gracefully and return original text', () => {
             const text = 'Hello Alice!';
-
-            // Create hangoutState that will work but has no users
-            const result = replaceAllUsernamesWithMentions( text, { allUserData: {} }, mockLogger );
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                }
+            };
 
             // Should return original text unchanged
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+
             expect( result ).toBe( text );
         } );
     } );

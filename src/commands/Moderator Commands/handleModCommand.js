@@ -41,6 +41,7 @@ async function handleListUsers ( services, context, responseChannel ) {
 
 async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
     const { stateService, messageService } = services;
+    const logger = services.logger;
 
     if ( !nameArg ) {
         const response = 'Usage: !mod remove <name>';
@@ -53,12 +54,18 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         return { success: false, shouldRespond: true, response, error: 'Missing DJ name' };
     }
 
-    const allUserData = stateService._getAllUserData();
-    const match = Object.entries( allUserData ).find(
-        ( [ , userData ] ) => userData?.userProfile?.nickname?.toLowerCase() === nameArg.toLowerCase()
+    if ( logger ) logger.debug( `[mod remove] Starting removal of user: "${ nameArg }"` );
+
+    // Get all users using framework-agnostic method (works for both Hang and Wavez)
+    const users = stateService.getUsers();
+    if ( logger ) logger.debug( `[mod remove] Found ${ users?.length || 0 } total users: ${ users?.map( u => u?.nickname || u?.id ).join( ', ' ) }` );
+
+    const matchedUser = users.find(
+        user => ( user?.nickname || user?.userProfile?.nickname )?.toLowerCase() === nameArg.toLowerCase()
     );
 
-    if ( !match ) {
+    if ( !matchedUser ) {
+        if ( logger ) logger.warn( `[mod remove] User "${ nameArg }" not found in user list` );
         const response = `❌ No user found with name "${ nameArg }".`;
         await messageService.sendResponse( response, {
             responseChannel,
@@ -69,9 +76,16 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
 
-    const [ uuid ] = match;
-    const djs = stateService._getDjs();
-    if ( !djs.some( dj => dj.uuid === uuid ) ) {
+    // Get user ID (handles both frameworks: 'id' for Wavez/normalized, 'uuid' for Hang)
+    const userId = matchedUser.id || matchedUser.uuid;
+    if ( logger ) logger.debug( `[mod remove] Matched user "${ nameArg }" -> userId: "${ userId }"` );
+
+    // Get DJ queue using framework-agnostic method
+    const djQueue = stateService.getDjQueue();
+    if ( logger ) logger.debug( `[mod remove] DJ queue size: ${ djQueue?.length || 0 }, queue: ${ djQueue?.map( dj => dj.userId || dj.uuid ).join( ', ' ) }` );
+
+    if ( !djQueue.some( dj => ( dj.userId || dj.uuid ) === userId ) ) {
+        if ( logger ) logger.warn( `[mod remove] User "${ userId }" is not on the decks` );
         const response = `❌ "${ nameArg }" is not currently on the decks.`;
         await messageService.sendResponse( response, {
             responseChannel,
@@ -82,12 +96,16 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         return { success: false, shouldRespond: true, response, error: 'Not on decks' };
     }
 
+    if ( logger ) logger.info( `[mod remove] User "${ nameArg }" is on decks with userId "${ userId }", calling platformActions.removeFromDJQueue()` );
+
     try {
         const result = services.platformActions
-            ? await services.platformActions.removeFromDJQueue( uuid )
-            : await services.hangSocketServices.removeDj( services, uuid );
+            ? await services.platformActions.removeFromDJQueue( userId )
+            : await services.hangSocketServices.removeDj( services, userId );
+        if ( logger ) logger.debug( `[mod remove] platformActions result: ${ JSON.stringify( result ) }` );
         if ( result && !result.success ) throw new Error( result.error );
     } catch ( err ) {
+        if ( logger ) logger.error( `[mod remove] Failed to remove user: ${ err.message }` );
         const response = `❌ Failed to remove "${ nameArg }": ${ err.message }`;
         await messageService.sendResponse( response, {
             responseChannel,
@@ -98,6 +116,7 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         return { success: false, shouldRespond: true, response, error: err.message };
     }
 
+    if ( logger ) logger.info( `[mod remove] Successfully removed "${ nameArg }"` );
     const response = `✅ "${ nameArg }" has been removed from the decks.`;
     await messageService.sendResponse( response, {
         responseChannel,
@@ -143,6 +162,7 @@ async function handleModCommand ( commandParams ) {
 
     const senderRole = context?.fullMessage?.roomRole || context?.fullMessage?.platformRole ||
         ( typeof stateService?.getUserRole === 'function' ? stateService.getUserRole( context.sender ) : 'user' );
+
     if ( !hasPermission( services, senderRole, 'MODERATOR' ) ) {
         const response = '❌ You need at least moderator permissions to use this command.';
         await messageService.sendResponse( response, {

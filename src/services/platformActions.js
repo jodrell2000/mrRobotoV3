@@ -41,7 +41,12 @@ function createPlatformActions ( services ) {
             return execute( 'voting', 'voteOnTrack', () => services.socketAdapter.voteOnSong( services.config.BOT_UID, adapterVote ) );
         },
         removeFromDJQueue ( userId ) {
-            return execute( 'removeFromDJQueue', 'removeFromDJQueue', () => services.socketAdapter.removeDj( userId ) );
+            return execute( 'removeFromDJQueue', 'removeFromDJQueue', async () => {
+                if ( services.logger ) services.logger.debug( `[platformActions.removeFromDJQueue] called with userId: "${ userId }"` );
+                const result = await services.socketAdapter.removeDj( userId );
+                if ( services.logger ) services.logger.debug( `[platformActions.removeFromDJQueue] removeDj returned: ${ JSON.stringify( result ) }` );
+                return result;
+            } );
         },
         skipTrack () {
             return execute( 'skipTrack', 'skipTrack', () => services.socketAdapter.skipSong() );

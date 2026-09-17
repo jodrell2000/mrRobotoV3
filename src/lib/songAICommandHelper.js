@@ -122,29 +122,40 @@ async function addToConversationHistory ( userContent, modelContent, dataService
 }
 
 /**
- * Replace all user nicknames in text with their mention format
+ * Replace all usernames in text with their mention format
  * @param {string} text - The text to process
- * @param {Object} hangoutState - The hangout state containing user data
+ * @param {Object} services - Services object with stateService and messageService
  * @param {Object} logger - Logger instance
  * @returns {string} Text with all usernames replaced by mentions
  */
-function replaceAllUsernamesWithMentions ( text, hangoutState, logger ) {
-    if ( !text || !hangoutState?.allUserData ) {
+function replaceAllUsernamesWithMentions ( text, services, logger ) {
+    if ( !text || !services?.stateService || !services?.messageService ) {
         return text;
     }
 
     let processedText = text;
 
     try {
-        // Iterate through all users and replace their nicknames with mention format
-        for ( const [ uuid, userData ] of Object.entries( hangoutState.allUserData ) ) {
-            const nickname = userData?.userProfile?.nickname;
+        // Use framework-agnostic method to get all users
+        const users = services.stateService.getUsers();
 
-            if ( nickname && uuid ) {
+        if ( !Array.isArray( users ) || users.length === 0 ) {
+            return text;
+        }
+
+        // Iterate through all users and replace their nicknames with mention format
+        for ( const user of users ) {
+            const nickname = user?.nickname || user?.userProfile?.nickname;
+            const userId = user?.id || user?.uuid;
+
+            if ( nickname && userId ) {
                 // Create a case-sensitive regex to find the nickname
                 // Use word boundaries to avoid partial matches
                 const nicknameRegex = new RegExp( `\\b${ nickname.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }\\b`, 'g' );
-                const mentionFormat = `<@uid:${ uuid }>`;
+
+                // Use framework-aware mention formatter to get the correct mention format
+                // (Hang: <@uid:uuid>, Wavez: @DisplayName)
+                const mentionFormat = services.messageService.formatMention( userId, services );
 
                 // Replace all instances
                 processedText = processedText.replace( nicknameRegex, mentionFormat );
@@ -172,11 +183,15 @@ function replaceAllUsernamesWithMentions ( text, hangoutState, logger ) {
  */
 async function executeSongAICommand ( commandParams, config ) {
     const { services, context, responseChannel = 'request' } = commandParams;
-    const { messageService, machineLearningService, hangoutState, logger, dataService } = services;
+    const { messageService, machineLearningService, logger, dataService } = services;
+
+    // Declare these outside try/catch so they're accessible in catch block for error logging
+    let trackName;
+    let artistName;
 
     try {
-        // Get the currently playing song from hangout state
-        const nowPlaying = hangoutState?.nowPlaying;
+        // Get the currently playing song using framework-agnostic method
+        const nowPlaying = services.stateService?.getNowPlaying?.();
 
         if ( !nowPlaying || !nowPlaying.song ) {
             const response = config.noSongMessage || '🎵 No song is currently playing. Start a song first and try again!';
@@ -194,7 +209,9 @@ async function executeSongAICommand ( commandParams, config ) {
             };
         }
 
-        const { trackName, artistName } = nowPlaying.song;
+        // Handle both Hang (trackName/artistName) and Wavez (title/artist) field names
+        trackName = nowPlaying.song.trackName || nowPlaying.song.title;
+        artistName = nowPlaying.song.artistName || nowPlaying.song.artist;
 
         if ( !trackName || !artistName ) {
             const response = '🎵 Unable to get song details. Please try again when a song is playing.';
@@ -222,9 +239,9 @@ async function executeSongAICommand ( commandParams, config ) {
         }
         questionTemplate = questionTemplate || config.defaultTemplate;
 
-        // Get additional context for token replacement
+        // Get additional context for token replacement (framework-agnostic)
         const currentDj = services.stateService?.getCurrentDj?.();
-        const currentDjUuid = currentDj?.userId || currentDj?.uuid || services.hangoutState?.djs?.[ 0 ]?.uuid;
+        const currentDjUuid = currentDj?.userId || currentDj?.uuid;
         let username = 'Someone';
         let usernameMention = 'Someone';
 
@@ -292,7 +309,15 @@ async function executeSongAICommand ( commandParams, config ) {
         // logger.debug( `[${ config.commandName }] Asking AI about: ${ trackName } by ${ artistName }` );
 
         // Get response from the machine learning service
-        const aiResponse = await machineLearningService.askGoogleAI( fullQuestion );
+        let aiResponse;
+        try {
+            aiResponse = await machineLearningService.askGoogleAI( fullQuestion );
+            logger.debug( `[${ config.commandName }] LLM Response: ${ aiResponse }` );
+        } catch ( llmError ) {
+            logger.error( `[${ config.commandName }] LLM Error: ${ llmError.message }` );
+            logger.error( `[${ config.commandName }] LLM Error Details:`, llmError );
+            throw llmError;
+        }
 
         // Store the task (question) and response in conversation history as a pair
         // Extract just the task section from the full question (everything after "## Task")
@@ -300,13 +325,13 @@ async function executeSongAICommand ( commandParams, config ) {
         const taskOnly = taskMatch ? taskMatch[ 1 ] : theQuestion;
 
         // Debug: Log the raw AI response
-        // logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
-        // logger.debug( `[${ config.commandName }] AI response type: ${ typeof aiResponse }` );
-        // logger.debug( `[${ config.commandName }] AI response length: ${ aiResponse ? aiResponse.length : 'null/undefined' }` );
+        logger.debug( `[${ config.commandName }] Raw AI response: "${ aiResponse }"` );
+        logger.debug( `[${ config.commandName }] AI response type: ${ typeof aiResponse }` );
+        logger.debug( `[${ config.commandName }] AI response length: ${ aiResponse ? aiResponse.length : 'null/undefined' }` );
 
         // Check response validity
         const isValidResponse = aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" );
-        // logger.debug( `[${ config.commandName }] Is valid response: ${ isValidResponse }` );
+        logger.debug( `[${ config.commandName }] Is valid response: ${ isValidResponse }` );
 
         if ( !isValidResponse ) {
             logger.warn( `[${ config.commandName }] Invalid AI response detected - aiResponse: "${ aiResponse }"` );
@@ -319,27 +344,27 @@ async function executeSongAICommand ( commandParams, config ) {
         let processedAiResponse = aiResponse;
         if ( aiResponse ) {
             // Replace all usernames with mentions (handles current DJ, requester, and any other users mentioned)
-            processedAiResponse = replaceAllUsernamesWithMentions( aiResponse, hangoutState, logger );
+            processedAiResponse = replaceAllUsernamesWithMentions( aiResponse, services, logger );
         }
 
         // Format the response
         let response;
-        // logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
+        logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
 
         if ( processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) ) {
-            // logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
+            logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
 
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
                 response = config.responseFormatter( trackName, artistName, processedAiResponse );
-                // logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
+                logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
             } else {
                 response = `${ processedAiResponse }`;
-                // logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
+                logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
             }
         } else {
             logger.warn( `[${ config.commandName }] AI response failed validation, using error message` );
-            // logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
+            logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
 
             // Create specific error message with song details, customizing based on command
             if ( config.commandName === 'popfacts' ) {
@@ -351,12 +376,22 @@ async function executeSongAICommand ( commandParams, config ) {
             }
         }
 
-        await messageService.sendResponse( response, {
-            responseChannel,
-            isPrivateMessage: context?.fullMessage?.isPrivateMessage,
-            sender: context?.sender,
-            services
-        } );
+        logger.debug( `[${ config.commandName }] Sending response to user. Response length: ${ response.length }, Contains: ${ response.substring( 0, 100 ) }...` );
+
+        try {
+            await messageService.sendResponse( response, {
+                responseChannel,
+                isPrivateMessage: context?.fullMessage?.isPrivateMessage,
+                sender: context?.sender,
+                services
+            } );
+        } catch ( sendError ) {
+            logger.error( `[${ config.commandName }] Error sending response: ${ sendError.message }` );
+            logger.error( `[${ config.commandName }] Send error details:`, sendError );
+            logger.error( `[${ config.commandName }] Response being sent was: "${ response }"` );
+            logger.error( `[${ config.commandName }] Context: trackName="${ trackName }", artistName="${ artistName }"` );
+            throw sendError;
+        }
 
         return {
             success: true,

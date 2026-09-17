@@ -2,21 +2,44 @@
 
 const handleModCommand = require( '../../src/commands/Moderator Commands/handleModCommand' );
 
-const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} ) => ( {
-    stateService: {
-        getUserRole: jest.fn().mockReturnValue( role ),
-        getUsers: jest.fn().mockReturnValue( Object.values( allUserData ) ),
-        _getAllUserData: jest.fn().mockReturnValue( allUserData ),
-        _getDjs: jest.fn().mockReturnValue( djs )
-    },
-    messageService: {
-        sendResponse: jest.fn().mockResolvedValue( undefined )
-    },
-    hangSocketServices: {
-        removeDj: jest.fn().mockResolvedValue( undefined ),
-        skipSong: jest.fn().mockResolvedValue( undefined )
-    }
-} );
+const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} ) => {
+    // Convert old-style allUserData to normalized users format for getUsers()
+    const users = Object.entries( allUserData ).map( ( [ uuid, userData ] ) => ( {
+        id: uuid,
+        uuid,
+        nickname: userData?.userProfile?.nickname || uuid,
+        platformRole: userData?.userProfile?.role || 'user',
+        isPresent: true,
+        userProfile: userData?.userProfile
+    } ) );
+
+    // Convert old-style djs to normalized format for getDjQueue()
+    const djQueue = djs.map( ( dj, index ) => ( {
+        position: index,
+        userId: dj.uuid || dj.id,
+        uuid: dj.uuid,
+        id: dj.id || dj.uuid,
+        isPlaying: index === 0
+    } ) );
+
+    return {
+        stateService: {
+            getUserRole: jest.fn().mockReturnValue( role ),
+            getUsers: jest.fn().mockReturnValue( users ),
+            getDjQueue: jest.fn().mockReturnValue( djQueue ),
+            _getAllUserData: jest.fn().mockReturnValue( allUserData ),
+            _getDjs: jest.fn().mockReturnValue( djs ),
+            getHangoutName: jest.fn().mockReturnValue( 'Test Hangout' )
+        },
+        messageService: {
+            sendResponse: jest.fn().mockResolvedValue( undefined )
+        },
+        hangSocketServices: {
+            removeDj: jest.fn().mockResolvedValue( undefined ),
+            skipSong: jest.fn().mockResolvedValue( undefined )
+        }
+    };
+};
 
 const makeContext = ( sender = 'uuid-mod-1' ) => ( {
     sender,
@@ -217,6 +240,44 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'not allowed' );
+        } );
+    } );
+
+    describe( 'remove subcommand with platformActions', () => {
+        const allUserData = {
+            'uuid-dj': { userProfile: { nickname: 'DJ Cool' } },
+            'uuid-other': { userProfile: { nickname: 'Alice' } }
+        };
+        const djs = [ { uuid: 'uuid-dj' } ];
+
+        const makeServicesWithPlatformActions = ( { role = 'moderator' } = {} ) => ( {
+            ...makeServices( { role, allUserData, djs } ),
+            platformActions: {
+                removeFromDJQueue: jest.fn().mockResolvedValue( { success: true } )
+            }
+        } );
+
+        test( 'uses platformActions when available', async () => {
+            const services = makeServicesWithPlatformActions();
+            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.removeFromDJQueue ).toHaveBeenCalledWith( 'uuid-dj' );
+        } );
+
+        test( 'handles platformActions errors gracefully', async () => {
+            const services = makeServicesWithPlatformActions();
+            services.platformActions.removeFromDJQueue.mockRejectedValueOnce( new Error( 'API error' ) );
+            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'API error' );
+        } );
+
+        test( 'handles platformActions returning failed result', async () => {
+            const services = makeServicesWithPlatformActions();
+            services.platformActions.removeFromDJQueue.mockResolvedValueOnce( { success: false, error: 'Not supported' } );
+            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Not supported' );
         } );
     } );
 } );

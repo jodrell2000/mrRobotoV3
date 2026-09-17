@@ -27,7 +27,7 @@ describe( 'Wavez.fm W1 framework', () => {
             userPresence: expect.objectContaining( { supported: true } ),
             djQueueState: expect.objectContaining( { supported: false } ),
             djQueueManagement: expect.objectContaining( { supported: false } ),
-            removeFromDJQueue: expect.objectContaining( { supported: false } ),
+            removeFromDJQueue: expect.objectContaining( { supported: true } ),
             skipTrack: expect.objectContaining( { supported: false } ),
             voting: expect.objectContaining( { supported: false } ),
             botIdentityUpdate: expect.objectContaining( { supported: false } ),

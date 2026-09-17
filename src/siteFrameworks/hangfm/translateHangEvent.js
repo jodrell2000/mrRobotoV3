@@ -87,33 +87,6 @@ function translateHangEvent ( message, context = {} ) {
             djQueue: currentState.djQueue,
             reason: messageName || 'statePatch'
         }, { ...options, eventKey: messageName || paths.join( ',' ) } ) );
-
-        // Emit specific djAdded/djRemoved events for position 0 (the decks)
-        if ( messageName === 'addedDj' || ( message.statePatch && message.statePatch.some( p => p.op === 'add' && p.path === '/djs/0' ) ) ) {
-            const djPatch = message.statePatch?.find( p => p.op === 'add' && p.path === '/djs/0' );
-            const userId = djPatch?.value?.uuid;
-            const nickname = userId && currentState?.usersById?.[ userId ]?.nickname || userId;
-            if ( userId ) {
-                events.push( createEvent( 'djAdded', {
-                    userId,
-                    nickname,
-                    position: 0
-                }, { ...options, eventKey: `djAdded:${ userId }` } ) );
-            }
-        }
-
-        if ( messageName === 'removedDj' || ( message.statePatch && message.statePatch.some( p => p.op === 'remove' && p.path === '/djs/0' ) ) ) {
-            const djPatch = message.statePatch?.find( p => p.op === 'remove' && p.path === '/djs/0' );
-            const userId = djPatch?.value?.uuid || djPatch?.path?.split( '/' )[ 2 ];
-            const nickname = userId && currentState?.usersById?.[ userId ]?.nickname || userId;
-            if ( userId ) {
-                events.push( createEvent( 'djRemoved', {
-                    userId,
-                    nickname,
-                    position: 0
-                }, { ...options, eventKey: `djRemoved:${ userId }` } ) );
-            }
-        }
     }
 
     if ( messageName === 'userJoined' || userPatch?.op === 'add' ) {
@@ -132,49 +105,15 @@ function translateHangEvent ( message, context = {} ) {
     }
 
     if ( paths.some( path => path.startsWith( '/voteCounts/' ) ) ) {
-        const voteEvent = { votes: currentState.votes };
-        
-        // Check for user-specific vote patches and include user info
-        const userVotePatch = message.statePatch?.find( p => 
-            p.path?.startsWith( '/allUserData/' ) && p.path?.includes( '/songVotes/' ) 
-        );
-        if ( userVotePatch ) {
-            const userId = userVotePatch.path.split( '/' )[ 2 ];
-            if ( userId ) {
-                voteEvent.userId = userId;
-                // Determine vote type from path
-                if ( userVotePatch.path.includes( '/likes/' ) ) voteEvent.voteType = 'like';
-                else if ( userVotePatch.path.includes( '/dislikes/' ) ) voteEvent.voteType = 'dislike';
-                else if ( userVotePatch.path.includes( '/stars/' ) ) voteEvent.voteType = 'star';
-                voteEvent.active = userVotePatch.op === 'add' || userVotePatch.op === 'replace';
-            }
-        }
-        
-        events.push( createEvent( 'voteChanged', voteEvent, { ...options, eventKey: paths.join( ',' ) } ) );
+        events.push( createEvent( 'voteChanged', {
+            votes: currentState.votes
+        }, { ...options, eventKey: paths.join( ',' ) } ) );
     }
 
     if ( paths.some( path => path.startsWith( '/settings/' ) ) ) {
         events.push( createEvent( 'roomSettingsChanged', {
             roomSettings: currentState.roomSettings
         }, { ...options, eventKey: paths.join( ',' ) } ) );
-    }
-
-    // Check for user profile nickname updates
-    if ( paths.some( path => path.includes( '/userProfile/nickname' ) ) ) {
-        const nicknamePatch = message.statePatch?.find( p =>
-            p.path?.includes( '/userProfile/nickname' ) && p.path?.startsWith( '/allUserData/' )
-        );
-        if ( nicknamePatch && nicknamePatch.op === 'replace' ) {
-            const match = nicknamePatch.path.match( /^\/allUserData\/([^/]+)\/userProfile\/nickname$/ );
-            if ( match ) {
-                const userId = match[ 1 ];
-                const newNickname = nicknamePatch.value;
-                events.push( createEvent( 'userProfileChanged', {
-                    userId,
-                    nickname: newNickname
-                }, { ...options, eventKey: `userProfileChanged:${ userId }` } ) );
-            }
-        }
     }
 
     events.push( ...translatePlaybackEvents( message, previousState, currentState, options ) );

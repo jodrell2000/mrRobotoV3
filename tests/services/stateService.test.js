@@ -121,8 +121,8 @@ describe( 'StateService', () => {
             expect( stateService.getUserRole( 'moderator-uuid' ) ).toBe( 'moderator' );
         } );
 
-        it( 'should return "coOwner" for co-owner user', () => {
-            expect( stateService.getUserRole( 'coowner-uuid' ) ).toBe( 'coOwner' );
+        it( 'should return "coowner" for co-owner user', () => {
+            expect( stateService.getUserRole( 'coowner-uuid' ) ).toBe( 'coowner' );
         } );
 
         it( 'should return "user" for regular user without highestRole', () => {
