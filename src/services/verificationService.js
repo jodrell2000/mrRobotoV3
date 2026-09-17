@@ -66,7 +66,7 @@ Extract and return ONLY the following information in JSON format (no other text)
   "confidence": "high|medium|low"
 }
 
-Be as accurate as possible. If you cannot determine a field with reasonable confidence, use null for that field.`;
+Note: The title "Topic" is often used for automated uploads and is almost never the actual track name. Be as accurate as possible. If you cannot determine a field with reasonable confidence, use null for that field.`;
 
             this.logger.info( `[VerificationService] 🔍 LLM Verification START: "${ youtubeTitle }"` );
 

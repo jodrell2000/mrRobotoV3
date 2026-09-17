@@ -99,6 +99,8 @@ class MistralBackend {
 
     /**
      * Initialize the list of available Mistral models
+     * Filter to keep only relevant models for text generation (mistral/ministral)
+     * Ignore transcribe, ocr, code, and vision models
      * @private
      */
     async initializeAvailableModels () {
@@ -116,10 +118,27 @@ class MistralBackend {
 
             this.availableModels = modelList
                 .map( m => m.id || m.name )
-                .filter( m => m && !m.includes( 'embed' ) && !m.includes( 'vision' ) )
+                .filter( m => {
+                    if ( !m ) return false;
+
+                    // Only include mistral and ministral models for text generation
+                    const isMistralModel = m.includes( 'mistral' ) || m.includes( 'ministral' );
+                    if ( !isMistralModel ) return false;
+
+                    // Exclude specialized models
+                    if ( m.includes( 'transcribe' ) ) return false;
+                    if ( m.includes( 'ocr' ) ) return false;
+                    if ( m.includes( 'code' ) ) return false;
+                    if ( m.includes( 'embed' ) ) return false;
+                    if ( m.includes( 'vision' ) ) return false;
+                    if ( m.includes( 'tts' ) ) return false;
+                    if ( m.includes( 'voxtral' ) ) return false;
+
+                    return true;
+                } )
                 .sort();
 
-            logger.debug( `🤖 [MistralBackend] Available Mistral models: ${ this.availableModels.join( ', ' ) }` );
+            logger.debug( `🤖 [MistralBackend] Available Mistral models (filtered): ${ this.availableModels.join( ', ' ) }` );
         } catch ( error ) {
             logger.warn( `🤖 [MistralBackend] Could not load available models: ${ error.message }` );
             this.availableModels = [];
