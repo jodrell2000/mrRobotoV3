@@ -197,6 +197,37 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
     }
 
     /**
+     * Remove a user from the waiting queue (not the same as removing from decks)
+     * 
+     * @param {string} userId - User UUID to remove from queue
+     * @returns {Promise<Object>} Result
+     */
+    async removeFromQueue ( userId ) {
+        if ( !this.socket ) {
+            throw new Error( 'Socket not connected. Call connect() first.' );
+        }
+
+        if ( this.logger ) this.logger.debug( `Removing user ${ userId } from queue` );
+
+        try {
+            const result = await this.socket.action(
+                'remove_from_queue',
+                {
+                    roomUuid: this.config.HANGOUT_ID,
+                    userUuid: this.config.BOT_UID,
+                    userId: userId
+                }
+            );
+
+            if ( this.logger ) this.logger.debug( `✅ User removed from queue` );
+            return result;
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `Failed to remove user from queue: ${ getErrorMessage( error ) }` );
+            throw error;
+        }
+    }
+
+    /**
      * Skip the current song
      * 
      * @returns {Promise<Object>} Result

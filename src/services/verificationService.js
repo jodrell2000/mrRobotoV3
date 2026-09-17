@@ -43,6 +43,83 @@ class VerificationService {
     }
 
     /**
+     * Verify track information using LLM (primary method)
+     * Extracts artist, track name, and year from YouTube video title using LLM
+     * @private
+     * @param {string} youtubeTitle - YouTube video title
+     * @returns {Promise<Object>} Verified data: { artist, track, year, confidence }
+     */
+    async _verifyWithLLM ( youtubeTitle ) {
+        try {
+            if ( !this.services?.machineLearningService ) {
+                this.logger.debug( '[VerificationService] MachineLearningService not available, skipping LLM verification' );
+                return { success: false, error: 'LLM service unavailable' };
+            }
+
+            const prompt = `Given the YouTube video title: "${ youtubeTitle }"
+
+Extract and return ONLY the following information in JSON format (no other text):
+{
+  "artist": "artist name",
+  "track": "track/song name",
+  "year": year_as_number_or_null,
+  "confidence": "high|medium|low"
+}
+
+Be as accurate as possible. If you cannot determine a field with reasonable confidence, use null for that field.`;
+
+            this.logger.info( `[VerificationService] 🔍 LLM Verification START: "${ youtubeTitle }"` );
+
+            const response = await this.services.machineLearningService.askGoogleAI( prompt );
+
+            if ( !response ) {
+                this.logger.warn( '[VerificationService] ⚠️  LLM returned empty response' );
+                return { success: false, error: 'Empty LLM response' };
+            }
+
+            this.logger.debug( `[VerificationService] LLM raw response: ${ response }` );
+
+            // Extract JSON from response (LLM might include extra text)
+            const jsonMatch = response.match( /\{[\s\S]*\}/ );
+            if ( !jsonMatch ) {
+                this.logger.warn( `[VerificationService] ⚠️  No JSON found in LLM response: ${ response }` );
+                return { success: false, error: 'No JSON in LLM response' };
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse( jsonMatch[ 0 ] );
+            } catch ( parseErr ) {
+                this.logger.warn( `[VerificationService] ⚠️  Failed to parse JSON: ${ parseErr.message }. JSON: ${ jsonMatch[ 0 ] }` );
+                return { success: false, error: 'JSON parsing failed' };
+            }
+
+            this.logger.debug( `[VerificationService] Parsed LLM data: ${ JSON.stringify( parsed ) }` );
+
+            // Validate required fields
+            if ( !parsed.artist || !parsed.track ) {
+                this.logger.warn( `[VerificationService] ⚠️  LLM missing required fields. Artist: "${ parsed.artist }". Track: "${ parsed.track }"` );
+                return { success: false, error: 'LLM could not extract artist or track' };
+            }
+
+            this.logger.info( `[VerificationService] ✅ LLM Verification SUCCESS: "${ parsed.artist }" - "${ parsed.track }" (Year: ${ parsed.year || 'unknown' }, Confidence: ${ parsed.confidence || 'medium' })` );
+
+            return {
+                success: true,
+                data: {
+                    artist: parsed.artist,
+                    track: parsed.track,
+                    year: parsed.year || undefined,
+                    confidence: parsed.confidence || 'medium'
+                }
+            };
+        } catch ( err ) {
+            this.logger.error( `[VerificationService] ❌ LLM verification error: ${ err.message }` );
+            return { success: false, error: err.message };
+        }
+    }
+
+    /**
      * Extract image URL from Wikidata entity
      * @private
      */
@@ -292,11 +369,13 @@ class VerificationService {
     }
 
     /**
-     * Verify artist and track information from combined sources
-     * @param {string} query - Query string (supports "artist - track" format or simple query)
+     * Verify artist and track information using LLM (primary method)
+     * Falls back to traditional methods if LLM fails
+     * @param {string} query - Query string (supports "artist - track" format, YouTube title, or simple query)
      * @param {Object} options - Query options
-     *   - artist: Artist name (required if not in "artist - track" format)
-     *   - track: Track name (required if not in "artist - track" format)
+     *   - artist: Artist name (optional)
+     *   - track: Track name (optional)
+     *   - youtubeTitle: YouTube video title (optional, used for LLM verification)
      * @returns {Promise<Object>} Verified data summary: { found: boolean, data: Object|null, error: string|null }
      */
     async verify ( query, options = {} ) {
@@ -307,6 +386,7 @@ class VerificationService {
         try {
             let artist = options.artist;
             let track = options.track;
+            const youtubeTitle = options.youtubeTitle || query;
 
             // Parse "artist - track" format if options not provided
             if ( !artist || !track ) {
@@ -320,6 +400,47 @@ class VerificationService {
             }
 
             this.logger.debug( `🔍 [VerificationService] Verifying: ${ artist } - ${ track }` );
+
+            // PRIMARY METHOD: Try LLM verification first
+            const llmResult = await this._verifyWithLLM( youtubeTitle );
+            if ( llmResult.success ) {
+                const verifiedDataSummary = {
+                    track: {
+                        title: llmResult.data.track,
+                        categories: [],
+                        artist: llmResult.data.artist,
+                        releaseDate: llmResult.data.year ? `${ llmResult.data.year }` : undefined,
+                        wikidata: {
+                            qid: undefined,
+                            properties: undefined,
+                            imageUrl: undefined
+                        },
+                        album: undefined,
+                        llmVerified: true,
+                        llmConfidence: llmResult.data.confidence
+                    },
+                    artist: {
+                        title: llmResult.data.artist,
+                        categories: [],
+                        founded: undefined,
+                        country: undefined,
+                        wikidata: {
+                            qid: undefined,
+                            properties: []
+                        }
+                    }
+                };
+
+                this.logger.info( `[VerificationService] 📋 Returning LLM-verified data: ${ JSON.stringify( verifiedDataSummary ) }` );
+
+                return {
+                    found: true,
+                    data: verifiedDataSummary
+                };
+            }
+
+            // FALLBACK: If LLM fails, use traditional methods (kept for backward compatibility)
+            this.logger.info( '[VerificationService] LLM verification failed, falling back to traditional methods (Wikipedia/Wikidata/MusicBrainz)' );
 
             // Run searches sequentially to avoid rate limiting
             const wikipediaResults = await this._searchWikipedia( track );
@@ -345,7 +466,8 @@ class VerificationService {
                         properties: undefined,
                         imageUrl: undefined
                     },
-                    album: undefined
+                    album: undefined,
+                    llmVerified: false
                 },
                 artist: {
                     title: artist,

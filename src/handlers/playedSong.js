@@ -364,12 +364,21 @@ async function handlePlayedSongEvent ( event, context ) {
 
   try {
     const playback = event.payload?.playback;
-    const song = playback?.song;
-    const djId = playback?.djId;
+    let song = playback?.song;
+    let djId = playback?.djId;
+
+    // If metadata is incomplete, try to get it from the normalized state (needed for Wavez.fm track_started events)
+    if ( !song?.artist || !song?.title ) {
+      const nowPlaying = services.stateService?.getNowPlaying?.();
+      if ( nowPlaying?.song?.artist && nowPlaying?.song?.title ) {
+        song = nowPlaying.song;
+        if ( !djId ) djId = nowPlaying.djId;
+      }
+    }
 
     // Validate we have required song data
     if ( !djId || !song?.artist || !song?.title ) {
-      services.logger.debug( '[handlePlayedSongEvent] Insufficient song data in event payload, skipping processing' );
+      services.logger.debug( '[handlePlayedSongEvent] Insufficient song data in event payload or state, skipping processing' );
       return;
     }
 
@@ -505,30 +514,35 @@ async function handlePlayedSongEvent ( event, context ) {
       }
     }
 
-    // --- AUTO-UPVOTE TIMER: Start 90-second auto-upvote timer ---
+    // --- AUTO-UPVOTE TIMER: Start 90-second auto-upvote timer (only if voting is supported) ---
     try {
-      // Cancel any existing timer
-      if ( global.playedSongTimer ) {
-        clearTimeout( global.playedSongTimer );
-        global.playedSongTimer = null;
-      }
-
-      // Start a new timer for 90 seconds
-      global.playedSongTimer = setTimeout( async () => {
-        try {
-          const result = services.platformActions
-            ? await services.platformActions.voteOnTrack( 'up' )
-            : services.hangSocketServices && await services.hangSocketServices.upVote( services );
-
-          if ( result && !result.success ) throw new Error( result.error || 'Upvote failed' );
-          services.logger.debug( '[handlePlayedSongEvent] Auto-upvote executed after 90 seconds' );
-        } catch ( err ) {
-          services.logger.error( `[handlePlayedSongEvent] Error in auto-upvote timer: ${ err.message }` );
+      // Only set up timer if voting is supported on this framework
+      if ( services.frameworkSpecification?.capabilities?.voting?.supported ) {
+        // Cancel any existing timer
+        if ( global.playedSongTimer ) {
+          clearTimeout( global.playedSongTimer );
+          global.playedSongTimer = null;
         }
-        global.playedSongTimer = null;
-      }, 90000 );
 
-      services.logger.debug( '[handlePlayedSongEvent] Started 90-second auto-upvote timer' );
+        // Start a new timer for 90 seconds
+        global.playedSongTimer = setTimeout( async () => {
+          try {
+            const result = services.platformActions
+              ? await services.platformActions.voteOnTrack( 'up' )
+              : services.hangSocketServices && await services.hangSocketServices.upVote( services );
+
+            if ( result && !result.success ) throw new Error( result.error || 'Upvote failed' );
+            services.logger.debug( '[handlePlayedSongEvent] Auto-upvote executed after 90 seconds' );
+          } catch ( err ) {
+            services.logger.error( `[handlePlayedSongEvent] Error in auto-upvote timer: ${ err.message }` );
+          }
+          global.playedSongTimer = null;
+        }, 90000 );
+
+        services.logger.debug( '[handlePlayedSongEvent] Started 90-second auto-upvote timer' );
+      } else {
+        services.logger.debug( '[handlePlayedSongEvent] Voting not supported on this framework, skipping auto-upvote timer' );
+      }
     } catch ( err ) {
       services.logger.error( `[handlePlayedSongEvent] Error setting up auto-upvote timer: ${ err.message }` );
     }

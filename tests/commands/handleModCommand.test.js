@@ -36,6 +36,7 @@ const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} )
         },
         hangSocketServices: {
             removeDj: jest.fn().mockResolvedValue( undefined ),
+            removeFromQueue: jest.fn().mockResolvedValue( undefined ),
             skipSong: jest.fn().mockResolvedValue( undefined )
         }
     };
@@ -186,21 +187,21 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
             expect( result.success ).toBe( true );
             expect( result.response ).toContain( 'DJ Cool' );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
+            expect( services.hangSocketServices.removeFromQueue ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'matches DJ name case-insensitively', async () => {
             const services = makeServices( { allUserData, djs } );
             const result = await handleModCommand( { args: 'remove dj cool', services, context: makeContext() } );
             expect( result.success ).toBe( true );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
+            expect( services.hangSocketServices.removeFromQueue ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'strips surrounding double quotes from name', async () => {
             const services = makeServices( { allUserData, djs } );
             const result = await handleModCommand( { args: 'remove "DJ Cool"', services, context: makeContext() } );
             expect( result.success ).toBe( true );
-            expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith( services, 'uuid-dj' );
+            expect( services.hangSocketServices.removeFromQueue ).toHaveBeenCalledWith( services, 'uuid-dj' );
         } );
 
         test( 'responds privately to the moderator', async () => {
@@ -212,7 +213,7 @@ describe( 'handleModCommand', () => {
 
         test( 'returns error response when socket action throws', async () => {
             const services = makeServices( { allUserData, djs } );
-            services.hangSocketServices.removeDj.mockRejectedValueOnce( new Error( 'socket failure' ) );
+            services.hangSocketServices.removeFromQueue.mockRejectedValueOnce( new Error( 'socket failure' ) );
             const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'socket failure' );
@@ -240,44 +241,6 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'not allowed' );
-        } );
-    } );
-
-    describe( 'remove subcommand with platformActions', () => {
-        const allUserData = {
-            'uuid-dj': { userProfile: { nickname: 'DJ Cool' } },
-            'uuid-other': { userProfile: { nickname: 'Alice' } }
-        };
-        const djs = [ { uuid: 'uuid-dj' } ];
-
-        const makeServicesWithPlatformActions = ( { role = 'moderator' } = {} ) => ( {
-            ...makeServices( { role, allUserData, djs } ),
-            platformActions: {
-                removeFromDJQueue: jest.fn().mockResolvedValue( { success: true } )
-            }
-        } );
-
-        test( 'uses platformActions when available', async () => {
-            const services = makeServicesWithPlatformActions();
-            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
-            expect( result.success ).toBe( true );
-            expect( services.platformActions.removeFromDJQueue ).toHaveBeenCalledWith( 'uuid-dj' );
-        } );
-
-        test( 'handles platformActions errors gracefully', async () => {
-            const services = makeServicesWithPlatformActions();
-            services.platformActions.removeFromDJQueue.mockRejectedValueOnce( new Error( 'API error' ) );
-            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
-            expect( result.success ).toBe( false );
-            expect( result.error ).toBe( 'API error' );
-        } );
-
-        test( 'handles platformActions returning failed result', async () => {
-            const services = makeServicesWithPlatformActions();
-            services.platformActions.removeFromDJQueue.mockResolvedValueOnce( { success: false, error: 'Not supported' } );
-            const result = await handleModCommand( { args: 'remove DJ Cool', services, context: makeContext() } );
-            expect( result.success ).toBe( false );
-            expect( result.error ).toBe( 'Not supported' );
         } );
     } );
 } );

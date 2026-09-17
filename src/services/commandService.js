@@ -161,10 +161,18 @@ async function processCommand ( command, messageRemainder, services, context = {
       // Check user's role and command permissions
       const senderUuid = typeof context.sender === 'string' ? context.sender : context.sender?.uuid;
       const messageRole = context.fullMessage?.roomRole || context.fullMessage?.platformRole;
-      const userRole = messageRole ||
-        ( typeof serviceContainer.stateService?.getUserRole === 'function'
-          ? await serviceContainer.stateService.getUserRole( senderUuid )
-          : 'user' );
+      let userRole = 'user';
+      if ( messageRole ) {
+        userRole = messageRole;
+      } else if ( typeof serviceContainer.stateService?.getUserRole === 'function' ) {
+        try {
+          userRole = await serviceContainer.stateService.getUserRole( senderUuid );
+        } catch ( error ) {
+          // If user not found in room (e.g., system-triggered commands), default to 'user'
+          logger.debug( `[commandService] User ${ senderUuid } not found in room, defaulting to 'user' role: ${ error.message }` );
+          userRole = 'user';
+        }
+      }
       const commandLevel = commands[ trimmedCommand ].requiredRole || 'USER';
 
       if ( !hasPermission( serviceContainer, userRole, commandLevel ) ) {

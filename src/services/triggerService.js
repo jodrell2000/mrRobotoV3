@@ -15,7 +15,7 @@ class TriggerService {
      * Gets available trigger types and their descriptions
      * @returns {Object} Object mapping trigger names to descriptions
      */
-    getAvailableTriggers() {
+    getAvailableTriggers () {
         return {
             'newSong': 'Fires when a new song starts playing',
             'userJoined': 'Fires when a user joins the hangout',
@@ -29,7 +29,7 @@ class TriggerService {
      * Gets all configured triggers from the data service
      * @returns {Object} Triggers configuration object
      */
-    getAllTriggers() {
+    getAllTriggers () {
         try {
             return this.services.dataService.getValue( 'triggers' ) || {};
         } catch ( error ) {
@@ -43,15 +43,15 @@ class TriggerService {
      * @param {string} triggerName - The trigger name to get commands for
      * @returns {Array} Array of command names, or empty array if none configured
      */
-    getTriggerCommands( triggerName ) {
+    getTriggerCommands ( triggerName ) {
         try {
             const triggers = this.getAllTriggers();
             const commands = triggers[ triggerName ];
-            
+
             if ( !commands || !Array.isArray( commands ) ) {
                 return [];
             }
-            
+
             return commands;
         } catch ( error ) {
             this.logger.error( `[TriggerService] Error getting commands for trigger '${ triggerName }': ${ error.message }` );
@@ -65,10 +65,10 @@ class TriggerService {
      * @param {string} commandName - The command to add
      * @returns {Object} Result object with success status and message
      */
-    async addTriggerCommand( triggerName, commandName ) {
+    async addTriggerCommand ( triggerName, commandName ) {
         try {
             const availableTriggers = this.getAvailableTriggers();
-            
+
             // Validate trigger name
             if ( !availableTriggers[ triggerName ] ) {
                 return {
@@ -80,15 +80,15 @@ class TriggerService {
 
             // Load current data
             await this.services.dataService.loadData();
-            
+
             // Get current triggers or initialize empty object
             let triggers = this.getAllTriggers();
-            
+
             // Initialize trigger array if it doesn't exist
             if ( !triggers[ triggerName ] ) {
                 triggers[ triggerName ] = [];
             }
-            
+
             // Check if command is already in the trigger
             if ( triggers[ triggerName ].includes( commandName ) ) {
                 return {
@@ -96,15 +96,15 @@ class TriggerService {
                     error: `Command "${ commandName }" is already configured for trigger "${ triggerName }"`
                 };
             }
-            
+
             // Add command to trigger
             triggers[ triggerName ].push( commandName );
-            
+
             // Save updated triggers
             await this.services.dataService.setValue( 'triggers', triggers );
-            
+
             this.logger.info( `[TriggerService] Added command "${ commandName }" to trigger "${ triggerName }"` );
-            
+
             return {
                 success: true,
                 message: `Added command "${ commandName }" to trigger "${ triggerName }"`,
@@ -125,10 +125,10 @@ class TriggerService {
      * @param {string} commandName - The command to remove
      * @returns {Object} Result object with success status and message
      */
-    async removeTriggerCommand( triggerName, commandName ) {
+    async removeTriggerCommand ( triggerName, commandName ) {
         try {
             const availableTriggers = this.getAvailableTriggers();
-            
+
             // Validate trigger name
             if ( !availableTriggers[ triggerName ] ) {
                 return {
@@ -140,10 +140,10 @@ class TriggerService {
 
             // Load current data
             await this.services.dataService.loadData();
-            
+
             // Get current triggers
             let triggers = this.getAllTriggers();
-            
+
             // Check if trigger exists and has commands
             if ( !triggers[ triggerName ] || !Array.isArray( triggers[ triggerName ] ) ) {
                 return {
@@ -151,7 +151,7 @@ class TriggerService {
                     error: `No commands configured for trigger "${ triggerName }"`
                 };
             }
-            
+
             // Check if command exists in trigger
             const commandIndex = triggers[ triggerName ].indexOf( commandName );
             if ( commandIndex === -1 ) {
@@ -161,20 +161,20 @@ class TriggerService {
                     currentCommands: triggers[ triggerName ]
                 };
             }
-            
+
             // Remove command from trigger
             triggers[ triggerName ].splice( commandIndex, 1 );
-            
+
             // If trigger is now empty, remove it entirely
             if ( triggers[ triggerName ].length === 0 ) {
                 delete triggers[ triggerName ];
             }
-            
+
             // Save updated triggers
             await this.services.dataService.setValue( 'triggers', triggers );
-            
+
             this.logger.info( `[TriggerService] Removed command "${ commandName }" from trigger "${ triggerName }"` );
-            
+
             return {
                 success: true,
                 message: `Removed command "${ commandName }" from trigger "${ triggerName }"`,
@@ -194,10 +194,10 @@ class TriggerService {
      * @param {string} triggerName - The trigger name to clear
      * @returns {Object} Result object with success status and message
      */
-    async clearTrigger( triggerName ) {
+    async clearTrigger ( triggerName ) {
         try {
             const availableTriggers = this.getAvailableTriggers();
-            
+
             // Validate trigger name
             if ( !availableTriggers[ triggerName ] ) {
                 return {
@@ -209,10 +209,10 @@ class TriggerService {
 
             // Load current data
             await this.services.dataService.loadData();
-            
+
             // Get current triggers
             let triggers = this.getAllTriggers();
-            
+
             // Check if trigger exists
             if ( !triggers[ triggerName ] ) {
                 return {
@@ -220,17 +220,17 @@ class TriggerService {
                     error: `No commands configured for trigger "${ triggerName }"`
                 };
             }
-            
+
             const clearedCommands = triggers[ triggerName ].slice(); // Copy array
-            
+
             // Remove trigger entirely
             delete triggers[ triggerName ];
-            
+
             // Save updated triggers
             await this.services.dataService.setValue( 'triggers', triggers );
-            
+
             this.logger.info( `[TriggerService] Cleared all commands from trigger "${ triggerName }"` );
-            
+
             return {
                 success: true,
                 message: `Cleared all commands from trigger "${ triggerName }"`,
@@ -253,13 +253,13 @@ class TriggerService {
      * @param {Object} context.sender - Optional sender information (defaults to system)
      * @returns {Promise<Object>} Result object with execution details
      */
-    async executeTrigger( triggerName, context = {} ) {
+    async executeTrigger ( triggerName, context = {} ) {
         try {
             this.logger.debug( `[TriggerService] Executing trigger: ${ triggerName }` );
-            
+
             // Get commands for this trigger
             const commands = this.getTriggerCommands( triggerName );
-            
+
             if ( commands.length === 0 ) {
                 this.logger.debug( `[TriggerService] No commands configured for trigger: ${ triggerName }` );
                 return {
@@ -275,7 +275,7 @@ class TriggerService {
             const botContext = {
                 sender: context.sender || {
                     username: 'System',
-                    uuid: this.services.config.BOT_UID || 'bot-system'
+                    uuid: 'bot-system'  // Framework-agnostic system marker, not a real user
                 },
                 fullMessage: context.fullMessage || {
                     isPrivateMessage: false
@@ -289,21 +289,21 @@ class TriggerService {
             for ( const commandName of commands ) {
                 try {
                     this.logger.debug( `[TriggerService] Executing triggered command: ${ commandName }` );
-                    
+
                     // Execute the command using the command service
                     // Use empty args since triggers don't have arguments by default
-                    const result = await this.services.commandService( 
-                        commandName, 
-                        '', 
-                        this.services, 
-                        botContext 
+                    const result = await this.services.commandService(
+                        commandName,
+                        '',
+                        this.services,
+                        botContext
                     );
 
-                    results.push({
+                    results.push( {
                         command: commandName,
                         success: result.success,
                         error: result.error || null
-                    });
+                    } );
 
                     if ( result.success ) {
                         this.logger.info( `[TriggerService] Successfully executed triggered command: ${ commandName }` );
@@ -312,11 +312,11 @@ class TriggerService {
                     }
                 } catch ( commandError ) {
                     this.logger.error( `[TriggerService] Error executing triggered command '${ commandName }': ${ commandError.message }` );
-                    results.push({
+                    results.push( {
                         command: commandName,
                         success: false,
                         error: commandError.message
-                    });
+                    } );
                 }
             }
 

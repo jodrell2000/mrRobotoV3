@@ -74,6 +74,30 @@ const hangSocketServices = {
   },
 
   /**
+   * Remove a user from the waiting queue
+   * @param {Object} services - The services container with socketAdapter
+   * @param {string} userId - The UUID of the user to remove from queue
+   */
+  removeFromQueue: async function ( services, userId ) {
+    try {
+      if ( !services || !services.socketAdapter ) {
+        throw new Error( 'Socket adapter not available - ensure serviceContainer is initialized' );
+      }
+
+      logger.debug( `hangSocketServices.removeFromQueue: Removing user ${ userId } from queue` );
+
+      await services.socketAdapter.removeFromQueue( userId );
+
+      logger.debug( `hangSocketServices.removeFromQueue: Successfully removed user ${ userId } from queue` );
+    } catch ( err ) {
+      const message = getErrorMessage( err );
+      logger.error( `hangSocketServices.removeFromQueue: Error removing user ${ userId } from queue - ${ message }` );
+      logger.debug( `hangSocketServices.removeFromQueue: raw error value:`, err );
+      throw err instanceof Error ? err : new Error( message );
+    }
+  },
+
+  /**
    * Skip the current song
    * @param {Object} services - The services container with socketAdapter
    */
