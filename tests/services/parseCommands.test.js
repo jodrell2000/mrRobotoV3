@@ -111,18 +111,17 @@ describe( 'parseCommands', () => {
     // Don't test debug output - it's an implementation detail
   } );
 
-  test( 'uses the selected framework command prefix', async () => {
-    const result = await parseCommands( '!ping', {
+  test( 'uses COMMAND_SWITCH from config as the command prefix', async () => {
+    const result = await parseCommands( '/ping', {
       logger: { debug: jest.fn(), warn: jest.fn(), error: jest.fn() },
-      config: { COMMAND_SWITCH: '/' },
-      frameworkSpecification: { commandPrefix: '!' }
+      config: { COMMAND_SWITCH: '/' }
     } );
 
     expect( result ).toEqual( {
       isCommand: true,
       command: 'ping',
       remainder: '',
-      originalText: '!ping'
+      originalText: '/ping'
     } );
   } );
 

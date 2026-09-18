@@ -47,7 +47,7 @@ class AdapterService {
 
             // Load adapters based on framework
             this.socketAdapter = loadSocketAdapter( this.framework.id, this.config );
-            this.apiAdapter = loadApiAdapter( this.framework.id, this.config );
+            this.apiAdapter = loadApiAdapter( this.framework.id, this.config, this.framework );
             this.messagingAdapter = loadMessagingAdapter( this.framework.id, {
                 config: this.config,
                 apiAdapter: this.apiAdapter,
@@ -55,6 +55,12 @@ class AdapterService {
                 privateMessageService: this.dependencies.privateMessageService,
                 openchatApi: this.dependencies.openchatApi
             } );
+
+            // Ensure COMMAND_SWITCH is set from config (required)
+            if ( !this.config.COMMAND_SWITCH ) {
+                this.logger.warn( 'COMMAND_SWITCH not configured in environment. Defaulting to "!"' );
+                this.config.COMMAND_SWITCH = '!';
+            }
 
             // Log successful initialization
             this.logger.info( `AdapterService initialized for framework: ${ this.framework.id }` );

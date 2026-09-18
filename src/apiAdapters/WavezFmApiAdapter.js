@@ -174,9 +174,9 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
             throw new Error( 'content must be a non-empty string' );
         }
 
-        // Wavez.fm has a 255 character limit per message
-        const WAVEZ_MAX_MESSAGE_LENGTH = 255;
-        const chunks = splitMessageIntoChunks( content, WAVEZ_MAX_MESSAGE_LENGTH );
+        // Use framework-configured max chat length, default to 255 for Wavez.fm
+        const maxChatLength = this.dependencies?.framework?.maxChatLength || 255;
+        const chunks = splitMessageIntoChunks( content, maxChatLength );
 
         const client = await this.getClient();
 
@@ -185,7 +185,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
             this.logger.info( `  Method: client.roomBot.sendMessage` );
             this.logger.info( `  RoomId: ${ this.config.WAVEZFM_ROOM_ID }` );
             this.logger.info( `  Original Content Length: ${ content.length } characters` );
-            this.logger.info( `  Wavez Max Length: ${ WAVEZ_MAX_MESSAGE_LENGTH } characters` );
+            this.logger.info( `  Max Chat Length: ${ maxChatLength } characters` );
             if ( chunks.length > 1 ) {
                 this.logger.info( `  ⚠️  Message split into ${ chunks.length } chunks` );
                 chunks.forEach( ( chunk, idx ) => {

@@ -5,7 +5,7 @@ describe( 'trackAnnouncer', () => {
 
     beforeEach( () => {
         services = {
-            logger: { error: jest.fn() },
+            logger: { error: jest.fn(), debug: jest.fn() },
             messageService: {
                 formatMention: jest.fn().mockImplementation( ( uuid ) => `<@uid:${ uuid }>` ),
                 sendResponse: jest.fn().mockResolvedValue()
@@ -21,7 +21,12 @@ describe( 'trackAnnouncer', () => {
                 isFeatureEnabled: jest.fn().mockReturnValue( true )
             },
             stateService: {
-                getVotes: jest.fn().mockReturnValue( { likes: 5, dislikes: 2, grabs: 1 } )
+                getVotes: jest.fn().mockReturnValue( { likes: 5, dislikes: 2, grabs: 1 } ),
+                getUser: jest.fn().mockImplementation( ( uuid ) => {
+                    if ( uuid === 'dj-uuid-123' ) return { uuid, nickname: 'Billy' };
+                    if ( uuid === 'dj-uuid-456' ) return { uuid, nickname: 'The Cure Fan' };
+                    return null;
+                } )
             }
         };
     } );
@@ -54,9 +59,8 @@ describe( 'trackAnnouncer', () => {
         test( 'sends nowPlaying announcement for a Hang-shaped event', async () => {
             await announceTrackStarted( hangShapedEvent( 'trackStarted' ), services );
 
-            expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-123', services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-123> is now playing Cradle Of Love by Billy Idol',
+                'Billy is now playing Cradle Of Love by Billy Idol',
                 { responseChannel: 'public', services }
             );
         } );
@@ -64,9 +68,8 @@ describe( 'trackAnnouncer', () => {
         test( 'sends nowPlaying announcement for a Wavez-shaped event', async () => {
             await announceTrackStarted( wavezShapedEvent( 'trackStarted' ), services );
 
-            expect( services.messageService.formatMention ).toHaveBeenCalledWith( 'dj-uuid-456', services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-456> is now playing Killing An Arab by The Cure',
+                'The Cure Fan is now playing Killing An Arab by The Cure',
                 { responseChannel: 'public', services }
             );
         } );
@@ -93,7 +96,7 @@ describe( 'trackAnnouncer', () => {
             await announceTrackStarted( hangShapedEvent( 'trackStarted' ), services );
 
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-123> -> Cradle Of Love',
+                'Billy -> Cradle Of Love',
                 { responseChannel: 'public', services }
             );
         } );
@@ -113,7 +116,7 @@ describe( 'trackAnnouncer', () => {
 
             expect( services.stateService.getVotes ).toHaveBeenCalled();
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-123> played Cradle Of Love by Billy Idol 👍5 👎2 ⭐1',
+                'Billy played Cradle Of Love by Billy Idol 👍5 👎2 ⭐1',
                 { responseChannel: 'public', services }
             );
         } );
@@ -122,7 +125,7 @@ describe( 'trackAnnouncer', () => {
             await announceTrackEnded( wavezShapedEvent( 'trackEnded' ), services );
 
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-456> played Killing An Arab by The Cure 👍5 👎2 ⭐1',
+                'The Cure Fan played Killing An Arab by The Cure 👍5 👎2 ⭐1',
                 { responseChannel: 'public', services }
             );
         } );
@@ -149,7 +152,7 @@ describe( 'trackAnnouncer', () => {
             await announceTrackEnded( hangShapedEvent( 'trackEnded' ), services );
 
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-123> played Cradle Of Love by Billy Idol 👍0 👎0 ⭐0',
+                'Billy played Cradle Of Love by Billy Idol 👍0 👎0 ⭐0',
                 { responseChannel: 'public', services }
             );
         } );
@@ -160,7 +163,7 @@ describe( 'trackAnnouncer', () => {
             await announceTrackEnded( hangShapedEvent( 'trackEnded' ), services );
 
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                '<@uid:dj-uuid-123> played...\n      Cradle Of Love by Billy Idol\n      Stats: 👍 5 👎 2 ❤️ 1',
+                'Billy played...\n      Cradle Of Love by Billy Idol\n      Stats: 👍 5 👎 2 ❤️ 1',
                 { responseChannel: 'public', services }
             );
         } );

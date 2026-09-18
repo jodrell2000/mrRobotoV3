@@ -1,7 +1,7 @@
 const framework = {
     id: 'wavezfm',
     displayName: 'Wavez.fm',
-    commandPrefix: '!',
+    maxChatLength: 255,
     capabilities: {
         chat: { supported: true },
         chatMedia: { supported: true, mode: 'imageUrlInContent' },

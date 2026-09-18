@@ -13,15 +13,16 @@ const WavezFmApiAdapter = require( './WavezFmApiAdapter' );
  * 
  * @param {string} frameworkName - The API framework name (e.g., 'hangfm')
  * @param {Object} config - Configuration object with API endpoints and credentials
+ * @param {Object} framework - The framework configuration object
  * @returns {AbstractSiteAdapter} An instance of the appropriate API adapter
  * @throws {Error} If framework is not supported
  */
-function loadApiAdapter ( frameworkName, config ) {
+function loadApiAdapter ( frameworkName, config, framework ) {
     switch ( frameworkName ) {
         case 'hangfm':
-            return new HangFmApiAdapter( config );
+            return new HangFmApiAdapter( config, { framework } );
         case 'wavezfm':
-            return new WavezFmApiAdapter( config );
+            return new WavezFmApiAdapter( config, { framework } );
 
         default:
             throw new Error(

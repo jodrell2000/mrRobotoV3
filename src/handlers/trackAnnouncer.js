@@ -30,10 +30,20 @@ async function announceTrackEnded ( event, services ) {
         }
 
         const votes = services.stateService?.getVotes?.() || { likes: 0, dislikes: 0, grabs: 0 };
-        const djMention = services.messageService.formatMention( playback.djId, services );
+
+        // Get plain DJ name (no mention formatting to avoid unnecessary Wavez alerts)
+        let djName = 'Someone';
+        try {
+            const djUser = services.stateService?.getUser?.( playback.djId );
+            if ( djUser?.nickname ) {
+                djName = djUser.nickname;
+            }
+        } catch ( error ) {
+            services.logger.debug( `[trackAnnouncer] Could not get DJ name for ${ playback.djId }: ${ error.message }` );
+        }
 
         const announcement = formatTemplate( messageTemplate, {
-            username: djMention,
+            username: djName,
             trackName: song.title,
             artistName: song.artist,
             likes: votes.likes || 0,
@@ -65,10 +75,19 @@ async function announceTrackStarted ( event, services ) {
             messageTemplate = services.dataService.getValue( 'nowPlayingMessage' ) || '{username} is now playing {trackName} by {artistName}';
         }
 
-        const djMention = services.messageService.formatMention( playback.djId, services );
+        // Get plain DJ name (no mention formatting to avoid unnecessary Wavez alerts)
+        let djName = 'Someone';
+        try {
+            const djUser = services.stateService?.getUser?.( playback.djId );
+            if ( djUser?.nickname ) {
+                djName = djUser.nickname;
+            }
+        } catch ( error ) {
+            services.logger.debug( `[trackAnnouncer] Could not get DJ name for ${ playback.djId }: ${ error.message }` );
+        }
 
         const announcement = formatTemplate( messageTemplate, {
-            username: djMention,
+            username: djName,
             trackName: song.title,
             artistName: song.artist
         } );

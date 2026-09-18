@@ -403,7 +403,25 @@ describe( 'songAICommandHelper', () => {
     describe( 'replaceAllUsernamesWithMentions', () => {
         const mockLogger = { warn: jest.fn() };
 
-        it( 'should replace single username with mention format', () => {
+        it( 'should only format sender as mention when senderUuid provided', () => {
+            const text = 'Gaz, you picked a great song!';
+            const mockServices = {
+                stateService: {
+                    getUsers: jest.fn().mockReturnValue( [
+                        { uuid: 'uuid-gaz', nickname: 'Gaz' }
+                    ] )
+                },
+                messageService: {
+                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                }
+            };
+
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-gaz' } );
+
+            expect( result ).toBe( 'Gaz, you picked a great song!'.replace( 'Gaz', '<@uid:uuid-gaz>' ) );
+        } );
+
+        it( 'should not format username as mention when no options provided', () => {
             const text = 'Gaz, you picked a great song!';
             const mockServices = {
                 stateService: {
@@ -418,10 +436,10 @@ describe( 'songAICommandHelper', () => {
 
             const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
-            expect( result ).toBe( 'Gaz, you picked a great song!'.replace( 'Gaz', '<@uid:uuid-gaz>' ) );
+            expect( result ).toBe( 'Gaz, you picked a great song!' );
         } );
 
-        it( 'should replace multiple different usernames in text', () => {
+        it( 'should only format specified users as mentions, not others', () => {
             const text = 'Kelsi and Alice both loved this track. Alice really enjoyed it, and Kelsi agrees!';
             const mockServices = {
                 stateService: {
@@ -435,13 +453,14 @@ describe( 'songAICommandHelper', () => {
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            // Only Kelsi is the sender, Alice should stay plain
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-kelsi' } );
 
             expect( result ).toContain( '<@uid:uuid-kelsi>' );
-            expect( result ).toContain( '<@uid:uuid-alice>' );
-            // Should have 2 Kelsi mentions and 2 Alice mentions
+            expect( result ).toContain( 'Alice' ); // Alice should not be formatted as mention
+            // Should have 2 Kelsi mentions but 0 Alice mentions
             expect( ( result.match( /uuid-kelsi/g ) || [] ).length ).toBe( 2 );
-            expect( ( result.match( /uuid-alice/g ) || [] ).length ).toBe( 2 );
+            expect( ( result.match( /uuid-alice/g ) || [] ).length ).toBe( 0 );
         } );
 
         it( 'should not replace partial matches (word boundaries)', () => {
@@ -457,7 +476,7 @@ describe( 'songAICommandHelper', () => {
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { currentDjUuid: 'uuid-gaz' } );
 
             // Garfield should NOT be replaced, only Gaz
             expect( result ).toContain( 'Garfield' );
@@ -521,9 +540,9 @@ describe( 'songAICommandHelper', () => {
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-alice' } );
 
-            // Should replace Alice but not error on Bob
+            // Should format Alice as mention but not error on Bob without nickname
             expect( result ).toContain( '<@uid:uuid-alice>' );
             expect( result ).toContain( 'Hello' );
         } );
@@ -541,7 +560,7 @@ describe( 'songAICommandHelper', () => {
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-special' } );
 
             expect( result ).toContain( '<@uid:uuid-special>' );
         } );

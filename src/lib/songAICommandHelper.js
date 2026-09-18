@@ -122,13 +122,17 @@ async function addToConversationHistory ( userContent, modelContent, dataService
 }
 
 /**
- * Replace all usernames in text with their mention format
+ * Replace specific usernames in text with their mention format
+ * Only formats mentions for command sender and current DJ to avoid unnecessary alerts on Wavez
  * @param {string} text - The text to process
  * @param {Object} services - Services object with stateService and messageService
  * @param {Object} logger - Logger instance
- * @returns {string} Text with all usernames replaced by mentions
+ * @param {Object} options - Optional parameters
+ * @param {string} options.senderUuid - UUID of command sender to format as mention
+ * @param {string} options.currentDjUuid - UUID of current DJ to format as mention
+ * @returns {string} Text with only relevant usernames replaced by mentions
  */
-function replaceAllUsernamesWithMentions ( text, services, logger ) {
+function replaceAllUsernamesWithMentions ( text, services, logger, options = {} ) {
     if ( !text || !services?.stateService || !services?.messageService ) {
         return text;
     }
@@ -143,7 +147,10 @@ function replaceAllUsernamesWithMentions ( text, services, logger ) {
             return text;
         }
 
-        // Iterate through all users and replace their nicknames with mention format
+        const { senderUuid, currentDjUuid } = options;
+
+        // Iterate through all users and replace their nicknames
+        // Only format mentions for sender and current DJ to avoid unnecessary Wavez alerts
         for ( const user of users ) {
             const nickname = user?.nickname || user?.userProfile?.nickname;
             const userId = user?.id || user?.uuid;
@@ -153,12 +160,17 @@ function replaceAllUsernamesWithMentions ( text, services, logger ) {
                 // Use word boundaries to avoid partial matches
                 const nicknameRegex = new RegExp( `\\b${ nickname.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }\\b`, 'g' );
 
-                // Use framework-aware mention formatter to get the correct mention format
-                // (Hang: <@uid:uuid>, Wavez: @DisplayName)
-                const mentionFormat = services.messageService.formatMention( userId, services );
+                // Check if this user should be formatted as a mention
+                const isSender = userId === senderUuid;
+                const isCurrentDj = userId === currentDjUuid;
 
-                // Replace all instances
-                processedText = processedText.replace( nicknameRegex, mentionFormat );
+                if ( isSender || isCurrentDj ) {
+                    // Use framework-aware mention formatter for sender and DJ
+                    // (Hang: <@uid:uuid>, Wavez: @DisplayName)
+                    const mentionFormat = services.messageService.formatMention( userId, services );
+                    processedText = processedText.replace( nicknameRegex, mentionFormat );
+                }
+                // For other users, leave their plain nickname as-is (don't replace)
             }
         }
     } catch ( error ) {
@@ -240,27 +252,23 @@ async function executeSongAICommand ( commandParams, config ) {
         questionTemplate = questionTemplate || config.defaultTemplate;
 
         // Get additional context for token replacement (framework-agnostic)
-        const currentDj = services.stateService?.getCurrentDj?.();
-        const currentDjUuid = currentDj?.userId || currentDj?.uuid;
+        // Use nowPlaying.djId for accurate current DJ (embedded with track data)
+        // This is more reliable than getCurrentDj() which reads from djQueue that might lag
+        const currentDjUuid = nowPlaying?.djId || services.stateService?.getCurrentDj?.()?.userId || services.stateService?.getCurrentDj?.()?.uuid;
         let username = 'Someone';
-        let usernameMention = 'Someone';
 
         if ( currentDjUuid ) {
             try {
-                // Get actual display name for AI context
+                // Get actual display name for AI context (plain text, no mention formatting)
                 username = await resolveUserNickname( services, currentDjUuid );
-                // Create mention format for final response
-                usernameMention = `<@uid:${ currentDjUuid }>`;
             } catch ( error ) {
                 logger.debug( `[${ config.commandName }] Could not get DJ username for UUID ${ currentDjUuid }: ${ error.message }` );
                 // Fallback to command sender if DJ username lookup fails
                 username = context?.sender?.username || 'Someone';
-                usernameMention = username;
             }
         } else {
             // Fallback to command sender if no current DJ
             username = context?.sender?.username || 'Someone';
-            usernameMention = username;
         }
 
         const hangoutName = services.stateService.getHangoutName();
@@ -340,31 +348,24 @@ async function executeSongAICommand ( commandParams, config ) {
             await addToConversationHistory( taskOnly, aiResponse, dataService );
         }
 
-        // Replace all user nicknames with mention format in AI response
-        let processedAiResponse = aiResponse;
-        if ( aiResponse ) {
-            // Replace all usernames with mentions (handles current DJ, requester, and any other users mentioned)
-            processedAiResponse = replaceAllUsernamesWithMentions( aiResponse, services, logger );
-        }
-
-        // Format the response
+        // Format the response using plain AI response (no mention formatting to avoid Wavez alerts)
         let response;
-        logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) }` );
+        logger.debug( `[${ config.commandName }] Processing AI response for formatting - valid: ${ !!aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" ) }` );
 
-        if ( processedAiResponse && processedAiResponse !== "No response" && !processedAiResponse.includes( "error occurred" ) ) {
+        if ( aiResponse && aiResponse !== "No response" && !aiResponse.includes( "error occurred" ) ) {
             logger.debug( `[${ config.commandName }] Using AI response - has custom formatter: ${ !!( config.responseFormatter && typeof config.responseFormatter === 'function' ) }` );
 
             // Use custom formatter if provided, otherwise use default
             if ( config.responseFormatter && typeof config.responseFormatter === 'function' ) {
-                response = config.responseFormatter( trackName, artistName, processedAiResponse );
+                response = config.responseFormatter( trackName, artistName, aiResponse );
                 logger.debug( `[${ config.commandName }] Custom formatter result: "${ response }"` );
             } else {
-                response = `${ processedAiResponse }`;
+                response = `${ aiResponse }`;
                 logger.debug( `[${ config.commandName }] Default formatter result: "${ response }"` );
             }
         } else {
             logger.warn( `[${ config.commandName }] AI response failed validation, using error message` );
-            logger.debug( `[${ config.commandName }] Failed response details - processedAiResponse: "${ processedAiResponse }", isNoResponse: ${ processedAiResponse === "No response" }, hasError: ${ processedAiResponse && processedAiResponse.includes( "error occurred" ) }` );
+            logger.debug( `[${ config.commandName }] Failed response details - aiResponse: "${ aiResponse }", isNoResponse: ${ aiResponse === "No response" }, hasError: ${ aiResponse && aiResponse.includes( "error occurred" ) }` );
 
             // Create specific error message with song details, customizing based on command
             if ( config.commandName === 'popfacts' ) {

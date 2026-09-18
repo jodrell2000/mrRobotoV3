@@ -146,17 +146,36 @@ class MistralBackend {
     }
 
     /**
-     * Get the next model in the fallback chain
+     * Get prioritized model list for fallback chain
+     * Prefers 8b models over smaller/larger variants
      * @private
-     * @param {string} currentModel - Current model name
-     * @returns {string|null} Next model to try or null
+     * @returns {Array<string>} Ordered list of models to try
      */
-    getNextFallbackModel ( currentModel ) {
-        const modelIndex = this.availableModels.indexOf( currentModel );
-        if ( modelIndex >= 0 && modelIndex < this.availableModels.length - 1 ) {
-            return this.availableModels[ modelIndex + 1 ];
+    getPrioritizedModels () {
+        // Preference order: 8b models first, then others
+        const modelPreferences = [
+            'ministral-8b-latest',
+            'ministral-8b-2512',
+            'mistral-medium-latest',
+            'mistral-medium-3.5',
+            'mistral-medium-3-5',
+            'mistral-medium-3',
+            'ministral-3b-latest',
+            'ministral-3b-2512',
+            'mistral-small-latest'
+        ];
+
+        // Start with preferred models that are available
+        const prioritized = modelPreferences.filter( m => this.availableModels.includes( m ) );
+
+        // Add any remaining available models
+        for ( const model of this.availableModels ) {
+            if ( !prioritized.includes( model ) ) {
+                prioritized.push( model );
+            }
         }
-        return null;
+
+        return prioritized.length > 0 ? prioritized : [ 'mistral-tiny-latest', 'ministral-3b-latest' ];
     }
 
     /**
@@ -175,26 +194,24 @@ class MistralBackend {
         }
 
         const normalizedPrompt = normalizeText( prompt );
-        // logger.debug( `🤖 [MistralBackend] Normalized prompt: "${ normalizedPrompt }"` );
 
-        const primaryModel = "mistral-tiny-latest";
-        // const primaryModel = "mistral-medium-latest";
-        const secondaryModel = "ministral-3b-latest";
+        // Get prioritized model list, limit to 3 models for fallback
+        const prioritizedModels = this.getPrioritizedModels();
+        const modelsToTry = prioritizedModels.slice( 0, 3 );
+        const attemptedModels = [];
+        const quotaExceededModels = [];
 
-        const modelsToTry = [ primaryModel, secondaryModel ];
-
-        if ( this.availableModels && this.availableModels.length > 0 ) {
-            for ( const model of this.availableModels ) {
-                if ( !modelsToTry.includes( model ) ) {
-                    modelsToTry.push( model );
-                }
-            }
-        }
+        logger.debug( `🤖 [MistralBackend] Attempting query with prioritized models: ${ modelsToTry.join( ', ' ) }` );
 
         for ( const model of modelsToTry ) {
             try {
-                return await this.tryModel( model, normalizedPrompt, options );
+                const result = await this.tryModel( model, normalizedPrompt, options );
+                if ( result ) {
+                    return result;
+                }
             } catch ( error ) {
+                attemptedModels.push( model );
+
                 const is429Error = error.status === 429 ||
                     error.code === 429 ||
                     error.message?.includes( '429' ) ||
@@ -202,16 +219,26 @@ class MistralBackend {
                     error.message?.toLowerCase().includes( 'rate limit' );
 
                 if ( is429Error ) {
-                    logger.error( `🤖 [MistralBackend] API quota exceeded (429)` );
-                    return {
-                        success: false,
-                        response: null,
-                        error: "API quota exceeded"
-                    };
+                    logger.warn( `🤖 [MistralBackend] Quota exceeded for model ${ model }, trying next model...` );
+                    quotaExceededModels.push( model );
+                    // Continue to next model instead of returning
+                    continue;
                 }
 
                 logger.warn( `🤖 [MistralBackend] Error with model ${ model }: ${ error.message }` );
             }
+        }
+
+        // All models exhausted - determine response
+        if ( quotaExceededModels.length === attemptedModels.length && quotaExceededModels.length > 0 ) {
+            // All models failed with quota exceeded
+            logger.error( `🤖 [MistralBackend] API quota exceeded for all attempted models: ${ quotaExceededModels.join( ', ' ) }` );
+            return {
+                success: false,
+                response: null,
+                error: "API quota exceeded for all models",
+                retryable: true
+            };
         }
 
         logger.error( `🤖 [MistralBackend] All models exhausted (${ modelsToTry.length } attempted)` );

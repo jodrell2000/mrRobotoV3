@@ -1,6 +1,7 @@
 const framework = {
     id: 'hangfm',
     displayName: 'Hang.fm',
+    maxChatLength: undefined,
     capabilities: {
         chat: { supported: true },
         chatHistory: { supported: true },

@@ -34,6 +34,7 @@ const validWavezConfig = {
 describe( 'AdapterService H2 framework integration', () => {
     const logger = {
         info: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn()
     };
 
@@ -51,7 +52,7 @@ describe( 'AdapterService H2 framework integration', () => {
             expect.objectContaining( { supported: true } )
         );
         expect( loadSocketAdapter ).toHaveBeenCalledWith( 'hangfm', validConfig );
-        expect( loadApiAdapter ).toHaveBeenCalledWith( 'hangfm', validConfig );
+        expect( loadApiAdapter ).toHaveBeenCalledWith( 'hangfm', validConfig, expect.any( Object ) );
     } );
 
     test( 'rejects an unknown framework before loading adapters', async () => {
@@ -83,7 +84,7 @@ describe( 'AdapterService H2 framework integration', () => {
             expect.objectContaining( { supported: false } )
         );
         expect( loadSocketAdapter ).toHaveBeenCalledWith( 'wavezfm', validWavezConfig );
-        expect( loadApiAdapter ).toHaveBeenCalledWith( 'wavezfm', validWavezConfig );
+        expect( loadApiAdapter ).toHaveBeenCalledWith( 'wavezfm', validWavezConfig, expect.any( Object ) );
         expect( validWavezConfig.COMMAND_SWITCH ).toBe( '!' );
     } );
 

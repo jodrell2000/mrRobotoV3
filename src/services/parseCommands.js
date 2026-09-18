@@ -21,7 +21,7 @@ async function parseCommand ( commandText, services ) {
     const trimmedCommand = commandText.trim();
     // logger.debug( `[parseCommand] Processing message: ${ trimmedCommand }` );
 
-    const commandSwitch = services.frameworkSpecification?.commandPrefix || config.COMMAND_SWITCH;
+    const commandSwitch = config.COMMAND_SWITCH || '!';
 
     // Check if the command starts with the framework-specific command switch
     if ( !commandSwitch || !trimmedCommand.startsWith( commandSwitch ) ) {
