@@ -56,17 +56,44 @@ class VerificationService {
                 return { success: false, error: 'LLM service unavailable' };
             }
 
-            const prompt = `Given the YouTube video title: "${ youtubeTitle }"
+            const prompt = `Extract the artist, track name, and original release year from the following YouTube video title. '"${ youtubeTitle }"'
+Return ONLY the following JSON (no other text):
 
-Extract and return ONLY the following information in JSON format (no other text):
 {
-  "artist": "artist name",
-  "track": "track/song name",
-  "year": year_as_number_or_null,
-  "confidence": "high|medium|low"
+ "artist": "artist name (cleaned, no extra metadata)",
+ "track": "track name (cleaned, no extra metadata like (Live), (Remaster), etc.)",
+ "year": original_release_year_as_number_or_null,
+ "confidence": "high|medium|low"
 }
 
-Note: The title "Topic" is often used for automated uploads and is almost never the actual track name. Be as accurate as possible. If you cannot determine a field with reasonable confidence, use null for that field.`;
+### Rules:
+1. **Ignore "Topic"**: The word "Topic" is never part of the artist or track. Remove it entirely.
+2. **Artist Extraction**:
+   - The artist is the **first unique segment** in the title (before the first hyphen or after the last hyphen if the title ends with the artist).
+   - If the title starts with the track name (e.g., "Once In a Lifetime (Live) - Talking Heads"), the artist is the **last segment**.
+   - Note that the song may be a cover version. Do not automatically change the artist title to something not in the video title. Check if the cover version exists before making any modifications.
+3. **Track Extraction**:
+   - The track is the **remaining segment** after removing the artist and "Topic".
+   - Clean the track name by removing:
+     - Parentheticals like '(Live)', '(Remaster)', '(2023)'.
+     - Any text after the last hyphen if it matches the artist.
+4. **Year Inference**:
+   - If the track is widely known (e.g., "Once In a Lifetime", "Sultans Of Swing", "How Soon Is Now?"), use the **original release year** (e.g., 1981, 1978, 2000).
+   - If the year cannot be inferred with high confidence, use 'null'.
+5. **Confidence**:
+   - "high": Artist/track are unambiguous, and the year is well-documented.
+   - "medium": Artist/track are clear, but the year is inferred.
+   - "low": Title is ambiguous or lacks clear structure.
+
+### Examples:
+Title: "Once In a Lifetime (Live) (2023 Remaster) - Talking Heads"
+Output: {"artist": "Talking Heads", "track": "Once In a Lifetime", "year": 1981, "confidence": "medium"}
+
+Title: "Dire Straits - Dire Straits - Sultans Of Swing (Old Grey Whistle Test, 16th May 1978)"
+Output: {"artist": "Dire Straits", "track": "Sultans Of Swing", "year": 1978, "confidence": "high"}
+
+Title: "Snake River Conspiracy - Topic - How Soon Is Now?"
+Output: {"artist": "Snake River Conspiracy", "track": "How Soon Is Now?", "year": 2000, "confidence": "high"}`;
 
             this.logger.info( `[VerificationService] 🔍 LLM Verification START: "${ youtubeTitle }"` );
 

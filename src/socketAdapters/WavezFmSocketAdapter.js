@@ -6,6 +6,21 @@ function unsupported ( action ) {
     throw new Error( `${ action } is not supported by the Wavez.fm adapter` );
 }
 
+/**
+ * Log the raw WebSocket command being sent
+ * @param {Object} logger - Logger instance
+ * @param {string} command - WebSocket command name
+ * @param {Object} payload - Command payload
+ */
+function logRawWebSocketRequest ( logger, command, payload ) {
+    if ( !logger ) return;
+
+    const payloadStr = payload ? JSON.stringify( payload ) : '';
+    const commandLine = `send( '${ command }', ${ payloadStr } )`;
+
+    logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.${ commandLine }` );
+}
+
 class WavezFmSocketAdapter extends AbstractSocketAdapter {
     constructor ( config, dependencies = {} ) {
         super();
@@ -33,7 +48,13 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
 
         const wavezApi = this.dependencies.wavezApi || await import( '@wavezfm/api' );
         const WebSocket = this.dependencies.WebSocket || require( 'ws' );
-        const websocketFactory = this.dependencies.websocketFactory || ( ( url, protocols ) => new WebSocket( url, protocols ) );
+
+        // Wrap the websocketFactory to log the actual URL being connected to
+        const originalFactory = this.dependencies.websocketFactory || ( ( url, protocols ) => new WebSocket( url, protocols ) );
+        const websocketFactory = ( url, protocols ) => {
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] WebSocket connection URL: ${ url }` );
+            return originalFactory( url, protocols );
+        };
 
         this.client = wavezApi.createRoomBotRealtimeClient( {
             baseURL: this.config.WAVEZFM_API_BASE_URL || 'https://api.wavez.fm',
@@ -159,16 +180,27 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
     }
 
     async removeDj ( userId ) {
-        if ( !this.apiAdapter ) {
-            const error = 'removeDj: apiAdapter not available';
+        if ( !this.client ) {
+            const error = 'removeDj: client not connected';
             if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
             unsupported( error );
         }
         if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] removeDj called for userId: "${ userId }"` );
+
         try {
-            const result = await this.apiAdapter.removeFromQueue( userId );
-            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] removeFromQueue completed: ${ JSON.stringify( result ) }` );
-            return result;
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                targetUserId: String( userId )
+            };
+
+            // Log the full WebSocket request
+            logRawWebSocketRequest( this.logger, 'remove_from_queue', payload );
+
+            // Send the command via WebSocket
+            this.client.send( 'remove_from_queue', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] WebSocket remove_from_queue command sent successfully` );
+            return { success: true };
         } catch ( error ) {
             if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] removeDj failed: ${ error.message }` );
             throw error;

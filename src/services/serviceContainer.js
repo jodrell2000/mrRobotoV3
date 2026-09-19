@@ -244,6 +244,11 @@ services.documentationService = new DocumentationService( {
 } );
 services.verificationService = new VerificationService( services );
 
+// Map to track pending trackStarted event handlers
+// Key: playId, Value: { timer: timeoutId, event, context }
+const pendingTrackStartedEvents = new Map();
+const TRACK_START_DELAY_MS = 10000; // 10 seconds
+
 services.eventDispatcher.registerHandler( 'roomStateReceived', async ( event, context ) => {
   const state = event.payload?.state;
   if ( state && context.services?.stateService ) {
@@ -267,13 +272,59 @@ services.eventDispatcher.registerHandler( 'trackStarted', async ( event, context
   const state = context.services?.stateService?.getState();
   if ( state ) state.nowPlaying = event.payload?.playback || null;
   await announceTrackStarted( event, context.services );
-  await handlePlayedSongEvent( event, context );
+
+  // Delay trigger execution by 10 seconds to handle rapid skip/unavailable tracks
+  // and to give moderators time to skip tracks that don't fit the theme
+  const playId = event.payload?.playback?.playId;
+  if ( playId ) {
+    // Cancel any existing pending event for this playId
+    if ( pendingTrackStartedEvents.has( playId ) ) {
+      clearTimeout( pendingTrackStartedEvents.get( playId ).timer );
+      pendingTrackStartedEvents.delete( playId );
+    }
+
+    // Schedule the event handler to execute after delay
+    const timer = setTimeout( async () => {
+      try {
+        // Check if this playId is still the current track (not interrupted by another trackStarted)
+        const currentNowPlaying = context.services?.stateService?.getState()?.nowPlaying;
+        if ( currentNowPlaying?.playId === playId ) {
+          // Still the current track, execute the handler
+          await handlePlayedSongEvent( event, context );
+        } else {
+          // Track was skipped/changed, don't execute
+          context.services?.logger?.debug?.(
+            `[EventDispatcher] Skipping delayed trackStarted handler for playId ${ playId } (track changed)`
+          );
+        }
+      } catch ( error ) {
+        context.services?.logger?.error?.(
+          `[EventDispatcher] Error executing delayed trackStarted handler: ${ error.message }`
+        );
+      } finally {
+        pendingTrackStartedEvents.delete( playId );
+      }
+    }, TRACK_START_DELAY_MS );
+
+    pendingTrackStartedEvents.set( playId, { timer, event, context } );
+  }
 } );
 
 services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context ) => {
   const state = context.services?.stateService?.getState();
   await announceTrackEnded( event, context.services );
   if ( state?.nowPlaying?.playId === event.payload?.playId ) state.nowPlaying = null;
+
+  // Cancel pending trackStarted handler if this is the track that was started
+  const playId = event.payload?.playId;
+  if ( playId && pendingTrackStartedEvents.has( playId ) ) {
+    const pending = pendingTrackStartedEvents.get( playId );
+    clearTimeout( pending.timer );
+    pendingTrackStartedEvents.delete( playId );
+    context.services?.logger?.debug?.(
+      `[EventDispatcher] Cancelled delayed trackStarted handler for playId ${ playId } (track ended)`
+    );
+  }
 } );
 
 services.eventDispatcher.registerHandler( 'userJoined', async ( event, context ) => {

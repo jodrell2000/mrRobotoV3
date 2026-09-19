@@ -734,7 +734,8 @@ class Bot {
   _setupErrorListener () {
     const socketAdapter = this.socketAdapter || this.socket;
     socketAdapter.on( "error", async ( message ) => {
-      this.services.logger.debug( `Socket error: ${ message }` );
+      const errorMessage = typeof message === 'string' ? message : JSON.stringify( message );
+      this.services.logger.debug( `Socket error: ${ errorMessage }` );
 
       // Log message to file
       await this._writeSocketMessagesToLogFile( 'socketError.log', { error: message, timestamp: new Date().toISOString() } );

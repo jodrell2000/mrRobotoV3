@@ -96,11 +96,11 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         return { success: false, shouldRespond: true, response, error: 'Not on decks' };
     }
 
-    if ( logger ) logger.info( `[mod remove] User "${ nameArg }" is on decks with userId "${ userId }", calling hangSocketServices.removeFromQueue()` );
+    if ( logger ) logger.info( `[mod remove] User "${ nameArg }" is on decks with userId "${ userId }", calling platformActions.removeFromDJQueue()` );
 
     try {
-        const result = await services.hangSocketServices.removeFromQueue( services, userId );
-        if ( logger ) logger.debug( `[mod remove] hangSocketServices result: ${ JSON.stringify( result ) }` );
+        const result = await services.platformActions.removeFromDJQueue( userId );
+        if ( logger ) logger.debug( `[mod remove] platformActions result: ${ JSON.stringify( result ) }` );
         if ( result && !result.success ) throw new Error( result.error );
     } catch ( err ) {
         if ( logger ) logger.error( `[mod remove] Failed to remove user: ${ err.message }` );
