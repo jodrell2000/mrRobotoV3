@@ -161,6 +161,7 @@ describe( 'Bot', () => {
 
   describe( '_writeSocketMessagesToLogFile', () => {
     test( 'should write formatted log entry to file', async () => {
+      mockServices.config.SOCKET_MESSAGE_LOG_LEVEL = 'DEBUG';
       const filename = 'test.log';
       const data = { message: 'test data', id: 123 };
 
@@ -170,13 +171,14 @@ describe( 'Bot', () => {
 
       await bot._writeSocketMessagesToLogFile( filename, data );
 
-      const expectedPath = path.join( process.cwd(), 'logs', filename );
+      const expectedPath = path.join( process.cwd(), 'logs', '000001_test.log' );
       const expectedContent = `${ mockTimestamp }: ${ JSON.stringify( data, null, 2 ) }\n`;
 
       expect( mockAppendFile ).toHaveBeenCalledWith( expectedPath, expectedContent );
     } );
 
     test( 'should handle file write errors gracefully', async () => {
+      mockServices.config.SOCKET_MESSAGE_LOG_LEVEL = 'DEBUG';
       const filename = 'test.log';
       const data = { test: 'data' };
       const writeError = new Error( 'File write failed' );

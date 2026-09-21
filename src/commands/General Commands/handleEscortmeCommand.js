@@ -45,18 +45,22 @@ function getNickname ( uuid, services ) {
 
 /**
  * Finds user's position in DJ queue
- * @param {string} userUuid - UUID of user to find
+ * Framework-agnostic: Works with both Hang (uuid) and Wavez (userId) formats
+ * @param {string} userId - User ID (uuid for Hang, userId for Wavez)
  * @param {Object} services - Services container
  * @returns {number} Position in queue (-1 if not found, 0 if currently playing, 1-20 if in queue)
  */
-function findUserDjPosition ( userUuid, services ) {
+function findUserDjPosition ( userId, services ) {
     try {
-        const djs = services.stateService._getDjs();
-        if ( !djs || !Array.isArray( djs ) ) {
+        // Use getDjQueue() which handles both frameworks (Hang and Wavez)
+        // Normalized DJ objects have userId field in both frameworks
+        const djQueue = services.stateService.getDjQueue();
+        if ( !djQueue || !Array.isArray( djQueue ) ) {
             return -1;
         }
 
-        const position = djs.findIndex( dj => dj.uuid === userUuid );
+        // Find by userId (works for both Hang and Wavez normalized format)
+        const position = djQueue.findIndex( dj => dj.userId === userId );
         return position;
     } catch ( err ) {
         return -1;

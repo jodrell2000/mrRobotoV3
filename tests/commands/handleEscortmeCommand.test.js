@@ -10,10 +10,10 @@ describe( 'handleEscortmeCommand', () => {
         mockServices = {
             messageService: {
                 sendResponse: jest.fn().mockResolvedValue(),
-                formatMention: jest.fn().mockImplementation( uuid => `@${ uuid }` )
+                formatMention: jest.fn().mockImplementation( userId => `@${ userId }` )
             },
             stateService: {
-                _getDjs: jest.fn(),
+                getDjQueue: jest.fn(),
                 _getCurrentState: jest.fn().mockReturnValue( {
                     allUserData: {}
                 } )
@@ -54,9 +54,9 @@ describe( 'handleEscortmeCommand', () => {
     describe( 'Phase 1: DJ Position Checking', () => {
         describe( 'user not on decks', () => {
             it( 'should error when user is not in DJ list', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'other-dj-1' },
-                    { uuid: 'other-dj-2' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'other-dj-1', position: 0 },
+                    { userId: 'other-dj-2', position: 1 }
                 ] );
 
                 const result = await handleEscortmeCommand( {
@@ -77,11 +77,11 @@ describe( 'handleEscortmeCommand', () => {
             it( 'should error when user is beyond position 20 in queue', async () => {
                 const djList = [];
                 for ( let i = 0; i < 25; i++ ) {
-                    djList.push( { uuid: `dj-${ i }` } );
+                    djList.push( { userId: `dj-${ i }`, position: i } );
                 }
-                djList[ 22 ] = { uuid: 'test-user-uuid' }; // Position 22, beyond limit
+                djList[ 22 ] = { userId: 'test-user-uuid', position: 22 }; // Position 22, beyond limit
 
-                mockServices.stateService._getDjs.mockReturnValue( djList );
+                mockServices.stateService.getDjQueue.mockReturnValue( djList );
 
                 const result = await handleEscortmeCommand( {
                     args: '',
@@ -101,9 +101,9 @@ describe( 'handleEscortmeCommand', () => {
 
         describe( 'user currently playing', () => {
             it( 'should succeed when user is at position 0', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' },
-                    { uuid: 'other-dj' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 },
+                    { userId: 'other-dj', position: 1 }
                 ] );
 
                 const result = await handleEscortmeCommand( {
@@ -123,9 +123,9 @@ describe( 'handleEscortmeCommand', () => {
 
         describe( 'user in queue', () => {
             it( 'should succeed when user is at position 1', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'other-dj' },
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'other-dj', position: 0 },
+                    { userId: 'test-user-uuid', position: 1 }
                 ] );
 
                 const result = await handleEscortmeCommand( {
@@ -143,13 +143,13 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should succeed when user is at position 5', async () => {
-                const djList = [ { uuid: 'dj-0' } ];
+                const djList = [ { userId: 'dj-0', position: 0 } ];
                 for ( let i = 1; i < 5; i++ ) {
-                    djList.push( { uuid: `dj-${ i }` } );
+                    djList.push( { userId: `dj-${ i }`, position: i } );
                 }
-                djList.push( { uuid: 'test-user-uuid' } );
+                djList.push( { userId: 'test-user-uuid', position: 5 } );
 
-                mockServices.stateService._getDjs.mockReturnValue( djList );
+                mockServices.stateService.getDjQueue.mockReturnValue( djList );
 
                 const result = await handleEscortmeCommand( {
                     args: '',
@@ -166,13 +166,13 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should succeed when user is at position 20', async () => {
-                const djList = [ { uuid: 'dj-0' } ];
+                const djList = [ { userId: 'dj-0', position: 0 } ];
                 for ( let i = 1; i < 20; i++ ) {
-                    djList.push( { uuid: `dj-${ i }` } );
+                    djList.push( { userId: `dj-${ i }`, position: i } );
                 }
-                djList.push( { uuid: 'test-user-uuid' } );
+                djList.push( { userId: 'test-user-uuid', position: 20 } );
 
-                mockServices.stateService._getDjs.mockReturnValue( djList );
+                mockServices.stateService.getDjQueue.mockReturnValue( djList );
 
                 const result = await handleEscortmeCommand( {
                     args: '',
@@ -206,8 +206,8 @@ describe( 'handleEscortmeCommand', () => {
                 );
             } );
 
-            it( 'should handle stateService._getDjs() errors gracefully', async () => {
-                mockServices.stateService._getDjs.mockImplementation( () => {
+            it( 'should handle stateService.getDjQueue() errors gracefully', async () => {
+                mockServices.stateService.getDjQueue.mockImplementation( () => {
                     throw new Error( 'State service error' );
                 } );
 
@@ -225,8 +225,8 @@ describe( 'handleEscortmeCommand', () => {
 
         describe( 'response formatting', () => {
             it( 'should use correct response channel', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
 
                 await handleEscortmeCommand( {
@@ -242,8 +242,8 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should include isPrivateMessage in response', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
 
                 const contextWithPrivate = {
@@ -265,8 +265,8 @@ describe( 'handleEscortmeCommand', () => {
 
         describe( 'logging', () => {
             it( 'should log when user is on decks', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
                 mockServices.stateService._getCurrentState.mockReturnValue( {
                     allUserData: {
@@ -292,7 +292,7 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should log when user is not on decks', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [] );
+                mockServices.stateService.getDjQueue.mockReturnValue( [] );
 
                 await handleEscortmeCommand( {
                     args: '',
@@ -311,9 +311,9 @@ describe( 'handleEscortmeCommand', () => {
     describe( 'Phase 2: Escortme Flag Management', () => {
         describe( 'enabling escortme', () => {
             it( 'should set flag when user is currently playing (position 0)', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' },
-                    { uuid: 'other-dj' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 },
+                    { userId: 'other-dj', position: 1 }
                 ] );
                 mockServices.stateService._getCurrentState.mockReturnValue( {
                     allUserData: {
@@ -346,10 +346,10 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should set flag when user is in queue (position 1)', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'other-dj' },
-                    { uuid: 'test-user-uuid' },
-                    { uuid: 'another-dj' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'other-dj', position: 0 },
+                    { userId: 'test-user-uuid', position: 1 },
+                    { userId: 'another-dj', position: 2 }
                 ] );
                 mockServices.stateService._getCurrentState.mockReturnValue( {
                     allUserData: {
@@ -379,13 +379,13 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should set flag with correct removeAfterCurrent for position 5', async () => {
-                const djList = [ { uuid: 'dj-0' } ];
+                const djList = [ { userId: 'dj-0', position: 0 } ];
                 for ( let i = 1; i < 5; i++ ) {
-                    djList.push( { uuid: `dj-${ i }` } );
+                    djList.push( { userId: `dj-${ i }`, position: i } );
                 }
-                djList.push( { uuid: 'test-user-uuid' } );
+                djList.push( { userId: 'test-user-uuid', position: 5 } );
 
-                mockServices.stateService._getDjs.mockReturnValue( djList );
+                mockServices.stateService.getDjQueue.mockReturnValue( djList );
                 mockServices.stateService._getCurrentState.mockReturnValue( {
                     allUserData: {
                         'test-user-uuid': {
@@ -408,8 +408,8 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should reject if escortme is already enabled', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
                 mockServices.dataService.getValue.mockReturnValue( {
                     'test-user-uuid': {
@@ -436,8 +436,8 @@ describe( 'handleEscortmeCommand', () => {
 
         describe( 'disabling escortme (stop)', () => {
             it( 'should cancel escortme when stop is invoked', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
                 mockServices.dataService.getValue.mockReturnValue( {
                     'test-user-uuid': {
@@ -473,8 +473,8 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should error if escortme is not enabled and stop is invoked', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
                 mockServices.dataService.getValue.mockReturnValue( {} );
 
@@ -494,8 +494,8 @@ describe( 'handleEscortmeCommand', () => {
             } );
 
             it( 'should preserve other users flags when stopping', async () => {
-                mockServices.stateService._getDjs.mockReturnValue( [
-                    { uuid: 'test-user-uuid' }
+                mockServices.stateService.getDjQueue.mockReturnValue( [
+                    { userId: 'test-user-uuid', position: 0 }
                 ] );
                 const otherUserFlag = {
                     markedAt: Date.now() - 10000,

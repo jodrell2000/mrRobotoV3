@@ -14,9 +14,12 @@ const framework = {
         djQueueManagement: { supported: true },
         removeFromDJQueue: { supported: true, requiredRole: 'MODERATOR' },
         skipTrack: { supported: true, requiredRole: 'MODERATOR' },
+        moveInQueue: { supported: false },
         voting: { supported: true, modes: [ 'up', 'down' ] },
         botIdentityUpdate: { supported: true },
         roomSettings: { supported: true },
+        updateRoomSettings: { supported: false, reason: 'Updates via API not supported on Hang.fm' },
+        kickUser: { supported: false, reason: 'Kick not available via Hang.fm API' },
         ephemeralMessages: { supported: false }
     },
     commandPermissions: {

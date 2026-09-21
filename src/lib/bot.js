@@ -33,8 +33,8 @@ class Bot {
   async _writeSocketMessagesToLogFile ( filename, data ) {
     const logLevel = this.services.config.SOCKET_MESSAGE_LOG_LEVEL;
 
-    // If logging is OFF, don't log anything
-    if ( logLevel === 'OFF' ) {
+    // Only log to files when SOCKET_MESSAGE_LOG_LEVEL is set to DEBUG
+    if ( logLevel !== 'DEBUG' ) {
       return;
     }
 
@@ -42,31 +42,26 @@ class Bot {
       const logsDir = path.join( process.cwd(), 'logs' );
       let filePath;
 
-      if ( logLevel === 'DEBUG' ) {
-        // In DEBUG mode, each message gets its own numbered file with message name
-        this.socketLogCounter++;
-        const baseFilename = filename.replace( '.log', '' );
-        const paddedCounter = String( this.socketLogCounter ).padStart( 6, '0' );
+      // In DEBUG mode, each message gets its own numbered file with message name
+      this.socketLogCounter++;
+      const baseFilename = filename.replace( '.log', '' );
+      const paddedCounter = String( this.socketLogCounter ).padStart( 6, '0' );
 
-        // Extract message name from data
-        let messageName = '';
-        if ( data && typeof data === 'object' ) {
-          // For different message types, the name might be in different places
-          messageName = data.name || ( data.message && data.message.name ) || '';
-        }
-
-        let debugFilename;
-        if ( messageName ) {
-          debugFilename = `${ paddedCounter }_${ baseFilename }_${ messageName }.log`;
-        } else {
-          debugFilename = `${ paddedCounter }_${ baseFilename }.log`;
-        }
-
-        filePath = path.join( logsDir, debugFilename );
-      } else {
-        // In ON mode, use the original filename
-        filePath = path.join( logsDir, filename );
+      // Extract message name from data
+      let messageName = '';
+      if ( data && typeof data === 'object' ) {
+        // For different message types, the name might be in different places
+        messageName = data.name || ( data.message && data.message.name ) || '';
       }
+
+      let debugFilename;
+      if ( messageName ) {
+        debugFilename = `${ paddedCounter }_${ baseFilename }_${ messageName }.log`;
+      } else {
+        debugFilename = `${ paddedCounter }_${ baseFilename }.log`;
+      }
+
+      filePath = path.join( logsDir, debugFilename );
 
       const timestamp = new Date().toISOString();
       const logEntry = `${ timestamp }: ${ JSON.stringify( data, null, 2 ) }\n`;

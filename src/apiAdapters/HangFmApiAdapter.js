@@ -162,6 +162,15 @@ class HangFmApiAdapter extends AbstractSiteAdapter {
     }
 
     /**
+     * Update room settings (not supported for Hang.fm)
+     * 
+     * @throws {Error} Always throws - Hang.fm doesn't support programmatic room settings updates
+     */
+    async updateSettings () {
+        throw new Error( 'Room settings updates are not supported on Hang.fm. Please update settings through the Hang.fm UI.' );
+    }
+
+    /**
      * Get the gateway base URL for API calls
      * 
      * @returns {string} Base URL

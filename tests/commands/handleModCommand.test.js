@@ -34,9 +34,19 @@ const makeServices = ( { role = 'moderator', allUserData = {}, djs = [] } = {} )
         messageService: {
             sendResponse: jest.fn().mockResolvedValue( undefined )
         },
+        socketAdapter: {
+            removeDj: jest.fn().mockResolvedValue( { success: true } ),
+            skipSong: jest.fn().mockResolvedValue( { success: true } ),
+            moveInQueue: jest.fn().mockResolvedValue( { success: true } ),
+            kickUser: jest.fn().mockResolvedValue( { success: true } )
+        },
         platformActions: {
             removeFromDJQueue: jest.fn().mockResolvedValue( { success: true } ),
-            skipTrack: jest.fn().mockResolvedValue( { success: true } )
+            skipTrack: jest.fn().mockResolvedValue( { success: true } ),
+            moveInQueue: jest.fn().mockResolvedValue( { success: true } ),
+            kickUser: jest.fn().mockResolvedValue( { success: true } ),
+            muteUser: jest.fn().mockResolvedValue( { success: true, supported: true } ),
+            unmuteUser: jest.fn().mockResolvedValue( { success: true, supported: true } )
         }
     };
 };
@@ -240,6 +250,253 @@ describe( 'handleModCommand', () => {
             const result = await handleModCommand( { args: 'skip', services, context: makeContext() } );
             expect( result.success ).toBe( false );
             expect( result.error ).toBe( 'not allowed' );
+        } );
+    } );
+
+    describe( 'requeue subcommand', () => {
+        const allUserData = {
+            'uuid-dj': {
+                userProfile: { nickname: 'DJ Cool', role: 'moderator' }
+            }
+        };
+        const djs = [ { uuid: 'uuid-dj' } ];
+
+        test( 'returns error when name is missing', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'requeue', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Missing' );
+        } );
+
+        test( 'returns error when position is missing', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'requeue DJ Cool', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Invalid' );
+        } );
+
+        test( 'returns error when position is not a number', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'requeue DJ Cool invalid', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Invalid' );
+        } );
+
+        test( 'returns error when user is not found', async () => {
+            const services = makeServices();
+            const result = await handleModCommand( { args: 'requeue Unknown 2', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'not found' );
+        } );
+
+        test( 'returns error when user is not on the decks', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'requeue DJ Cool 2', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Not on decks' );
+        } );
+
+        test( 'calls moveInQueue and returns success', async () => {
+            const services = makeServices( { allUserData, djs } );
+            const result = await handleModCommand( { args: 'requeue DJ Cool 3', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.moveInQueue ).toHaveBeenCalledWith( 'uuid-dj', 3 );
+        } );
+
+        test( 'is case-insensitive for the subcommand name', async () => {
+            const services = makeServices( { allUserData, djs } );
+            const result = await handleModCommand( { args: 'REQUEUE DJ Cool 2', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.moveInQueue ).toHaveBeenCalled();
+        } );
+
+        test( 'handles quoted names', async () => {
+            const services = makeServices( { allUserData, djs } );
+            const result = await handleModCommand( { args: 'requeue "DJ Cool" 1', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.moveInQueue ).toHaveBeenCalledWith( 'uuid-dj', 1 );
+        } );
+
+        test( 'returns error response when socket action throws', async () => {
+            const services = makeServices( { allUserData, djs } );
+            services.platformActions.moveInQueue.mockResolvedValueOnce( { success: false, error: 'position out of range' } );
+            const result = await handleModCommand( { args: 'requeue DJ Cool 5', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'position out of range' );
+        } );
+    } );
+
+    describe( 'kick subcommand', () => {
+        const allUserData = {
+            'uuid-1': { userProfile: { nickname: 'User To Kick' } },
+            'uuid-2': { userProfile: { nickname: 'Another User' } }
+        };
+
+        test( 'kicks a user by name', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'kick "User To Kick"', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.kickUser ).toHaveBeenCalledWith( 'uuid-1', '' );
+        } );
+
+        test( 'kicks a user with a reason', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'kick "User To Kick" spam', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.kickUser ).toHaveBeenCalledWith( 'uuid-1', 'spam' );
+        } );
+
+        test( 'returns error when user not found', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'kick "Nonexistent User"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'User not found' );
+            expect( services.platformActions.kickUser ).not.toHaveBeenCalled();
+        } );
+
+        test( 'returns error when no username provided', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'kick', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Missing username' );
+        } );
+
+        test( 'handles api failure', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.kickUser.mockResolvedValueOnce( { success: false, error: 'API error' } );
+            const result = await handleModCommand( { args: 'kick "User To Kick"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'API error' );
+        } );
+
+        test( 'handles exception during kick', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.kickUser.mockRejectedValueOnce( new Error( 'Network error' ) );
+            const result = await handleModCommand( { args: 'kick "User To Kick"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Network error' );
+        } );
+    } );
+
+    describe( 'mute subcommand', () => {
+        const allUserData = {
+            'uuid-mute-1': { userProfile: { nickname: 'User To Mute' } },
+            'uuid-mute-2': { userProfile: { nickname: 'Another User' } }
+        };
+
+        test( 'mutes a user by name', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'mute "User To Mute"', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.muteUser ).toHaveBeenCalledWith( 'uuid-mute-1', null );
+        } );
+
+        test( 'mutes a user with duration', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'mute "User To Mute" 5m', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.muteUser ).toHaveBeenCalledWith( 'uuid-mute-1', 5 * 60 * 1000 );
+        } );
+
+        test( 'mutes a user with duration without unit (defaults to minutes)', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'mute "User To Mute" 5', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.muteUser ).toHaveBeenCalledWith( 'uuid-mute-1', 5 * 60 * 1000 );
+        } );
+
+        test( 'mutes a user with duration and reason', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'mute "User To Mute" 5m spam', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.muteUser ).toHaveBeenCalledWith( 'uuid-mute-1', 5 * 60 * 1000 );
+        } );
+
+        test( 'mutes a user without quotes and defaults duration to minutes', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'mute "User To Mute" 5 test', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.muteUser ).toHaveBeenCalledWith( 'uuid-mute-1', 5 * 60 * 1000 );
+        } );
+
+        test( 'returns error when user not found', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'mute "Nonexistent User"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'User "Nonexistent User" not found' );
+        } );
+
+        test( 'returns error when username not provided', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'mute', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Missing username' );
+        } );
+
+        test( 'handles mute api failure', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockResolvedValueOnce( { success: false, supported: true, error: 'API error' } );
+            const result = await handleModCommand( { args: 'mute "User To Mute"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Failed to mute' );
+        } );
+
+        test( 'handles exception during mute', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.muteUser.mockRejectedValueOnce( new Error( 'Network error' ) );
+            const result = await handleModCommand( { args: 'mute "User To Mute"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Network error' );
+        } );
+    } );
+
+    describe( 'unmute subcommand', () => {
+        const allUserData = {
+            'uuid-unmute-1': { userProfile: { nickname: 'User To Unmute' } },
+            'uuid-unmute-2': { userProfile: { nickname: 'Another User' } }
+        };
+
+        test( 'unmutes a user by name', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.unmuteUser.mockResolvedValueOnce( { success: true, supported: true } );
+            const result = await handleModCommand( { args: 'unmute "User To Unmute"', services, context: makeContext() } );
+            expect( result.success ).toBe( true );
+            expect( services.platformActions.unmuteUser ).toHaveBeenCalledWith( 'uuid-unmute-1' );
+        } );
+
+        test( 'returns error when user not found', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'unmute "Nonexistent User"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'User "Nonexistent User" not found' );
+        } );
+
+        test( 'returns error when username not provided', async () => {
+            const services = makeServices( { allUserData } );
+            const result = await handleModCommand( { args: 'unmute', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Missing username' );
+        } );
+
+        test( 'handles unmute api failure', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.unmuteUser.mockResolvedValueOnce( { success: false, supported: true, error: 'API error' } );
+            const result = await handleModCommand( { args: 'unmute "User To Unmute"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toContain( 'Failed to unmute' );
+        } );
+
+        test( 'handles exception during unmute', async () => {
+            const services = makeServices( { allUserData } );
+            services.platformActions.unmuteUser.mockRejectedValueOnce( new Error( 'Network error' ) );
+            const result = await handleModCommand( { args: 'unmute "User To Unmute"', services, context: makeContext() } );
+            expect( result.success ).toBe( false );
+            expect( result.error ).toBe( 'Network error' );
         } );
     } );
 } );

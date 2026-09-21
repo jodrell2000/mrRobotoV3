@@ -14,10 +14,15 @@ const framework = {
         djQueueState: { supported: false },
         djQueueManagement: { supported: false },
         removeFromDJQueue: { supported: true },
-        skipTrack: { supported: false },
+        skipTrack: { supported: true },
+        moveInQueue: { supported: true },
         voting: { supported: false },
         botIdentityUpdate: { supported: false },
         roomSettings: { supported: false },
+        updateRoomSettings: { supported: true, requiredRole: 'MODERATOR' },
+        kickUser: { supported: true, requiredRole: 'MODERATOR' },
+        muteUser: { supported: true, requiredRole: 'MODERATOR' },
+        unmuteUser: { supported: true, requiredRole: 'MODERATOR' },
         ephemeralMessages: { supported: false }
     },
     commandPermissions: {

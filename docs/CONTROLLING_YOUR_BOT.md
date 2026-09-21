@@ -362,6 +362,58 @@ When a DJ with escortme enabled is automatically removed:
 !escortme
 ```
 
+## � Room Settings (Wavez.fm Only)
+
+Commands for managing room settings like name and description. **These commands are only available on Wavez.fm** and require moderator privileges or higher.
+
+### Update Room Name
+```
+!roomSetting name <new room name>
+```
+
+**Example:**
+```
+!roomSetting name "My Awesome Music Room"
+```
+
+**Requirements:**
+- Moderator or higher privileges
+- Room is hosted on Wavez.fm
+
+**Response:**
+```
+✅ Room name updated to: "My Awesome Music Room"
+```
+
+### Update Room Description
+```
+!roomSetting description <new room description>
+```
+
+**Example:**
+```
+!roomSetting description "A chill place to discover great music with friends"
+```
+
+**Requirements:**
+- Moderator or higher privileges
+- Room is hosted on Wavez.fm
+
+**Response:**
+```
+✅ Room description updated to: "A chill place to discover great music with friends"
+```
+
+### Error Messages
+- **Insufficient permissions**: `❌ You need at least moderator permissions to use this command.`
+- **Missing name/description**: `Usage: !roomSetting name <new room name>`
+- **Not on Wavez.fm**: `❌ Failed to update room name: Room settings updates are not supported on Hang.fm. Please update settings through the Hang.fm UI.`
+
+### Notes
+- Changes are applied immediately to the room
+- Room name and description are displayed on the platform
+- For Hang.fm users, room settings must be changed through the Hang.fm UI
+
 ## 🎛️ Command Management
 
 Enable or disable specific bot commands with the `!command` command.
@@ -393,16 +445,17 @@ This is useful for:
 
 ### Bot Settings
 - **!changebotname** - Change the bot's display name
+- **!roomSetting** - Manage room settings (Wavez.fm only)
 - **!state** - View current bot configuration and status
 - **!status** - Check bot operational status
 
 ### Permission Levels
 Commands have different permission requirements:
 - **USER** - Available to all room members
-- **MODERATOR** - Requires room moderator privileges
+- **MODERATOR** - Requires room moderator privileges (used for !mod and !roomSetting)
 - **OWNER** - Requires room owner privileges
 
-Most control commands require OWNER privileges for security.
+Most control commands require OWNER privileges for security. Some commands like !mod and !roomSetting require MODERATOR privileges to allow delegation of queue management.
 
 ## 💡 Best Practices
 
@@ -417,6 +470,12 @@ Most control commands require OWNER privileges for security.
 2. **Set boundaries** - Use instructions to define response length, tone, and content limits
 3. **Match your room** - Tailor the AI personality to your community's vibe
 4. **Iterate and improve** - Adjust based on how the AI actually responds
+
+### Room Management
+1. **Use moderator commands** - Delegate DJ queue management to moderators with !mod commands
+2. **Update room settings** - Keep room name and description current (Wavez.fm only)
+3. **Review regularly** - Ensure room settings reflect your community's current focus
+
 
 ### Feature Management
 1. **Start simple** - Enable core features first, add advanced ones gradually

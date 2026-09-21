@@ -61,9 +61,10 @@ function splitMessageIntoChunks ( content, maxLength = 255 ) {
  * @param {string} endpoint - Full URL endpoint
  * @param {Object} headers - Request headers
  * @param {*} data - Request body/payload
+ * @param {string} logLevel - SOCKET_MESSAGE_LOG_LEVEL config value
  */
-function logRawRequest ( logger, method, endpoint, headers, data ) {
-    if ( !logger ) return;
+function logRawRequest ( logger, method, endpoint, headers, data, logLevel ) {
+    if ( !logger || logLevel !== 'DEBUG' ) return;
 
     logger.info( `[WavezFmApiAdapter] RAW HTTP REQUEST` );
     logger.info( `  Method: ${ method }` );
@@ -180,7 +181,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
 
         const client = await this.getClient();
 
-        if ( this.logger ) {
+        if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
             this.logger.info( `[WavezFmApiAdapter.sendChatMessage] SDK CALL` );
             this.logger.info( `  Method: client.roomBot.sendMessage` );
             this.logger.info( `  RoomId: ${ this.config.WAVEZFM_ROOM_ID }` );
@@ -214,7 +215,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
                 if ( options.targetUserIds ) payload.targetUserIds = options.targetUserIds;
             }
 
-            if ( this.logger ) {
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
                 if ( chunks.length > 1 ) {
                     this.logger.info( `[WavezFmApiAdapter.sendChatMessage] Sending chunk ${ i + 1 }/${ chunks.length }` );
                 }
@@ -230,7 +231,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
                     'Accept': 'application/json'
                 };
 
-                logRawRequest( this.logger, 'POST', expectedEndpoint, expectedHeaders, payload );
+                logRawRequest( this.logger, 'POST', expectedEndpoint, expectedHeaders, payload, this.config.SOCKET_MESSAGE_LOG_LEVEL );
             }
 
             try {
@@ -350,7 +351,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
             const roomId = this.config.WAVEZFM_ROOM_ID;
             const queueAccessBlocked = true;
 
-            if ( this.logger ) {
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
                 this.logger.info( `[WavezFmApiAdapter.removeFromQueue] SDK CALL` );
                 this.logger.info( `  Method: client.roomBot.setQueueAccess` );
                 this.logger.info( `  Parameters: roomId="${ roomId }", userId="${ userId }", queueAccessBlocked=${ queueAccessBlocked }` );
@@ -365,7 +366,7 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
                 };
                 const expectedBody = JSON.stringify( { userId, queueAccessBlocked } );
 
-                logRawRequest( this.logger, 'POST', expectedEndpoint, expectedHeaders, expectedBody );
+                logRawRequest( this.logger, 'POST', expectedEndpoint, expectedHeaders, expectedBody, this.config.SOCKET_MESSAGE_LOG_LEVEL );
             }
 
             const result = await client.roomBot.setQueueAccess( roomId, userId, queueAccessBlocked );
@@ -380,6 +381,62 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
                 this.logger.error( `[WavezFmApiAdapter.removeFromQueue] FAILURE` );
                 this.logger.error( `  Method: client.roomBot.setQueueAccess` );
                 this.logger.error( `  Parameters: roomId="${ this.config.WAVEZFM_ROOM_ID }", userId="${ userId }", queueAccessBlocked=true` );
+                this.logger.error( `  Error Message: ${ error.message }` );
+                this.logger.error( `  Error Code: ${ error.code }` );
+                this.logger.error( `  Error Status: ${ error.status }` );
+                this.logger.error( `  Full Error Object: ${ JSON.stringify( error, null, 2 ) }` );
+
+                // Log details from the HTTP error response
+                if ( error.response ) {
+                    this.logger.error( `  HTTP Status: ${ error.response.status }` );
+                    this.logger.error( `  HTTP Headers: ${ JSON.stringify( error.response.headers, null, 2 ) }` );
+                    this.logger.error( `  HTTP Body: ${ JSON.stringify( error.response.data, null, 2 ) }` );
+                }
+            }
+            throw normalizeWavezError( error );
+        }
+    }
+
+    async updateSettings ( settings ) {
+        if ( !settings || typeof settings !== 'object' ) {
+            throw new Error( 'settings must be an object' );
+        }
+
+        const client = await this.getClient();
+        try {
+            const roomId = this.config.WAVEZFM_ROOM_ID;
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmApiAdapter.updateSettings] SDK CALL` );
+                this.logger.info( `  Method: client.roomBot.updateSettings` );
+                this.logger.info( `  RoomId: ${ roomId }` );
+                this.logger.info( `  Settings: ${ JSON.stringify( settings, null, 2 ) }` );
+
+                // Log the expected HTTP request
+                const baseURL = this.config.WAVEZFM_API_BASE_URL || 'https://api.wavez.fm';
+                const expectedEndpoint = `${ baseURL }/rooms/${ roomId }/settings`;
+                const expectedHeaders = {
+                    'Authorization': `Bearer ${ this.config.WAVEZFM_ROOM_BOT_TOKEN ? '[REDACTED - ' + this.config.WAVEZFM_ROOM_BOT_TOKEN.length + ' chars]' : 'NOT SET' }`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                };
+
+                logRawRequest( this.logger, 'PATCH', expectedEndpoint, expectedHeaders, settings, this.config.SOCKET_MESSAGE_LOG_LEVEL );
+            }
+
+            const result = await client.roomBot.updateSettings( roomId, settings );
+
+            if ( this.logger ) {
+                this.logger.info( `[WavezFmApiAdapter.updateSettings] SUCCESS - Response: ${ JSON.stringify( result, null, 2 ) }` );
+            }
+
+            return result;
+        } catch ( error ) {
+            if ( this.logger ) {
+                this.logger.error( `[WavezFmApiAdapter.updateSettings] FAILURE` );
+                this.logger.error( `  Method: client.roomBot.updateSettings` );
+                this.logger.error( `  RoomId: ${ this.config.WAVEZFM_ROOM_ID }` );
+                this.logger.error( `  Settings: ${ JSON.stringify( settings, null, 2 ) }` );
                 this.logger.error( `  Error Message: ${ error.message }` );
                 this.logger.error( `  Error Code: ${ error.code }` );
                 this.logger.error( `  Error Status: ${ error.status }` );

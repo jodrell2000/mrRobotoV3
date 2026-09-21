@@ -256,6 +256,20 @@ class HangFmSocketAdapter extends AbstractSocketAdapter {
         }
     }
 
+    async moveInQueue () {
+        unsupported( 'moveInQueue' );
+    }
+
+    async kickUser () {
+        unsupported( 'kickUser' );
+    }
+    async muteUser () {
+        unsupported( 'muteUser is not supported by the Hang.fm adapter' );
+    }
+
+    async unmuteUser () {
+        unsupported( 'unmuteUser is not supported by the Hang.fm adapter' );
+    }
     /**
      * Get the underlying socket instance
      * 

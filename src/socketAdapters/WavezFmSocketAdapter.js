@@ -11,9 +11,10 @@ function unsupported ( action ) {
  * @param {Object} logger - Logger instance
  * @param {string} command - WebSocket command name
  * @param {Object} payload - Command payload
+ * @param {string} logLevel - SOCKET_MESSAGE_LOG_LEVEL config value
  */
-function logRawWebSocketRequest ( logger, command, payload ) {
-    if ( !logger ) return;
+function logRawWebSocketRequest ( logger, command, payload, logLevel ) {
+    if ( !logger || logLevel !== 'DEBUG' ) return;
 
     const payloadStr = payload ? JSON.stringify( payload ) : '';
     const commandLine = `send( '${ command }', ${ payloadStr } )`;
@@ -193,8 +194,8 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
                 targetUserId: String( userId )
             };
 
-            // Log the full WebSocket request
-            logRawWebSocketRequest( this.logger, 'remove_from_queue', payload );
+            // Log the full WebSocket request (only when DEBUG is enabled)
+            logRawWebSocketRequest( this.logger, 'remove_from_queue', payload, this.config.SOCKET_MESSAGE_LOG_LEVEL );
 
             // Send the command via WebSocket
             this.client.send( 'remove_from_queue', payload );
@@ -208,7 +209,164 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
     }
 
     async skipSong () {
-        unsupported( 'skipSong' );
+        if ( !this.client ) {
+            const error = 'skipSong: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] skipSong called` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID
+            };
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('skip', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'skip', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] skipSong command sent successfully` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] skipSong failed: ${ error.message }` );
+            throw error;
+        }
+    }
+
+    async moveInQueue ( userId, position ) {
+        if ( !userId || position === undefined || position === null ) {
+            throw new Error( 'userId and position are required' );
+        }
+        if ( typeof position !== 'number' || position < 0 ) {
+            throw new Error( 'position must be a non-negative number' );
+        }
+        if ( !this.client ) {
+            const error = 'moveInQueue: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] moveInQueue called for userId: "${ userId }", position: ${ position }` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                targetUserId: String( userId ),
+                position: position
+            };
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('reorder_queue', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'reorder_queue', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] moveInQueue command sent successfully` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] moveInQueue failed: ${ error.message }` );
+            throw error;
+        }
+    }
+
+    async kickUser ( userId, reason ) {
+        if ( !userId ) {
+            throw new Error( 'userId is required' );
+        }
+        if ( !this.client ) {
+            const error = 'kickUser: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] kickUser called for userId: "${ userId }", reason: "${ reason || 'no reason' }"` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                targetUserId: String( userId )
+            };
+            if ( reason ) {
+                payload.reason = reason;
+            }
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('kick_user', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'kick_user', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] kickUser command sent successfully` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] kickUser failed: ${ error.message }` );
+            throw error;
+        }
+    }
+
+    async muteUser ( userId, durationMs ) {
+        if ( !userId ) {
+            throw new Error( 'userId is required' );
+        }
+        if ( !this.client ) {
+            const error = 'muteUser: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] muteUser called for userId: "${ userId }", duration: ${ durationMs || 'permanent' }` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                targetUserId: String( userId )
+            };
+            if ( durationMs ) {
+                payload.duration = durationMs;
+            }
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('mute_user', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'mute_user', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] muteUser command sent successfully` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] muteUser failed: ${ error.message }` );
+            throw error;
+        }
+    }
+
+    async unmuteUser ( userId ) {
+        if ( !userId ) {
+            throw new Error( 'userId is required' );
+        }
+        if ( !this.client ) {
+            const error = 'unmuteUser: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] unmuteUser called for userId: "${ userId }"` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                targetUserId: String( userId )
+            };
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('unmute_user', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'unmute_user', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] unmuteUser command sent successfully` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] unmuteUser failed: ${ error.message }` );
+            throw error;
+        }
     }
 }
 
