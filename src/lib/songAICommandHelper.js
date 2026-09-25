@@ -14,9 +14,11 @@ async function resolveUserNickname ( services, userId ) {
         if ( profile?.nickname ) return profile.nickname;
     }
 
-    return services.hangUserService?.getUserNicknameByUuid
-        ? services.hangUserService.getUserNicknameByUuid( services, userId )
-        : undefined;
+    if ( services.platformActions?.getUserNicknameByUuid ) {
+        const result = await services.platformActions.getUserNicknameByUuid( userId );
+        return result?.success ? result.data : undefined;
+    }
+    return undefined;
 }
 
 /**
@@ -241,6 +243,29 @@ async function executeSongAICommand ( commandParams, config ) {
             };
         }
 
+        // Get verified information from VerificationService BEFORE building the prompt
+        // This ensures the prompt uses verified artist/track names instead of raw YouTube titles
+        let verifiedInformationSection = '';
+        let verifiedData = null;
+        try {
+            if ( services.verificationService ) {
+                const verificationResult = await services.verificationService.verify( `${ artistName } - ${ trackName }` );
+                if ( verificationResult.found && verificationResult.data ) {
+                    verifiedData = verificationResult.data;
+                    // Use verified artist and track names in the prompt
+                    if ( verifiedData.artist?.title ) {
+                        artistName = verifiedData.artist.title;
+                    }
+                    if ( verifiedData.track?.title ) {
+                        trackName = verifiedData.track.title;
+                    }
+                    verifiedInformationSection = formatVerifiedInformation( verifiedData );
+                }
+            }
+        } catch ( error ) {
+            logger.debug( `[${ config.commandName }] Could not get verified information: ${ error.message }` );
+        }
+
         // Prepare the question for the AI
         // Try the new mlQuestions location first, then fall back to old editableMessages location
         let questionTemplate = dataService.getValue( config.templateKey );
@@ -288,6 +313,7 @@ async function executeSongAICommand ( commandParams, config ) {
         }
 
         // Use tokenService for token replacement to support all dynamic tokens including {last5plays}
+        // Note: artistName and trackName may have been updated to verified values above
         const theQuestion = await services.tokenService.replaceTokens( questionTemplate, {
             trackName,
             artistName,
@@ -297,19 +323,6 @@ async function executeSongAICommand ( commandParams, config ) {
             sender: context?.sender,
             senderUsername
         }, true );
-
-        // Get verified information from VerificationService if available
-        let verifiedInformationSection = '';
-        try {
-            if ( services.verificationService ) {
-                const verificationResult = await services.verificationService.verify( `${ artistName } - ${ trackName }` );
-                if ( verificationResult.found && verificationResult.data ) {
-                    verifiedInformationSection = formatVerifiedInformation( verificationResult.data );
-                }
-            }
-        } catch ( error ) {
-            logger.debug( `[${ config.commandName }] Could not get verified information: ${ error.message }` );
-        }
 
         // Append verified information to the question if available
         const fullQuestion = theQuestion + verifiedInformationSection;

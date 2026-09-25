@@ -155,7 +155,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -176,7 +177,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: true,
@@ -191,7 +193,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -207,7 +210,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -223,7 +227,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -267,7 +272,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: true,
@@ -282,7 +288,8 @@ async function handleCommandCommand ( { args, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,

@@ -175,7 +175,9 @@ services.logger.info( '======================================= Application Start
     if ( requiresChatAuthToken ) {
       // Fetch and configure the framework's chat token before bot operations
       try {
-        const dynamicToken = await services.hangUserService.getCometChatToken( services );
+        const tokenResult = await services.platformActions.getChatAuthToken();
+        if ( tokenResult?.success === false ) throw new Error( tokenResult.error );
+        const dynamicToken = tokenResult?.data;
         if ( services.messagingAdapter ) services.messagingAdapter.setAuthToken( dynamicToken );
         else services.openchatApi.setAuthToken( dynamicToken );
         services.logger.info( '✅ CometChat auth token successfully configured' );
@@ -197,9 +199,12 @@ services.logger.info( '======================================= Application Start
       if ( profileResult?.supported === false || profileResult?.success === false ) {
         throw new Error( profileResult.error );
       }
-      const botNickname = profileResult?.data?.nickname ||
-        ( profileResult ? profileResult.data?.data?.nickname : undefined ) ||
-        await services.hangUserService.getUserNicknameByUuid( services, services.config.BOT_UID );
+      let botNickname = profileResult?.data?.nickname ||
+        ( profileResult ? profileResult.data?.data?.nickname : undefined );
+      if ( !botNickname ) {
+        const nicknameResult = await services.platformActions.getUserNicknameByUuid( services.config.BOT_UID );
+        if ( nicknameResult?.success !== false ) botNickname = nicknameResult?.data;
+      }
       services.setState( 'botNickname', botNickname );
       services.logger.info( `🤖 Bot nickname resolved and stored: ${ botNickname }` );
     } catch ( err ) {
@@ -234,7 +239,6 @@ services.logger.info( '======================================= Application Start
         if ( identityResult?.supported === false || identityResult?.success === false ) {
           throw new Error( identityResult.error );
         }
-        if ( !identityResult ) await services.hangUserService.updateHangNickname( services, savedBotName );
         services.logger.info( `✅ Bot name synced to TT.fm: ${ savedBotName }` );
 
         // Leave and rejoin framework chat to refresh display name
@@ -366,20 +370,20 @@ services.logger.info( '======================================= Application Start
 
           services.logger.info( `✅ Wavez state validation passed for room ${ roomId }` );
         } else {
-        const allUserData = services.hangoutState?.allUserData || {};
-        const userCount = Object.keys( allUserData ).length;
-        services.logger.debug( `🔍 State validation: userCount = ${ userCount }` );
+          const allUserData = services.hangoutState?.allUserData || {};
+          const userCount = Object.keys( allUserData ).length;
+          services.logger.debug( `🔍 State validation: userCount = ${ userCount }` );
 
-        if ( userCount === 0 ) {
-          services.logger.error( '❌ CRITICAL ERROR: allUserData is empty - no initial state loaded' );
-          services.logger.error( '❌ This indicates the stateful message processing failed to apply initial state patches' );
-          services.logger.error( '❌ The bot cannot operate without proper state initialization' );
-          services.logger.error( '❌ Check logs for JSON Patch application errors and ensure stateful messages are being processed correctly' );
-          services.logger.error( '❌ EXITING APPLICATION DUE TO EMPTY STATE' );
-          process.exit( 1 );
-        }
+          if ( userCount === 0 ) {
+            services.logger.error( '❌ CRITICAL ERROR: allUserData is empty - no initial state loaded' );
+            services.logger.error( '❌ This indicates the stateful message processing failed to apply initial state patches' );
+            services.logger.error( '❌ The bot cannot operate without proper state initialization' );
+            services.logger.error( '❌ Check logs for JSON Patch application errors and ensure stateful messages are being processed correctly' );
+            services.logger.error( '❌ EXITING APPLICATION DUE TO EMPTY STATE' );
+            process.exit( 1 );
+          }
 
-        services.logger.info( `✅ State validation passed: ${ userCount } users loaded in allUserData` );
+          services.logger.info( `✅ State validation passed: ${ userCount } users loaded in allUserData` );
         }
       } catch ( stateError ) {
         services.logger.error( `❌ CRITICAL ERROR: Failed to validate initial state: ${ stateError.message }` );

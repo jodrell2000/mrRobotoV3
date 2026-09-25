@@ -24,7 +24,8 @@ async function handleListUsers ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: true, shouldRespond: true, response };
     }
@@ -34,7 +35,8 @@ async function handleListUsers ( services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -49,7 +51,8 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing DJ name' };
     }
@@ -71,7 +74,8 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
@@ -91,7 +95,8 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Not on decks' };
     }
@@ -109,7 +114,8 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -120,7 +126,8 @@ async function handleRemoveDj ( nameArg, services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -139,7 +146,8 @@ async function handleSkipSong ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -149,7 +157,8 @@ async function handleSkipSong ( services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -164,7 +173,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing name or position' };
     }
@@ -176,7 +186,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Invalid position' };
     }
@@ -198,7 +209,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
@@ -218,7 +230,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Not on decks' };
     }
@@ -236,7 +249,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -247,7 +261,8 @@ async function handleRequeueUser ( nameArg, positionArg, services, context, resp
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -262,7 +277,8 @@ async function handleKickUser ( nameArg, reasonArg, services, context, responseC
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing username' };
     }
@@ -284,7 +300,8 @@ async function handleKickUser ( nameArg, reasonArg, services, context, responseC
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
@@ -305,7 +322,8 @@ async function handleKickUser ( nameArg, reasonArg, services, context, responseC
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: result.error };
         }
@@ -318,7 +336,8 @@ async function handleKickUser ( nameArg, reasonArg, services, context, responseC
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: true, shouldRespond: true, response };
     } catch ( err ) {
@@ -328,7 +347,8 @@ async function handleKickUser ( nameArg, reasonArg, services, context, responseC
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -344,7 +364,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing username' };
     }
@@ -356,7 +377,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -386,7 +408,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: `User "${ nameArg }" not found` };
     }
@@ -412,7 +435,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Mute not supported' };
         }
@@ -424,7 +448,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: `Failed to mute: ${ result.error }` };
         }
@@ -444,7 +469,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         if ( logger ) logger.info( `[mod mute] Successfully muted "${ userNickname }" (${ userId })` );
@@ -456,7 +482,8 @@ async function handleMuteUser ( nameArg, durationArg, reasonArg, services, conte
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -472,7 +499,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing username' };
     }
@@ -484,7 +512,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -512,7 +541,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: `User "${ nameArg }" not found` };
     }
@@ -531,7 +561,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -543,7 +574,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: `Failed to unmute: ${ result.error }` };
         }
@@ -553,7 +585,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         if ( logger ) logger.info( `[mod unmute] Successfully unmuted "${ userNickname }" (${ userId })` );
@@ -565,7 +598,8 @@ async function handleUnmuteUser ( nameArg, services, context, responseChannel ) 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -631,7 +665,8 @@ async function handleModCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
     }
@@ -745,7 +780,8 @@ async function handleModCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: false, shouldRespond: true, response, error: 'Unknown subcommand' };
 }

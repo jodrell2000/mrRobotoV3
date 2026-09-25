@@ -27,7 +27,8 @@ async function handleCharmapCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return { success: true, shouldRespond: true, response };
@@ -58,7 +59,8 @@ async function handleCharmapCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
     }
@@ -78,7 +80,8 @@ async function handleList ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: true, shouldRespond: true, response };
     }
@@ -105,7 +108,8 @@ async function handleList ( services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return { success: true, shouldRespond: true, response };
@@ -123,7 +127,8 @@ async function handleAdd ( args, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -138,7 +143,8 @@ async function handleAdd ( args, services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return { success: result.success, shouldRespond: true, response };
@@ -156,7 +162,8 @@ async function handleRemove ( args, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -169,7 +176,8 @@ async function handleRemove ( args, services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return { success: result.success, shouldRespond: true, response };
@@ -187,7 +195,8 @@ async function handleTest ( text, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -199,7 +208,8 @@ async function handleTest ( text, services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return { success: true, shouldRespond: true, response };
@@ -219,7 +229,8 @@ async function handleReload ( services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return { success: true, shouldRespond: true, response };

@@ -81,12 +81,14 @@ const messageService = {
    * @param {boolean} options.isPrivateMessage - Whether the original message was private
    * @param {string} options.sender - The sender UUID for private responses
    * @param {Object} options.services - Service container
+   * @param {Object} options.context - Optional context object for private command requestId
    * @param {string} options.senderUid - Optional UID of the user who triggered this message
    * @param {string} options.senderName - Optional name of the user who triggered this message
+   * @param {string} options.requestId - Optional requestId for Wavez private command replies
    * @returns {Promise<Object>} Response result
    */
   sendResponse: async function ( message, options = {} ) {
-    const { responseChannel = 'request', isPrivateMessage = false, sender, services, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null } = options;
+    const { responseChannel = 'request', isPrivateMessage = false, sender, services, context, senderUid = null, senderName = null, senderAvatarId = null, senderColor = null, requestId = null } = options;
 
     const logger = require( '../lib/logging.js' ).logger;
     const sendPublicMessage = () => services?.messagingAdapter?.sendChatMessage
@@ -100,8 +102,18 @@ const messageService = {
 
     // If responseChannel is 'request', send back to the same channel as the request
     if ( responseChannel === 'request' ) {
+      // Check if this is a Wavez private command reply (has requestId)
+      const wavezRequestId = requestId || context?.fullMessage?.requestId;
+      if ( isPrivateMessage && wavezRequestId ) {
+        // Wavez private command reply - use socketAdapter.replyToPrivateCommand()
+        const socketAdapter = services?.socketAdapter || services?.socket;
+        if ( socketAdapter && typeof socketAdapter.replyToPrivateCommand === 'function' ) {
+          return await socketAdapter.replyToPrivateCommand( wavezRequestId, message );
+        }
+      }
+
       if ( isPrivateMessage && sender ) {
-        // Original was private, send private response
+        // Hang.fm private message reply
         return await this.sendPrivateMessage( message, sender, services );
       } else {
         // Original was public, send public response

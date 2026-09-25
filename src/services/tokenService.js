@@ -210,10 +210,10 @@ class TokenService {
             }
 
             // Compatibility fallback for legacy services
-            if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
+            if ( this.services?.platformActions?.getUserNicknameByUuid ) {
                 try {
-                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, senderUuid );
-                    return nickname || 'Unknown User';
+                    const nicknameResult = await this.services.platformActions.getUserNicknameByUuid( senderUuid );
+                    if ( nicknameResult?.success ) return nicknameResult.data || 'Unknown User';
                 } catch ( error ) {
                     this.logger.debug( `[TokenService] Could not get sender nickname: ${ error.message }` );
                 }
@@ -267,10 +267,10 @@ class TokenService {
             }
 
             // Compatibility fallback for legacy services
-            if ( this.services?.hangUserService?.getUserNicknameByUuid ) {
+            if ( this.services?.platformActions?.getUserNicknameByUuid ) {
                 try {
-                    const nickname = await this.services.hangUserService.getUserNicknameByUuid( this.services, djId );
-                    return nickname || 'Unknown DJ';
+                    const nicknameResult = await this.services.platformActions.getUserNicknameByUuid( djId );
+                    if ( nicknameResult?.success ) return nicknameResult.data || 'Unknown DJ';
                 } catch ( error ) {
                     this.logger.debug( `[TokenService] Could not get DJ nickname: ${ error.message }` );
                 }

@@ -770,6 +770,25 @@ class Bot {
       }
     } );
 
+    // Handle private commands from Wavez
+    socketAdapter.on( 'bot_private_command', async ( packet ) => {
+      try {
+        this.services.logger.debug( `[bot_private_command] Received private command with requestId: ${ packet?.payload?.requestId }` );
+
+        const payload = packet?.payload || {};
+        const messageContent = payload.content || '';
+        const requestId = payload.requestId;
+        const sender = payload.sender || {};
+
+        if ( !messageContent ) return;
+
+        // Treat private command the same as a public message but mark it as private
+        await this._handleMessage( messageContent, sender.userId, { ...payload, isPrivateMessage: true, requestId } );
+      } catch ( error ) {
+        this.services.logger.error( `Error processing Wavez private command: ${ error.message }` );
+      }
+    } );
+
     for ( const eventName of [ 'track_started', 'track_ended', 'vote_updated', 'votes_snapshot' ] ) {
       socketAdapter.on( eventName, async packet => {
         await this._dispatchWavezPlaybackEvent( packet );
@@ -781,6 +800,10 @@ class Bot {
         this.services.logger.debug( `🔍 [WavezListener] ${ eventName } listenerCount=${ listenerCount } after registration` );
       }
     }
+
+    socketAdapter.on( 'user_joined', async packet => {
+      await this._dispatchWavezUserJoinedEvent( packet );
+    } );
 
     socketAdapter.on( 'room_state_snapshot', async packet => {
       await this._handleWavezRoomStateSnapshot( packet );
@@ -823,6 +846,22 @@ class Bot {
     // fallback below doesn't compare against a stale nowPlaying from an earlier snapshot
     if ( packet.event === 'track_started' || packet.event === 'track_ended' ) {
       this._previousWavezState = this.services.stateService?.getState?.() || this._previousWavezState;
+    }
+  }
+
+  async _dispatchWavezUserJoinedEvent ( packet ) {
+    const translateEvent = this.services.frameworkSpecification?.translators?.translateEvent;
+    const dispatcher = this.services.eventDispatcher;
+    if ( !translateEvent || !dispatcher ) return;
+
+    const events = translateEvent( packet, {
+      config: this.services.config,
+      previousState: this._previousWavezState,
+      currentState: this.services.stateService?.getState?.()
+    } );
+
+    for ( const event of events ) {
+      await dispatcher.dispatch( event, { bot: this, services: this.services } );
     }
   }
 

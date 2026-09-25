@@ -27,7 +27,8 @@ async function handleUnknownCommand ( commandParams ) {
     responseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
     sender: context?.sender,
-    services
+    services,
+    context
   } );
   return {
     success: false,

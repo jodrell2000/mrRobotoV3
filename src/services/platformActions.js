@@ -99,6 +99,26 @@ function createPlatformActions ( services ) {
                 if ( services.logger ) services.logger.debug( `[platformActions.unmuteUser] unmuteUser returned: ${ JSON.stringify( result ) }` );
                 return result;
             } );
+        },
+        getUserNicknameByUuid ( userUuid ) {
+            return execute( 'userProfiles', 'getUserNicknameByUuid', async () => {
+                if ( services.logger ) services.logger.debug( `[platformActions.getUserNicknameByUuid] called with userUuid: "${ userUuid }"` );
+                const profile = await services.apiAdapter.getUserProfile( userUuid );
+                const nickname = profile?.nickname || profile?.data?.nickname;
+                if ( !nickname ) {
+                    throw new Error( `Nickname not found for UUID ${ userUuid }` );
+                }
+                if ( services.logger ) services.logger.debug( `[platformActions.getUserNicknameByUuid] resolved nickname: "${ nickname }"` );
+                return nickname;
+            } );
+        },
+        getChatAuthToken () {
+            return execute( 'chatAuthentication', 'getChatAuthToken', async () => {
+                if ( services.logger ) services.logger.debug( '[platformActions.getChatAuthToken] fetching CometChat auth token' );
+                const token = await services.apiAdapter.getChatAuthToken();
+                if ( services.logger ) services.logger.debug( '[platformActions.getChatAuthToken] successfully fetched auth token' );
+                return token;
+            } );
         }
     };
 }

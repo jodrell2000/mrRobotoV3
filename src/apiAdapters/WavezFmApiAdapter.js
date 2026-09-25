@@ -132,8 +132,81 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
         }
     }
 
-    async updateUserNickname () {
-        unsupported( 'updateUserNickname' );
+    async updateUserNickname ( newNickname ) {
+        if ( !newNickname || typeof newNickname !== 'string' ) {
+            throw new Error( 'newNickname must be a non-empty string' );
+        }
+
+        const client = await this.getClient();
+
+        try {
+            if ( this.logger ) {
+                this.logger.info( `[WavezFmApiAdapter.updateUserNickname] REQUEST: Updating user nickname` );
+                this.logger.info( `  New Nickname: "${ newNickname }"` );
+            }
+
+            // Try to use the Wavez client's user update method if available
+            if ( client.user && typeof client.user.updateProfile === 'function' ) {
+                const result = await client.user.updateProfile( { displayName: newNickname } );
+                if ( this.logger ) {
+                    this.logger.info( `[WavezFmApiAdapter.updateUserNickname] SUCCESS via client.user.updateProfile` );
+                }
+                return result;
+            }
+
+            // Fallback: Try to make a raw HTTP request using the underlying axios instance
+            const axiosInstance = client.axios || client.http || client.api;
+
+            if ( axiosInstance && axiosInstance.request ) {
+                const baseURL = this.config.WAVEZFM_API_BASE_URL || 'https://api.wavez.fm';
+                const url = `${ baseURL }/users/profile`;
+
+                if ( this.logger ) {
+                    this.logger.info( `[WavezFmApiAdapter.updateUserNickname] Making HTTP request to update profile` );
+                    this.logger.info( `  URL: ${ url }` );
+                    this.logger.info( `  Method: POST` );
+                }
+
+                const result = await axiosInstance.request( {
+                    method: 'POST',
+                    url,
+                    data: { displayName: newNickname, nickname: newNickname },
+                    headers: this.getAuthHeaders()
+                } );
+
+                if ( this.logger ) {
+                    this.logger.info( `[WavezFmApiAdapter.updateUserNickname] SUCCESS via HTTP POST` );
+                    this.logger.info( `  Response: ${ JSON.stringify( result.data, null, 2 ) }` );
+                }
+
+                return result.data;
+            }
+
+            // Last resort: try posting through the axios instance directly
+            const payload = { displayName: newNickname, nickname: newNickname };
+            const baseURL = this.config.WAVEZFM_API_BASE_URL || 'https://api.wavez.fm';
+            const url = `${ baseURL }/users/profile`;
+
+            const response = await axiosInstance.post( url, payload, {
+                headers: this.getAuthHeaders()
+            } );
+
+            if ( this.logger ) {
+                this.logger.info( `[WavezFmApiAdapter.updateUserNickname] SUCCESS via axios.post` );
+            }
+
+            return response.data;
+        } catch ( error ) {
+            if ( this.logger ) {
+                this.logger.error( `[WavezFmApiAdapter.updateUserNickname] FAILURE` );
+                this.logger.error( `  New Nickname: "${ newNickname }"` );
+                this.logger.error( `  Error Message: ${ error.message }` );
+                this.logger.error( `  Error Status: ${ error.response?.status }` );
+                this.logger.error( `  Error Data: ${ JSON.stringify( error.response?.data, null, 2 ) }` );
+            }
+
+            throw normalizeWavezError( error );
+        }
     }
 
     async getChatAuthToken () {

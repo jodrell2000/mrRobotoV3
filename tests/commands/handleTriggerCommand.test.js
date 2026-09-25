@@ -46,7 +46,7 @@ describe( 'handleTriggerCommand', () => {
 
   describe( 'metadata', () => {
     it( 'should have correct metadata properties', () => {
-      expect( handleTriggerCommand.requiredRole ).toBe( 'OWNER' );
+      expect( handleTriggerCommand.requiredRole ).toBe( 'MODERATOR' );
       expect( handleTriggerCommand.description ).toBe( 'Manage command triggers for bot events' );
       expect( handleTriggerCommand.example ).toBe( 'trigger list | trigger add newSong intro | trigger remove newSong intro' );
       expect( handleTriggerCommand.hidden ).toBe( false );

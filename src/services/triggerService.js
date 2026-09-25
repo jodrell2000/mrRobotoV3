@@ -271,11 +271,19 @@ class TriggerService {
 
             this.logger.info( `[TriggerService] Executing ${ commands.length } command(s) for trigger '${ triggerName }': ${ commands.join( ', ' ) }` );
 
+            // Resolve bot user ID - use actual bot ID instead of framework-agnostic marker
+            let botUserId = context.sender?.uuid || 'bot-system';
+
+            // For Hang.fm, use BOT_UID from config
+            if ( !context.sender?.uuid && this.services.config?.BOT_UID ) {
+                botUserId = this.services.config.BOT_UID;
+            }
+
             // Create a system context for executing commands if none provided
             const botContext = {
                 sender: context.sender || {
                     username: 'System',
-                    uuid: 'bot-system'  // Framework-agnostic system marker, not a real user
+                    uuid: botUserId  // Use actual bot user ID
                 },
                 fullMessage: context.fullMessage || {
                     isPrivateMessage: false

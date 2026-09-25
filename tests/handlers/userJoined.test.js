@@ -49,6 +49,8 @@ describe( 'userJoined handler', () => {
     beforeEach( () => {
         // Clear all mocks before each test
         jest.clearAllMocks();
+        // Reset cooldown tracking to allow tests to run without cooldown delays
+        userJoined._resetWelcomeCooldowns();
         // Reset state that may have been changed by individual tests
         services.data.welcomeMessage = "Hi {username}, welcome to '{hangoutName}'";
         services.featuresService.isFeatureEnabled.mockReturnValue( true );
@@ -73,7 +75,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( "Hi <@uid:123-456>, welcome to 'Test Hangout'", { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( "Hi TestUser, welcome to 'Test Hangout'", { responseChannel: 'public', services } );
     } );
 
     it( 'should use default template if none in data service', async () => {
@@ -95,7 +97,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, <@uid:123-456>!", { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, TestUser!", { responseChannel: 'public', services } );
     } );
 
     it( 'should handle missing nickname gracefully', async () => {
@@ -165,7 +167,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( '🎉 Hey <@uid:123-456>, welcome to the amazing Test Hangout! 🎵', { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( '🎉 Hey TestUser, welcome to the amazing Test Hangout! 🎵', { responseChannel: 'public', services } );
     } );
 
     it( 'should log error if message sending fails', async () => {
@@ -261,7 +263,7 @@ describe( 'userJoined handler', () => {
             fs.existsSync.mockReturnValue( false );
             await userJoined( baseMessage, {}, services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                expect.stringContaining( 'Hi <@uid:' ),
+                expect.stringContaining( 'Hi TestDJ' ),
                 { responseChannel: 'public', services }
             );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
@@ -274,7 +276,7 @@ describe( 'userJoined handler', () => {
             } ) );
             await userJoined( baseMessage, {}, services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                `Hey <@uid:${ mockUuid }>, great to see you!`,
+                `Hey TestDJ, great to see you!`,
                 { responseChannel: 'public', services }
             );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();

@@ -45,7 +45,7 @@ describe( 'TriggerService Integration', () => {
       expect.objectContaining( {
         sender: expect.objectContaining( {
           username: 'System',
-          uuid: 'bot-system'
+          uuid: 'test-bot-123'
         } ),
         fullMessage: expect.objectContaining( {
           isPrivateMessage: false

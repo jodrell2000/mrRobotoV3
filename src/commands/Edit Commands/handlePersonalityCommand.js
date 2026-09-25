@@ -24,7 +24,8 @@ async function handleListPersonalities ( services, context, responseChannel ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: true, shouldRespond: true, response };
         }
@@ -47,7 +48,8 @@ async function handleListPersonalities ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return { success: true, shouldRespond: true, response };
@@ -59,7 +61,8 @@ async function handleListPersonalities ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -86,7 +89,8 @@ async function handleShowPersonality ( personalityName, services, context, respo
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
@@ -105,7 +109,8 @@ async function handleShowPersonality ( personalityName, services, context, respo
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return { success: true, shouldRespond: true, response };
@@ -117,7 +122,8 @@ async function handleShowPersonality ( personalityName, services, context, respo
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -134,7 +140,8 @@ async function handleShowAllPersonality ( personalityName, services, context, re
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
         }
@@ -156,7 +163,8 @@ async function handleShowAllPersonality ( personalityName, services, context, re
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
@@ -182,7 +190,8 @@ async function handleShowAllPersonality ( personalityName, services, context, re
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
         }
 
@@ -195,7 +204,8 @@ async function handleShowAllPersonality ( personalityName, services, context, re
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -212,7 +222,8 @@ async function handleSavePersonality ( personalityName, description, services, c
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
         }
@@ -227,7 +238,8 @@ async function handleSavePersonality ( personalityName, description, services, c
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response: validationError, error: validationError };
         }
@@ -238,7 +250,8 @@ async function handleSavePersonality ( personalityName, description, services, c
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response: descValidationError, error: descValidationError };
         }
@@ -250,7 +263,8 @@ async function handleSavePersonality ( personalityName, description, services, c
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality already exists' };
         }
@@ -285,7 +299,8 @@ async function handleSavePersonality ( personalityName, description, services, c
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         logger.info( `Personality "${ personalityName }" saved by ${ context?.sender }` );
@@ -299,7 +314,8 @@ async function handleSavePersonality ( personalityName, description, services, c
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -316,7 +332,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
         }
@@ -332,7 +349,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
                     responseChannel,
                     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                     sender: context?.sender,
-                    services
+                    services,
+    context
                 } );
                 return { success: false, shouldRespond: true, response: descValidationError, error: descValidationError };
             }
@@ -349,7 +367,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
                     responseChannel,
                     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                     sender: context?.sender,
-                    services
+                    services,
+    context
                 } );
                 return { success: false, shouldRespond: true, response, error: 'No active personality' };
             }
@@ -363,7 +382,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
@@ -395,7 +415,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         logger.info( `Personality "${ existing.name }" updated by ${ context?.sender }` );
@@ -409,7 +430,8 @@ async function handleUpdatePersonality ( personalityName, description, services,
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -442,7 +464,8 @@ async function handleActivatePersonality ( personalityName, services, context, r
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response: validationError, error: validationError };
         }
@@ -459,7 +482,8 @@ async function handleActivatePersonality ( personalityName, services, context, r
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
@@ -470,7 +494,8 @@ async function handleActivatePersonality ( personalityName, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         await dataService.loadData();
@@ -495,9 +520,7 @@ async function handleActivatePersonality ( personalityName, services, context, r
         if ( botName ) {
             await dataService.setValue( 'botData.CHAT_NAME', botName );
             // Update bot name on TT.fm platform
-            const identityResult = services.platformActions
-                ? await services.platformActions.updateBotIdentity( botName )
-                : await services.hangUserService.updateHangNickname( services, botName );
+            const identityResult = await services.platformActions.updateBotIdentity( botName );
             if ( identityResult?.supported === false || identityResult?.success === false ) {
                 throw new Error( identityResult.error );
             }
@@ -564,7 +587,8 @@ async function handleActivatePersonality ( personalityName, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         logger.info( `Personality "${ personality.name }" activated by ${ context?.sender }` );
@@ -578,7 +602,8 @@ async function handleActivatePersonality ( personalityName, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -595,7 +620,8 @@ async function handleDeletePersonality ( personalityName, services, context, res
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
         }
@@ -610,7 +636,8 @@ async function handleDeletePersonality ( personalityName, services, context, res
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response: validationError, error: validationError };
         }
@@ -627,7 +654,8 @@ async function handleDeletePersonality ( personalityName, services, context, res
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response, error: 'Personality not found' };
         }
@@ -645,7 +673,8 @@ async function handleDeletePersonality ( personalityName, services, context, res
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         logger.info( `Personality "${ personality.name }" deleted by ${ context?.sender }` );
@@ -659,7 +688,8 @@ async function handleDeletePersonality ( personalityName, services, context, res
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -830,7 +860,8 @@ async function handlePersonalityCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response };
     }
@@ -850,7 +881,8 @@ async function handlePersonalityCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -866,7 +898,8 @@ async function handlePersonalityCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -883,7 +916,8 @@ async function handlePersonalityCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -912,7 +946,8 @@ async function handlePersonalityCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -928,7 +963,8 @@ async function handlePersonalityCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -941,7 +977,8 @@ async function handlePersonalityCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: false, shouldRespond: true, response };
 }

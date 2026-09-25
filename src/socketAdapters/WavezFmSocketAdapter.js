@@ -135,6 +135,27 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
             return Boolean( userId && this.roomUserIds.has( userId ) );
         }
 
+        // Special validation for bot_private_command: check bot ID and room ID
+        if ( eventName === 'bot_private_command' ) {
+            const roomId = payload.roomId;
+            const botUserId = payload.botUserId;
+            const configuredBotUserId = this.config.WAVEZFM_BOT_USER_ID;
+
+            // Validate room ID
+            if ( roomId && this.config.WAVEZFM_ROOM_ID && roomId !== this.config.WAVEZFM_ROOM_ID ) {
+                if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] Ignoring private command: room ID mismatch` );
+                return false;
+            }
+
+            // Validate bot user ID
+            if ( botUserId && configuredBotUserId && botUserId !== configuredBotUserId ) {
+                if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] Ignoring private command: bot ID mismatch` );
+                return false;
+            }
+
+            return true;
+        }
+
         const roomId = payload.roomId ||
             ( eventName === 'public_room_updated' ? payload.id : undefined );
         const roomSlug = payload.roomSlug || payload.slug;
@@ -365,6 +386,44 @@ class WavezFmSocketAdapter extends AbstractSocketAdapter {
             return { success: true };
         } catch ( error ) {
             if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] unmuteUser failed: ${ error.message }` );
+            throw error;
+        }
+    }
+
+    /**
+     * Send a private reply to a private command
+     * @param {string} requestId - The requestId from the bot_private_command event
+     * @param {string} response - The response message (max 8000 characters)
+     * @returns {Promise<Object>} Success result
+     */
+    async replyToPrivateCommand ( requestId, response ) {
+        if ( !requestId || !response ) {
+            throw new Error( 'requestId and response are required' );
+        }
+        if ( !this.client ) {
+            const error = 'replyToPrivateCommand: WebSocket client not connected';
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] ${ error }` );
+            unsupported( error );
+        }
+        if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] replyToPrivateCommand called for requestId: "${ requestId }"` );
+
+        try {
+            const payload = {
+                roomId: this.config.WAVEZFM_ROOM_ID,
+                requestId: requestId,
+                response: response
+            };
+
+            if ( this.logger && this.config.SOCKET_MESSAGE_LOG_LEVEL === 'DEBUG' ) {
+                this.logger.info( `[WavezFmSocketAdapter] RAW WEBSOCKET: client.send('send_bot_private_reply', ${ JSON.stringify( payload ) })` );
+            }
+
+            this.client.send( 'send_bot_private_reply', payload );
+
+            if ( this.logger ) this.logger.debug( `[WavezFmSocketAdapter] Private reply sent successfully for requestId: "${ requestId }"` );
+            return { success: true };
+        } catch ( error ) {
+            if ( this.logger ) this.logger.error( `[WavezFmSocketAdapter] replyToPrivateCommand failed: ${ error.message }` );
             throw error;
         }
     }

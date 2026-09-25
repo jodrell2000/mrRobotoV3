@@ -88,7 +88,8 @@ async function handleDebugCommand ( { command, args, services, context, response
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -102,7 +103,8 @@ async function handleDebugCommand ( { command, args, services, context, response
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,

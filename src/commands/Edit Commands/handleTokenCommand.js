@@ -21,7 +21,8 @@ async function handleListTokens ( services, context, responseChannel ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: true,
@@ -67,7 +68,8 @@ async function handleListTokens ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -81,7 +83,8 @@ async function handleListTokens ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -128,7 +131,8 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
                     responseChannel,
                     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                     sender: context?.sender,
-                    services
+                    services,
+    context
                 } );
                 return {
                     success: false,
@@ -143,7 +147,8 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -162,7 +167,8 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -177,7 +183,8 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -191,7 +198,8 @@ async function handleAddToken ( tokenName, tokenValue, services, context, respon
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -217,7 +225,8 @@ async function handleRemoveToken ( tokenName, services, context, responseChannel
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -232,7 +241,8 @@ async function handleRemoveToken ( tokenName, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -246,7 +256,8 @@ async function handleRemoveToken ( tokenName, services, context, responseChannel
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -287,7 +298,8 @@ async function handleTestTokens ( testText, services, context, responseChannel )
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -301,7 +313,8 @@ async function handleTestTokens ( testText, services, context, responseChannel )
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -333,7 +346,8 @@ async function handleTokenCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -358,7 +372,8 @@ async function handleTokenCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -400,7 +415,8 @@ async function handleTokenCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -420,7 +436,8 @@ async function handleTokenCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -438,7 +455,8 @@ async function handleTokenCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return {

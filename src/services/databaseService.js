@@ -36,6 +36,7 @@ class DatabaseService {
             this.createTables();
             this.createViews();
             this.initialized = true;
+            await this._migrateWelcomeMessagesFromJson();
             this.logger.info( 'DatabaseService initialized successfully' );
         } catch ( error ) {
             this.logger.error( `Failed to initialize database: ${ error.message }` );
@@ -299,6 +300,58 @@ class DatabaseService {
             )
         ` );
         this.db.exec( 'CREATE INDEX IF NOT EXISTS idx_personality_custom_tokens ON personality_custom_tokens(personality_id)' );
+
+        // Create welcome message tables
+        this.createWelcomeMessageTables();
+    }
+
+    createWelcomeMessageTables () {
+        // Bot users table - central identity for personalized messages
+        this.db.exec( `
+            CREATE TABLE IF NOT EXISTS bot_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ` );
+
+        // Site IDs table - maps platform-specific IDs to bot users
+        this.db.exec( `
+            CREATE TABLE IF NOT EXISTS site_ids (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_user_id INTEGER NOT NULL,
+                site TEXT NOT NULL,
+                site_specific_id TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (bot_user_id) REFERENCES bot_users(id) ON DELETE CASCADE,
+                UNIQUE (site, site_specific_id)
+            )
+        ` );
+        this.db.exec( 'CREATE INDEX IF NOT EXISTS idx_site_ids_bot_user ON site_ids(bot_user_id)' );
+        this.db.exec( 'CREATE INDEX IF NOT EXISTS idx_site_ids_site_id ON site_ids(site, site_specific_id)' );
+
+        // Welcome messages table
+        this.db.exec( `
+            CREATE TABLE IF NOT EXISTS welcome_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_user_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (bot_user_id) REFERENCES bot_users(id) ON DELETE CASCADE
+            )
+        ` );
+        this.db.exec( 'CREATE INDEX IF NOT EXISTS idx_welcome_messages_bot_user ON welcome_messages(bot_user_id)' );
+
+        // Welcome pictures table
+        this.db.exec( `
+            CREATE TABLE IF NOT EXISTS welcome_pictures (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_user_id INTEGER NOT NULL,
+                picture TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (bot_user_id) REFERENCES bot_users(id) ON DELETE CASCADE
+            )
+        ` );
+        this.db.exec( 'CREATE INDEX IF NOT EXISTS idx_welcome_pictures_bot_user ON welcome_pictures(bot_user_id)' );
     }
 
     createViews () {
@@ -418,6 +471,24 @@ class DatabaseService {
     findDjByNickname ( nickname ) {
         if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
         return this.db.prepare( 'SELECT uuid, nickname FROM djs WHERE LOWER(nickname) = LOWER(?) LIMIT 1' ).get( nickname ) || null;
+    }
+
+    /**
+     * Find a user's ID on a specific site by their nickname
+     * @param {string} site - Site identifier (e.g., 'hang.fm', 'wavez.fm')
+     * @param {string} nickname - User's nickname
+     * @returns {Object|null} Object with site_specific_id and nickname, or null if not found
+     */
+    findUserIdOnSiteByNickname ( site, nickname ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const result = this.db.prepare(
+            `SELECT si.site_specific_id, dj.nickname
+             FROM site_ids si
+             JOIN djs ON si.site_specific_id = djs.uuid
+             WHERE si.site = ? AND LOWER(djs.nickname) = LOWER(?)
+             LIMIT 1`
+        ).get( site, nickname );
+        return result || null;
     }
 
     getAllDjNicknames () {
@@ -1230,6 +1301,231 @@ class DatabaseService {
         const result = transaction();
         this.logger.info( `Personality "${ name }" updated` );
         return result;
+    }
+
+    // ===== Welcome Messages Management =====
+
+    /**
+     * Get or create a bot user ID for a given site and site-specific ID
+     * @param {string} site - The site/platform (e.g., 'hang.fm', 'wavez.fm')
+     * @param {string} siteSpecificId - The user ID from that site
+     * @returns {number} The botUserId
+     */
+    getOrCreateBotUser ( site, siteSpecificId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+
+        // Check if this site ID already exists
+        const existing = this.db.prepare(
+            'SELECT bot_user_id FROM site_ids WHERE site = ? AND site_specific_id = ?'
+        ).get( site, siteSpecificId );
+
+        if ( existing ) {
+            return existing.bot_user_id;
+        }
+
+        // Create new bot user
+        const result = this.db.prepare( 'INSERT INTO bot_users DEFAULT VALUES' ).run();
+        const botUserId = result.lastInsertRowid;
+
+        // Link the site ID to this bot user
+        this.db.prepare(
+            'INSERT INTO site_ids (bot_user_id, site, site_specific_id) VALUES (?, ?, ?)'
+        ).run( botUserId, site, siteSpecificId );
+
+        return botUserId;
+    }
+
+    /**
+     * Get bot user ID by site and site-specific ID
+     * @param {string} site - The site/platform
+     * @param {string} siteSpecificId - The user ID from that site
+     * @returns {number|null} The botUserId or null if not found
+     */
+    getBotUserIdBySiteId ( site, siteSpecificId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const row = this.db.prepare(
+            'SELECT bot_user_id FROM site_ids WHERE site = ? AND site_specific_id = ?'
+        ).get( site, siteSpecificId );
+        return row ? row.bot_user_id : null;
+    }
+
+    /**
+     * Link an additional site ID to an existing bot user
+     * @param {number} botUserId - The bot user ID
+     * @param {string} site - The site/platform
+     * @param {string} siteSpecificId - The user ID from that site
+     */
+    linkSiteId ( botUserId, site, siteSpecificId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        this.db.prepare(
+            'INSERT OR IGNORE INTO site_ids (bot_user_id, site, site_specific_id) VALUES (?, ?, ?)'
+        ).run( botUserId, site, siteSpecificId );
+    }
+
+    /**
+     * Get all welcome messages for a user
+     * @param {number} botUserId - The bot user ID
+     * @returns {Array<string>} Array of message strings
+     */
+    getWelcomeMessagesForUser ( botUserId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const rows = this.db.prepare(
+            'SELECT message FROM welcome_messages WHERE bot_user_id = ? ORDER BY created_at'
+        ).all( botUserId );
+        return rows.map( r => r.message );
+    }
+
+    /**
+     * Get all welcome pictures for a user
+     * @param {number} botUserId - The bot user ID
+     * @returns {Array<string>} Array of picture URLs
+     */
+    getWelcomePicturesForUser ( botUserId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const rows = this.db.prepare(
+            'SELECT picture FROM welcome_pictures WHERE bot_user_id = ? ORDER BY created_at'
+        ).all( botUserId );
+        return rows.map( r => r.picture );
+    }
+
+    /**
+     * Add a welcome message for a user
+     * @param {number} botUserId - The bot user ID
+     * @param {string} message - The message text
+     */
+    addWelcomeMessage ( botUserId, message ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        this.db.prepare(
+            'INSERT INTO welcome_messages (bot_user_id, message) VALUES (?, ?)'
+        ).run( botUserId, message );
+    }
+
+    /**
+     * Remove a welcome message for a user
+     * @param {number} botUserId - The bot user ID
+     * @param {string} message - The message text to remove
+     * @returns {number} Number of rows deleted
+     */
+    removeWelcomeMessage ( botUserId, message ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const result = this.db.prepare(
+            'DELETE FROM welcome_messages WHERE bot_user_id = ? AND message = ?'
+        ).run( botUserId, message );
+        return result.changes;
+    }
+
+    /**
+     * Add a welcome picture for a user
+     * @param {number} botUserId - The bot user ID
+     * @param {string} picture - The picture URL
+     */
+    addWelcomePicture ( botUserId, picture ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        this.db.prepare(
+            'INSERT INTO welcome_pictures (bot_user_id, picture) VALUES (?, ?)'
+        ).run( botUserId, picture );
+    }
+
+    /**
+     * Remove a welcome picture for a user
+     * @param {number} botUserId - The bot user ID
+     * @param {string} picture - The picture URL to remove
+     * @returns {number} Number of rows deleted
+     */
+    removeWelcomePicture ( botUserId, picture ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        const result = this.db.prepare(
+            'DELETE FROM welcome_pictures WHERE bot_user_id = ? AND picture = ?'
+        ).run( botUserId, picture );
+        return result.changes;
+    }
+
+    /**
+     * Delete all welcome data for a user
+     * @param {number} botUserId - The bot user ID
+     */
+    deleteUserWelcomeData ( botUserId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+        this.db.prepare( 'DELETE FROM welcome_messages WHERE bot_user_id = ?' ).run( botUserId );
+        this.db.prepare( 'DELETE FROM welcome_pictures WHERE bot_user_id = ?' ).run( botUserId );
+        this.db.prepare( 'DELETE FROM site_ids WHERE bot_user_id = ?' ).run( botUserId );
+        this.db.prepare( 'DELETE FROM bot_users WHERE id = ?' ).run( botUserId );
+    }
+
+    /**
+     * Get personalized welcome data for a user by site and siteSpecificId
+     * @param {string} site - The site/platform (e.g., 'hang.fm', 'wavez.fm')
+     * @param {string} siteSpecificId - The user ID from that site
+     * @returns {{messages: Array<string>, pictures: Array<string>}|null} Welcome data or null if not found
+     */
+    getPersonalizedWelcomeByUser ( site, siteSpecificId ) {
+        if ( !this.initialized ) throw new Error( 'DatabaseService not initialized' );
+
+        const botUserId = this.getBotUserIdBySiteId( site, siteSpecificId );
+        if ( !botUserId ) return null;
+
+        const messages = this.getWelcomeMessagesForUser( botUserId );
+        const pictures = this.getWelcomePicturesForUser( botUserId );
+
+        if ( messages.length === 0 && pictures.length === 0 ) return null;
+
+        return { messages, pictures };
+    }
+
+    /**
+     * Migrate welcome messages from JSON file to database
+     * Only runs if tables are empty (idempotent)
+     */
+    async _migrateWelcomeMessagesFromJson () {
+        try {
+            if ( !this.initialized ) return;
+
+            // Check if tables are already populated
+            const count = this.db.prepare( 'SELECT COUNT(*) as cnt FROM bot_users' ).get();
+            if ( count.cnt > 0 ) {
+                this.logger.debug( '✅ Welcome message tables already populated, skipping migration' );
+                return;
+            }
+
+            // Try to load the JSON file
+            const fs = require( 'fs' );
+            const jsonPath = path.join( process.cwd(), 'data', 'welcomeMessages.json' );
+
+            if ( !fs.existsSync( jsonPath ) ) {
+                this.logger.debug( 'ℹ️  welcomeMessages.json not found, skipping migration' );
+                return;
+            }
+
+            const jsonData = JSON.parse( fs.readFileSync( jsonPath, 'utf8' ) );
+            let migratedCount = 0;
+
+            // Migrate each user's welcome messages
+            for ( const [ hangfmUuid, userData ] of Object.entries( jsonData ) ) {
+                // Create or get bot user with hang.fm site ID
+                const botUserId = this.getOrCreateBotUser( 'hang.fm', hangfmUuid );
+
+                // Add messages
+                if ( Array.isArray( userData.messages ) ) {
+                    for ( const message of userData.messages ) {
+                        this.addWelcomeMessage( botUserId, message );
+                    }
+                }
+
+                // Add pictures
+                if ( Array.isArray( userData.pictures ) ) {
+                    for ( const picture of userData.pictures ) {
+                        this.addWelcomePicture( botUserId, picture );
+                    }
+                }
+
+                migratedCount++;
+            }
+
+            this.logger.info( `✅ Migrated ${ migratedCount } users' welcome messages from JSON to database` );
+        } catch ( error ) {
+            this.logger.warn( `⚠️  Failed to migrate welcome messages from JSON: ${ error.message }` );
+            // Don't throw - migration failure shouldn't block bot startup
+        }
     }
 }
 

@@ -101,6 +101,14 @@ describe( 'songAICommandHelper', () => {
             dataService: mockDataService,
             stateService: mockStateService,
             hangUserService: mockHangUserService,
+            platformActions: {
+                getUserNicknameByUuid: jest.fn().mockImplementation( ( uuid ) => {
+                    if ( uuid === 'test-user-uuid' ) return Promise.resolve( { success: true, data: 'AliceUser' } );
+                    if ( uuid === 'test-dj-uuid' ) return Promise.resolve( { success: true, data: 'TestDJ' } );
+                    if ( uuid === 'sender-uuid-string' ) return Promise.resolve( { success: true, data: 'BobUser' } );
+                    return Promise.resolve( { success: true, data: 'Unknown' } );
+                } )
+            },
             tokenService: tokenService
         };
 

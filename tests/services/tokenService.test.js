@@ -289,6 +289,9 @@ describe( 'TokenService', () => {
             mockServices.messageService = {
                 formatMention: jest.fn( ( uuid ) => `<@uid:${ uuid }>` )
             };
+            mockServices.platformActions = {
+                getUserNicknameByUuid: jest.fn()
+            };
             mockServices.hangUserService = {
                 getUserNicknameByUuid: jest.fn()
             };
@@ -327,15 +330,15 @@ describe( 'TokenService', () => {
                 expect( result ).toBe( 'Unknown User' );
             } );
 
-            it( 'should fallback to hangUserService when messageService not available', async () => {
+            it( 'should fallback to platformActions when messageService not available', async () => {
                 delete mockServices.messageService;
-                mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( 'John Doe' );
+                mockServices.platformActions.getUserNicknameByUuid.mockResolvedValue( { success: true, data: 'John Doe' } );
 
                 const context = { sender: 'sender-123' };
                 const result = await tokenService.getSenderUsername( context );
 
                 expect( result ).toBe( 'John Doe' );
-                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( mockServices, 'sender-123' );
+                expect( mockServices.platformActions.getUserNicknameByUuid ).toHaveBeenCalledWith( 'sender-123' );
             } );
 
             it( 'should handle errors gracefully', async () => {
@@ -400,17 +403,17 @@ describe( 'TokenService', () => {
                 expect( result ).toBe( 'No DJ' );
             } );
 
-            it( 'should fallback to hangUserService when messageService not available', async () => {
+            it( 'should fallback to platformActions when messageService not available', async () => {
                 delete mockServices.messageService;
                 mockServices.stateService._getDjs.mockReturnValue( [
                     { uuid: 'dj-123', nickname: 'DJ Mike' }
                 ] );
-                mockServices.hangUserService.getUserNicknameByUuid.mockResolvedValue( 'DJ Mike' );
+                mockServices.platformActions.getUserNicknameByUuid.mockResolvedValue( { success: true, data: 'DJ Mike' } );
 
                 const result = await tokenService.getDjUsername( {} );
 
                 expect( result ).toBe( 'DJ Mike' );
-                expect( mockServices.hangUserService.getUserNicknameByUuid ).toHaveBeenCalledWith( mockServices, 'dj-123' );
+                expect( mockServices.platformActions.getUserNicknameByUuid ).toHaveBeenCalledWith( 'dj-123' );
             } );
 
             it( 'should handle errors gracefully', async () => {

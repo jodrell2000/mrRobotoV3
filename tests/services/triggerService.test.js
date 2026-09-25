@@ -115,7 +115,7 @@ describe( 'TriggerService', () => {
       expect( mockServices.commandService ).toHaveBeenCalledTimes( 2 );
       expect( mockServices.commandService ).toHaveBeenCalledWith(
         'intro', '', mockServices, expect.objectContaining( {
-          sender: { username: 'System', uuid: 'bot-system' },
+          sender: { username: 'System', uuid: 'test-bot-123' },
           fullMessage: { isPrivateMessage: false },
           chatMessage: null
         } )
@@ -186,7 +186,7 @@ describe( 'TriggerService', () => {
 
       expect( mockServices.commandService ).toHaveBeenCalledWith(
         'intro', '', mockServices, expect.objectContaining( {
-          sender: { username: 'System', uuid: 'bot-system' },
+          sender: { username: 'System', uuid: 'test-bot-123' },
           fullMessage: { isPrivateMessage: false },
           chatMessage: null
         } )

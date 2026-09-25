@@ -191,6 +191,8 @@ async function handleEditWelcomeCommand ( commandParams ) {
         `\`${ cmdSwitch }editWelcome addImage <"nickname"|uuid> <url>\` - Add a welcome image\n` +
         `\`${ cmdSwitch }editWelcome removeImage <"nickname"|uuid> <url>\` - Remove a welcome image\n` +
         `\`${ cmdSwitch }editWelcome remove <"nickname"|uuid>\` - Remove all welcome data for a user\n` +
+        `\`${ cmdSwitch }editWelcome linkHang <known-hang-id> <username>\` - Link Wavez user to Hang.fm profile\n` +
+        `\`${ cmdSwitch }editWelcome linkWavez <known-wavez-id> <username>\` - Link Hang.fm user to Wavez profile\n` +
         'Note: wrap names containing spaces in double quotes, e.g. "Dr. Fart Mustache"';
 
     try {
@@ -377,6 +379,136 @@ async function handleEditWelcomeCommand ( commandParams ) {
             saveWelcomeMessages( welcomeData );
             logger.info( `Welcome data removed for ${ uuid } by ${ context?.sender }` );
             return await sendSuccessResponse( `✅ All custom welcome data removed for "${ identifier }".`, services, context );
+        }
+
+        if ( subcommand === 'linkhang' ) {
+            const currentFramework = services.frameworkSpecification?.id;
+            if ( currentFramework === 'hang.fm' ) {
+                return await sendResponse( `❌ You're already on Hang.fm. Use \`${ cmdSwitch }editWelcome linkWavez\` instead.`, services, context );
+            }
+            if ( !currentFramework ) {
+                return await sendResponse( `❌ Unable to determine current framework.`, services, context );
+            }
+
+            const { identifier, rest: usernameArg } = parseIdentifierAndRest( parts.slice( 1 ).join( ' ' ) );
+            if ( !identifier || !usernameArg ) {
+                return await sendResponse( `❌ Usage: \`${ cmdSwitch }editWelcome linkHang <known-hang-id> <username>\``, services, context );
+            }
+
+            // Check if database is available
+            if ( !services.databaseService || !services.databaseService.initialized ) {
+                return await sendResponse( `❌ Welcome message database not available. Database initialization may still be in progress.`, services, context );
+            }
+
+            // Look up the known Hang.fm ID in the database
+            const botUserId = services.databaseService.getBotUserIdBySiteId( 'hang.fm', identifier );
+            if ( !botUserId ) {
+                return await sendResponse( `❌ Hang.fm ID "${ identifier }" not found in database. User may not have any welcome messages yet.`, services, context );
+            }
+
+            // Find the user by username from current room state (must be present to link)
+            let foundUser = null;
+
+            if ( services.stateService ) {
+                try {
+                    const normalizedState = services.stateService.getState?.();
+                    const usersById = normalizedState?.usersById || {};
+
+                    // Find user by nickname in normalized state (works for both Hang.fm and Wavez)
+                    for ( const [ userId, user ] of Object.entries( usersById ) ) {
+                        if ( user?.nickname?.toLowerCase() === usernameArg.toLowerCase() ) {
+                            foundUser = {
+                                id: userId,
+                                nickname: user.nickname
+                            };
+                            break;
+                        }
+                    }
+                } catch ( err ) {
+                    logger.debug( `Error looking up user in state: ${ err.message }` );
+                }
+            }
+
+            if ( !foundUser ) {
+                return await sendResponse( `❌ User "${ usernameArg }" not found in current room. They must be present in the room to be linked.`, services, context );
+            }
+
+            // Link the Wavez user to the Hang.fm bot user
+            try {
+                services.databaseService.linkSiteId( botUserId, currentFramework, foundUser.id );
+                logger.info( `Linked ${ currentFramework } user ${ foundUser.id } (${ foundUser.nickname }) to Hang.fm user ${ identifier }` );
+                return await sendSuccessResponse( `✅ Linked ${ foundUser.nickname } (on ${ currentFramework }) to Hang.fm user "${ identifier }". They will now share welcome messages across platforms.`, services, context );
+            } catch ( err ) {
+                if ( err.message.includes( 'UNIQUE constraint failed' ) ) {
+                    return await sendResponse( `❌ User is already linked to another Hang.fm profile.`, services, context );
+                }
+                throw err;
+            }
+        }
+
+        if ( subcommand === 'linkwavez' ) {
+            const currentFramework = services.frameworkSpecification?.id;
+            if ( currentFramework === 'wavezfm' ) {
+                return await sendResponse( `❌ You're already on Wavez.fm. Use \`${ cmdSwitch }editWelcome linkHang\` instead.`, services, context );
+            }
+            if ( !currentFramework ) {
+                return await sendResponse( `❌ Unable to determine current framework.`, services, context );
+            }
+
+            const { identifier, rest: usernameArg } = parseIdentifierAndRest( parts.slice( 1 ).join( ' ' ) );
+            if ( !identifier || !usernameArg ) {
+                return await sendResponse( `❌ Usage: \`${ cmdSwitch }editWelcome linkWavez <known-wavez-id> <username>\``, services, context );
+            }
+
+            // Check if database is available
+            if ( !services.databaseService || !services.databaseService.initialized ) {
+                return await sendResponse( `❌ Welcome message database not available. Database initialization may still be in progress.`, services, context );
+            }
+
+            // Look up the known Wavez ID in the database
+            const botUserId = services.databaseService.getBotUserIdBySiteId( 'wavez.fm', identifier );
+            if ( !botUserId ) {
+                return await sendResponse( `❌ Wavez.fm ID "${ identifier }" not found in database. User may not have any welcome messages yet.`, services, context );
+            }
+
+            // Find the user by username from current room state (must be present to link)
+            let foundUser = null;
+
+            if ( services.stateService ) {
+                try {
+                    const normalizedState = services.stateService.getState?.();
+                    const usersById = normalizedState?.usersById || {};
+
+                    // Find user by nickname in normalized state (works for both Hang.fm and Wavez)
+                    for ( const [ userId, user ] of Object.entries( usersById ) ) {
+                        if ( user?.nickname?.toLowerCase() === usernameArg.toLowerCase() ) {
+                            foundUser = {
+                                id: userId,
+                                nickname: user.nickname
+                            };
+                            break;
+                        }
+                    }
+                } catch ( err ) {
+                    logger.debug( `Error looking up user in state: ${ err.message }` );
+                }
+            }
+
+            if ( !foundUser ) {
+                return await sendResponse( `❌ User "${ usernameArg }" not found in current room. They must be present in the room to be linked.`, services, context );
+            }
+
+            // Link the Hang.fm user to the Wavez bot user
+            try {
+                services.databaseService.linkSiteId( botUserId, currentFramework, foundUser.id );
+                logger.info( `Linked ${ currentFramework } user ${ foundUser.id } (${ foundUser.nickname }) to Wavez.fm user ${ identifier }` );
+                return await sendSuccessResponse( `✅ Linked ${ foundUser.nickname } (on ${ currentFramework }) to Wavez.fm user "${ identifier }". They will now share welcome messages across platforms.`, services, context );
+            } catch ( err ) {
+                if ( err.message.includes( 'UNIQUE constraint failed' ) ) {
+                    return await sendResponse( `❌ User is already linked to another Wavez.fm profile.`, services, context );
+                }
+                throw err;
+            }
         }
 
         return await sendResponse( `❌ Unknown subcommand "${ subcommand }".\n\n${ usageText }`, services, context );

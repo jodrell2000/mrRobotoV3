@@ -31,7 +31,8 @@ async function handleLLMStatusCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -45,7 +46,8 @@ async function handleLLMStatusCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {

@@ -30,7 +30,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -58,7 +59,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -76,7 +78,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -95,7 +98,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -115,7 +119,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -130,7 +135,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -146,7 +152,8 @@ async function handleSwitchLLMCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {

@@ -30,7 +30,8 @@ async function handleFeatureCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
       } );
       return {
         success: false,
@@ -76,7 +77,8 @@ async function handleFeatureCommand ( commandParams ) {
           responseChannel,
           isPrivateMessage: context?.fullMessage?.isPrivateMessage,
           sender: context?.sender,
-          services
+          services,
+    context
         } );
 
         return {
@@ -92,7 +94,8 @@ async function handleFeatureCommand ( commandParams ) {
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
 
     return {
@@ -135,7 +138,8 @@ async function handleListFeatures ( featuresService, messageService, responseCha
     responseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
     sender: context?.sender,
-    services
+    services,
+    context
   } );
 
   return {
@@ -156,7 +160,8 @@ async function handleEnableFeature ( featureName, featuresService, messageServic
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -174,7 +179,8 @@ async function handleEnableFeature ( featureName, featuresService, messageServic
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: true,
@@ -187,7 +193,8 @@ async function handleEnableFeature ( featureName, featuresService, messageServic
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -209,7 +216,8 @@ async function handleDisableFeature ( featureName, featuresService, messageServi
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -227,7 +235,8 @@ async function handleDisableFeature ( featureName, featuresService, messageServi
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: true,
@@ -240,7 +249,8 @@ async function handleDisableFeature ( featureName, featuresService, messageServi
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -262,7 +272,8 @@ async function handleFeatureStatus ( featureName, featuresService, messageServic
       responseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -280,7 +291,8 @@ async function handleFeatureStatus ( featureName, featuresService, messageServic
     responseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
     sender: context?.sender,
-    services
+    services,
+    context
   } );
 
   return {

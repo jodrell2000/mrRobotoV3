@@ -27,7 +27,8 @@ async function handleEchoCommand ( commandParams ) {
       responseChannel: actualResponseChannel,
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
-      services
+      services,
+    context
     } );
     return {
       success: false,
@@ -48,7 +49,8 @@ async function handleEchoCommand ( commandParams ) {
     responseChannel: actualResponseChannel,
     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
     sender: context?.sender,
-    services
+    services,
+    context
   } );
   return {
     success: true,

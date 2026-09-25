@@ -141,7 +141,8 @@ async function handleListCommand ( services, context, responseChannel ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return {
@@ -166,7 +167,8 @@ async function handleShowCommand ( messageType, services, context, responseChann
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -189,7 +191,8 @@ async function handleShowCommand ( messageType, services, context, responseChann
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -206,7 +209,8 @@ async function handleShowCommand ( messageType, services, context, responseChann
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -231,7 +235,8 @@ async function handleClearCommand ( messageType, services, context, responseChan
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: `Invalid message type: ${ messageType }` };
     }
@@ -248,7 +253,8 @@ async function handleClearCommand ( messageType, services, context, responseChan
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: true, shouldRespond: true, response };
     } catch ( error ) {
@@ -257,7 +263,8 @@ async function handleClearCommand ( messageType, services, context, responseChan
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: error.message };
     }
@@ -286,7 +293,8 @@ async function handleEditCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -312,7 +320,8 @@ async function handleEditCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return { success: false, shouldRespond: true, response };
         }
@@ -328,7 +337,8 @@ async function handleEditCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -353,7 +363,8 @@ async function handleEditCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -372,7 +383,8 @@ async function handleEditCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -406,7 +418,8 @@ async function handleEditCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -421,7 +434,8 @@ async function handleEditCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -436,7 +450,8 @@ async function handleEditCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,

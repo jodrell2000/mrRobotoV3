@@ -17,7 +17,8 @@ async function handleUpdateRoomName ( newName, services, context, responseChanne
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing room name' };
     }
@@ -35,7 +36,8 @@ async function handleUpdateRoomName ( newName, services, context, responseChanne
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -46,7 +48,8 @@ async function handleUpdateRoomName ( newName, services, context, responseChanne
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -60,7 +63,8 @@ async function handleUpdateRoomDescription ( newDescription, services, context, 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Missing description' };
     }
@@ -78,7 +82,8 @@ async function handleUpdateRoomDescription ( newDescription, services, context, 
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: err.message };
     }
@@ -89,7 +94,8 @@ async function handleUpdateRoomDescription ( newDescription, services, context, 
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: true, shouldRespond: true, response };
 }
@@ -107,7 +113,8 @@ async function handleRoomSettingCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
     }
@@ -135,7 +142,8 @@ async function handleRoomSettingCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
     return { success: false, shouldRespond: true, response, error: 'Unknown subcommand' };
 }

@@ -54,7 +54,10 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
         case 'exempt': {
             if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can exempt DJs.';
-                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
             }
             const name = argParts.slice( 1 ).join( ' ' );
@@ -64,7 +67,10 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
         case 'reset': {
             if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can reset AFK timers.';
-                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
             }
             const name = argParts.slice( 1 ).join( ' ' );
@@ -74,7 +80,10 @@ async function handleAfkMonitorCommand ( { args, services, context, responseChan
         case 'set': {
             if ( !hasPermission( services, senderRole, 'OWNER' ) ) {
                 const response = '❌ Only the room owner can change AFK settings.';
-                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+                await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
                 return { success: false, shouldRespond: true, response, error: 'Insufficient permissions' };
             }
             const setting = argParts[ 1 ]?.toLowerCase();
@@ -156,7 +165,10 @@ async function handleExempt ( name, afkService, messageService, responseChannel,
     if ( !name ) {
         const cmdSwitch = config.COMMAND_SWITCH || '!';
         const response = `❌ Please specify a DJ name. Usage: \`${ cmdSwitch }afkMonitor exempt <name>\``;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'Missing name' };
     }
 
@@ -165,13 +177,19 @@ async function handleExempt ( name, afkService, messageService, responseChannel,
 
     if ( !entry ) {
         const response = `❌ Could not find a tracked user matching "${ name }".`;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
 
     afkService.setExempt( entry.uuid );
     const response = `✅ **${ entry.nickname || entry.uuid }** has been exempted from AFK warnings for this session.`;
-    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
     return { success: true, shouldRespond: true, response };
 }
 
@@ -179,7 +197,10 @@ async function handleReset ( name, afkService, messageService, responseChannel, 
     if ( !name ) {
         const cmdSwitch = config.COMMAND_SWITCH || '!';
         const response = `❌ Please specify a DJ name. Usage: \`${ cmdSwitch }afkMonitor reset <name>\``;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'Missing name' };
     }
 
@@ -188,13 +209,19 @@ async function handleReset ( name, afkService, messageService, responseChannel, 
 
     if ( !entry ) {
         const response = `❌ Could not find a tracked user matching "${ name }".`;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'User not found' };
     }
 
     afkService.resetActivity( entry.uuid );
     const response = `✅ AFK timer reset for **${ entry.nickname || entry.uuid }**.`;
-    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
     return { success: true, shouldRespond: true, response };
 }
 
@@ -203,14 +230,20 @@ async function handleSet ( setting, value, dataService, messageService, response
 
     if ( setting !== 'warning' && setting !== 'interval' ) {
         const response = `❌ Unknown setting "${ setting }". Use \`warning\` or \`interval\`.`;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'Unknown setting' };
     }
 
     const seconds = parseInt( value, 10 );
     if ( !value || isNaN( seconds ) || seconds <= 0 ) {
         const response = `❌ Please provide a positive integer number of seconds. Usage: \`${ cmdSwitch }afkMonitor set ${ setting } <seconds>\``;
-        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+        await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
         return { success: false, shouldRespond: true, response, error: 'Invalid value' };
     }
 
@@ -219,7 +252,10 @@ async function handleSet ( setting, value, dataService, messageService, response
     dataService.setValue( key, seconds * 1000 );
 
     const response = `✅ ${ label } set to **${ seconds } seconds** (${ Math.round( seconds / 60 * 10 ) / 10 } minutes).`;
-    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender, services } );
+    await messageService.sendResponse( response, { responseChannel, isPrivateMessage: context?.fullMessage?.isPrivateMessage, sender: context?.sender,
+    services,
+    context
+  } );
     return { success: true, shouldRespond: true, response };
 }
 

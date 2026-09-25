@@ -23,6 +23,9 @@ describe( 'handleChangebotnameCommand', () => {
       hangUserService: {
         updateHangNickname: jest.fn().mockResolvedValue( {} )
       },
+      platformActions: {
+        updateBotIdentity: jest.fn().mockResolvedValue( { success: true } )
+      },
       dataService: {
         setValue: jest.fn().mockResolvedValue( true )
       },
@@ -54,7 +57,7 @@ describe( 'handleChangebotnameCommand', () => {
     expect( result.response ).toContain( 'NewBotName' );
 
     // Verify all services were called
-    expect( mockServices.hangUserService.updateHangNickname ).toHaveBeenCalledWith( mockServices, 'NewBotName' );
+    expect( mockServices.platformActions.updateBotIdentity ).toHaveBeenCalledWith( 'NewBotName' );
     expect( mockServices.dataService.setValue ).toHaveBeenCalledWith( 'botData.CHAT_NAME', 'NewBotName' );
     expect( mockServices.messageService.sendResponse ).toHaveBeenCalled();
   } );
@@ -68,8 +71,8 @@ describe( 'handleChangebotnameCommand', () => {
     expect( mockServices.hangUserService.updateHangNickname ).not.toHaveBeenCalled();
   } );
 
-  test( 'handles updateHangNickname failure', async () => {
-    mockServices.hangUserService.updateHangNickname.mockRejectedValue( new Error( 'API Error' ) );
+  test( 'handles updateBotIdentity failure', async () => {
+    mockServices.platformActions.updateBotIdentity.mockResolvedValue( { success: false, error: 'API Error' } );
 
     const result = await handleChangebotnameCommand( mockCommandParams );
 
@@ -165,7 +168,7 @@ describe( 'handleChangebotnameCommand', () => {
 
   describe( 'Error handling for different message contexts', () => {
     test( 'sends error response via public channel when command fails', async () => {
-      mockServices.hangUserService.updateHangNickname.mockRejectedValue( new Error( 'API Error' ) );
+      mockServices.platformActions.updateBotIdentity.mockResolvedValue( { success: false, error: 'API Error' } );
       mockCommandParams.context.fullMessage.isPrivateMessage = false;
 
       const result = await handleChangebotnameCommand( mockCommandParams );
@@ -183,7 +186,7 @@ describe( 'handleChangebotnameCommand', () => {
     } );
 
     test( 'sends error response via private message when command fails', async () => {
-      mockServices.hangUserService.updateHangNickname.mockRejectedValue( new Error( 'API Error' ) );
+      mockServices.platformActions.updateBotIdentity.mockResolvedValue( { success: false, error: 'API Error' } );
       mockCommandParams.context.fullMessage.isPrivateMessage = true;
 
       const result = await handleChangebotnameCommand( mockCommandParams );

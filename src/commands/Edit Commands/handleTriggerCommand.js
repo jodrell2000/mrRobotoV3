@@ -1,8 +1,8 @@
 const config = require( '../../config.js' );
 const { hasPermission } = require( '../../services/permissionService.js' );
 
-// Set required role level for this command - requires owner
-const requiredRole = 'OWNER';
+// Set required role level for this command - requires moderator
+const requiredRole = 'MODERATOR';
 const description = 'Manage command triggers for bot events';
 const example = 'trigger list | trigger add newSong intro | trigger remove newSong intro';
 const hidden = false;
@@ -45,7 +45,8 @@ async function handleListTriggers ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -59,7 +60,8 @@ async function handleListTriggers ( services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -89,7 +91,8 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -105,7 +108,8 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -120,7 +124,8 @@ async function handleAddTrigger ( triggerName, commandName, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -153,7 +158,8 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -175,7 +181,8 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -190,7 +197,8 @@ async function handleRemoveTrigger ( triggerName, commandName, services, context
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -220,7 +228,8 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -236,7 +245,8 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -251,7 +261,8 @@ async function handleClearTrigger ( triggerName, services, context, responseChan
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -285,7 +296,8 @@ async function handleTriggerCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -304,7 +316,8 @@ async function handleTriggerCommand ( commandParams ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -331,7 +344,8 @@ async function handleTriggerCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -352,7 +366,8 @@ async function handleTriggerCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -374,7 +389,8 @@ async function handleTriggerCommand ( commandParams ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
             return {
                 success: false,
@@ -394,7 +410,8 @@ async function handleTriggerCommand ( commandParams ) {
         responseChannel,
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
-        services
+        services,
+    context
     } );
 
     return {

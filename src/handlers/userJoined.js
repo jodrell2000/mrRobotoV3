@@ -3,6 +3,68 @@ const path = require( 'node:path' );
 
 const WELCOME_MESSAGES_PATH = path.join( __dirname, '../../data/welcomeMessages.json' );
 
+// Track when each user was last welcomed (per hangout) to prevent spamming
+// Format: { 'hangout-name:user-uuid': timestamp }
+const welcomeCooldowns = new Map();
+const WELCOME_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
+// Track when the last full welcome message was sent per hangout (rate limiting)
+// Format: { 'hangout-name': timestamp }
+const fullWelcomeCooldowns = new Map();
+const FULL_WELCOME_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+
+/**
+ * Checks if a user is on cooldown for welcome messages
+ * @param {string} userUUID - User's UUID
+ * @param {string} hangoutName - Name of the hangout
+ * @returns {boolean} True if user is still on cooldown, false if they can be welcomed
+ */
+function isOnWelcomeCooldown ( userUUID, hangoutName ) {
+  const key = `${ hangoutName }:${ userUUID }`;
+  const lastWelcomeTime = welcomeCooldowns.get( key );
+
+  if ( !lastWelcomeTime ) {
+    return false; // First time or cooldown expired
+  }
+
+  const elapsed = Date.now() - lastWelcomeTime;
+  return elapsed < WELCOME_COOLDOWN_MS;
+}
+
+/**
+ * Records that a user was welcomed (updates cooldown timestamp)
+ * @param {string} userUUID - User's UUID
+ * @param {string} hangoutName - Name of the hangout
+ */
+function recordWelcome ( userUUID, hangoutName ) {
+  const key = `${ hangoutName }:${ userUUID }`;
+  welcomeCooldowns.set( key, Date.now() );
+}
+
+/**
+ * Checks if the full welcome message can be sent (per hangout)
+ * @param {string} hangoutName - Name of the hangout
+ * @returns {boolean} True if full message can be sent, false if still on cooldown
+ */
+function canSendFullWelcome ( hangoutName ) {
+  const lastFullWelcomeTime = fullWelcomeCooldowns.get( hangoutName );
+
+  if ( !lastFullWelcomeTime ) {
+    return true; // First time or cooldown expired
+  }
+
+  const elapsed = Date.now() - lastFullWelcomeTime;
+  return elapsed >= FULL_WELCOME_COOLDOWN_MS;
+}
+
+/**
+ * Records that a full welcome message was sent (updates cooldown timestamp)
+ * @param {string} hangoutName - Name of the hangout
+ */
+function recordFullWelcome ( hangoutName ) {
+  fullWelcomeCooldowns.set( hangoutName, Date.now() );
+}
+
 /**
  * Extracts user data from the state patch message
  * @param {Object} message - The stateful message containing user data
@@ -48,6 +110,30 @@ function validateUserData ( userData, services ) {
   }
 
   return true;
+}
+
+/**
+ * Checks if a user is the bot itself
+ * @param {Object} userData - User data extracted from patch
+ * @param {Object} state - The bot's state containing currentUser if available
+ * @param {Object} services - Services container for logging
+ * @returns {boolean} True if user is the bot, false otherwise
+ */
+function isBot ( userData, state, services ) {
+  // Check if this is the bot's own user (for Wavez, state may have currentUser)
+  if ( state?.currentUser && userData.userUUID === state.currentUser.id ) {
+    services.logger.debug( `Skipping welcome message for bot user: ${ userData.userUUID } (nickname: ${ userData.nickname })` );
+    return true;
+  }
+
+  // Check by known bot nicknames
+  const botNames = [ 'Mrs. Roboto', 'Mrs Roboto', 'MrsRoboto' ];
+  if ( botNames.includes( userData.nickname ) ) {
+    services.logger.debug( `Skipping welcome message for bot account: ${ userData.userUUID } (nickname: ${ userData.nickname })` );
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -100,7 +186,7 @@ function getHangoutName ( services ) {
 }
 
 /**
- * Looks up a per-user personalized welcome message and picture from welcomeMessages.json.
+ * Looks up a per-user personalized welcome message and picture from the database or JSON file (fallback).
  * Returns null if no custom data exists for this user.
  * @param {Object} userData - User data extracted from patch
  * @param {Object} services - Services container
@@ -108,6 +194,33 @@ function getHangoutName ( services ) {
  */
 async function getPersonalizedWelcome ( userData, services ) {
   try {
+    // Try database first (cross-platform)
+    if ( services.databaseService && services.databaseService.initialized ) {
+      const framework = services.frameworkSpecification?.id || 'hang.fm';
+      const welcomeData = services.databaseService.getPersonalizedWelcomeByUser( framework, userData.userUUID );
+
+      if ( welcomeData && welcomeData.messages && welcomeData.messages.length > 0 ) {
+        const randomMessage = welcomeData.messages[ Math.floor( Math.random() * welcomeData.messages.length ) ];
+        const tokenContext = {
+          username: userData.nickname
+        };
+
+        let processedMessage;
+        if ( services.tokenService ) {
+          processedMessage = await services.tokenService.replaceTokens( randomMessage, tokenContext, true );
+        } else {
+          processedMessage = randomMessage.replace( /\{username\}/g, tokenContext.username );
+        }
+
+        const randomPicture = welcomeData.pictures && welcomeData.pictures.length > 0
+          ? welcomeData.pictures[ Math.floor( Math.random() * welcomeData.pictures.length ) ]
+          : null;
+
+        return { message: processedMessage, picture: randomPicture };
+      }
+    }
+
+    // Fallback to JSON file for backward compatibility
     if ( !fs.existsSync( WELCOME_MESSAGES_PATH ) ) return null;
     const welcomeData = JSON.parse( fs.readFileSync( WELCOME_MESSAGES_PATH, 'utf8' ) );
     const entry = welcomeData[ userData.userUUID ];
@@ -118,9 +231,7 @@ async function getPersonalizedWelcome ( userData, services ) {
 
     const randomMessage = messages[ Math.floor( Math.random() * messages.length ) ];
     const tokenContext = {
-      username: services.frameworkSpecification?.formatters
-        ? services.messageService.formatMention( userData.userUUID, services )
-        : services.messageService.formatMention( userData.userUUID )
+      username: userData.nickname
     };
 
     let processedMessage;
@@ -146,9 +257,10 @@ async function getPersonalizedWelcome ( userData, services ) {
  * Creates and sends a personalized welcome message
  * @param {Object} userData - User data extracted from patch
  * @param {Object} services - Services container
+ * @param {boolean} sendFullMessage - Whether to send the full welcome template (default: true). If false, send simple "Welcome {username}"
  */
-async function sendWelcomeMessage ( userData, services ) {
-  // Check for per-user personalized welcome first
+async function sendWelcomeMessage ( userData, services, sendFullMessage = true ) {
+  // Check for per-user personalized welcome first (always sent if it exists)
   const personalized = await getPersonalizedWelcome( userData, services );
   if ( personalized ) {
     // Always use adapter-aware response path (sendResponse routes through messagingAdapter)
@@ -174,6 +286,13 @@ async function sendWelcomeMessage ( userData, services ) {
     return;
   }
 
+  // If no personalized welcome and sendFullMessage is false, send simple greeting
+  if ( !sendFullMessage ) {
+    const simpleMessage = `Welcome ${ userData.nickname }`;
+    await services.messageService.sendResponse( simpleMessage, { responseChannel: 'public', services } );
+    return;
+  }
+
   // Get welcome message template from data service, fallback to default if not found
   let messageTemplate = services.dataService.getValue( 'editableMessages.welcomeMessage' );
   if ( !messageTemplate ) {
@@ -183,9 +302,7 @@ async function sendWelcomeMessage ( userData, services ) {
 
   // Prepare context for token replacement
   const tokenContext = {
-    username: services.frameworkSpecification?.formatters
-      ? services.messageService.formatMention( userData.userUUID, services )
-      : services.messageService.formatMention( userData.userUUID )
+    username: userData.nickname
   };
 
   // Use TokenService if available for more comprehensive token replacement
@@ -263,14 +380,40 @@ async function userJoined ( message, state, services ) {
       return;
     }
 
+    // Skip welcome message for the bot itself
+    if ( isBot( userData, state, services ) ) {
+      return;
+    }
+
     // Check if welcome message feature is enabled
     if ( !services.featuresService.isFeatureEnabled( 'welcomeMessage' ) ) {
       services.logger.debug( 'Welcome message feature is disabled, skipping welcome message' );
       return;
     }
 
+    // Check if user is on welcome cooldown (10 minutes per user per hangout)
+    const hangoutName = getHangoutName( services );
+    if ( isOnWelcomeCooldown( userData.userUUID, hangoutName ) ) {
+      services.logger.debug( `User ${ userData.nickname } (${ userData.userUUID }) is on welcome cooldown, skipping welcome message` );
+      return;
+    }
+
+    // Check if full welcome message can be sent (2-minute cooldown per hangout)
+    const sendFullMessage = canSendFullWelcome( hangoutName );
+    if ( !sendFullMessage ) {
+      services.logger.debug( `Full welcome message on cooldown for ${ hangoutName }, sending simple greeting instead` );
+    }
+
     // Send welcome message
-    await sendWelcomeMessage( userData, services );
+    await sendWelcomeMessage( userData, services, sendFullMessage );
+
+    // Record this welcome for cooldown tracking
+    recordWelcome( userData.userUUID, hangoutName );
+
+    // Record full welcome if it was sent
+    if ( sendFullMessage ) {
+      recordFullWelcome( hangoutName );
+    }
 
   } catch ( error ) {
     services.logger.error( `Error processing userJoined message: ${ error.message }` );
@@ -350,8 +493,29 @@ async function handleUserJoinedEvent ( event, context ) {
       return;
     }
 
+    // Check if user is on welcome cooldown (10 minutes per user per hangout)
+    const hangoutName = services.stateService?.getHangoutName?.() || 'Hangout';
+    if ( isOnWelcomeCooldown( userId, hangoutName ) ) {
+      services.logger?.debug?.( `User ${ user.nickname } (${ userId }) is on welcome cooldown, skipping welcome message` );
+      return;
+    }
+
+    // Check if full welcome message can be sent (2-minute cooldown per hangout)
+    const sendFullMessage = canSendFullWelcome( hangoutName );
+    if ( !sendFullMessage ) {
+      services.logger?.debug?.( `Full welcome message on cooldown for ${ hangoutName }, sending simple greeting instead` );
+    }
+
     // Send welcome message
-    await sendWelcomeMessage( { userUUID: userId, nickname: user.nickname, avatarId: user.profile?.avatarId }, services );
+    await sendWelcomeMessage( { userUUID: userId, nickname: user.nickname, avatarId: user.profile?.avatarId }, services, sendFullMessage );
+
+    // Record this welcome for cooldown tracking
+    recordWelcome( userId, hangoutName );
+
+    // Record full welcome if it was sent
+    if ( sendFullMessage ) {
+      recordFullWelcome( hangoutName );
+    }
 
   } catch ( error ) {
     services?.logger?.error?.( `[handleUserJoinedEvent] Error: ${ error.message }` );
@@ -360,3 +524,7 @@ async function handleUserJoinedEvent ( event, context ) {
 
 module.exports = userJoined;
 module.exports.handleUserJoinedEvent = handleUserJoinedEvent;
+module.exports._resetWelcomeCooldowns = () => {
+  welcomeCooldowns.clear();
+  fullWelcomeCooldowns.clear();
+};

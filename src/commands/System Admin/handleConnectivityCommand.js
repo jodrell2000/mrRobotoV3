@@ -58,7 +58,8 @@ async function handleConnectivityCommand ( { command, args, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
 
         return {
@@ -72,7 +73,8 @@ async function handleConnectivityCommand ( { command, args, services, context, r
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -95,7 +97,8 @@ async function handleResetCommand ( args, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,
@@ -121,7 +124,8 @@ async function handleResetCommand ( args, services, context, responseChannel ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -141,7 +145,8 @@ async function handleResetCommand ( args, services, context, responseChannel ) {
                     responseChannel,
                     isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                     sender: context?.sender,
-                    services
+                    services,
+    context
                 } );
                 return {
                     success: false,
@@ -157,7 +162,8 @@ async function handleResetCommand ( args, services, context, responseChannel ) {
                 responseChannel,
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
-                services
+                services,
+    context
             } );
 
             return {
@@ -172,7 +178,8 @@ async function handleResetCommand ( args, services, context, responseChannel ) {
             responseChannel,
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
-            services
+            services,
+    context
         } );
         return {
             success: false,

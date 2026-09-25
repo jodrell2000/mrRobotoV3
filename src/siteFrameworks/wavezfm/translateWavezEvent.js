@@ -64,7 +64,7 @@ function translateWavezEvent ( packet = {}, context = {} ) {
     if ( packet.event === 'vote_updated' || packet.event === 'votes_snapshot' ) {
         const normalizedVotes = normalizeVotes( payload );
         const voteEvent = { votes: normalizedVotes };
-        
+
         // Include user-specific info for vote_updated events
         if ( packet.event === 'vote_updated' && payload.userId && payload.type ) {
             voteEvent.userId = payload.userId;
@@ -74,7 +74,7 @@ function translateWavezEvent ( packet = {}, context = {} ) {
             else if ( payload.type === 'grab' ) voteEvent.voteType = 'grab';
             voteEvent.active = payload.active !== false; // default to true
         }
-        
+
         events.push( createEvent( 'voteChanged', voteEvent, packet, context.config ) );
     }
 
@@ -109,7 +109,7 @@ function translateWavezEvent ( packet = {}, context = {} ) {
         // Include additional settings if present
         if ( payload.queueLocked !== undefined ) roomSettings.queueLocked = payload.queueLocked;
         if ( payload.allowExternalMediaEmbeds !== undefined ) roomSettings.allowExternalMediaEmbeds = payload.allowExternalMediaEmbeds;
-        
+
         events.push( createEvent( 'roomSettingsChanged', { roomSettings }, packet, context.config ) );
     }
 
@@ -124,7 +124,7 @@ function translateWavezEvent ( packet = {}, context = {} ) {
                 displayUsername: payload.displayUsername
             }, packet, context.config ) );
         }
-        
+
         // Also check if user left the room (isInRoom === false)
         if ( payload.isInRoom === false ) {
             events.push( createEvent( 'userLeft', {
@@ -132,6 +132,19 @@ function translateWavezEvent ( packet = {}, context = {} ) {
                 nickname: payload.displayUsername || payload.username
             }, packet, context.config ) );
         }
+    }
+
+    if ( packet.event === 'user_joined' ) {
+        // User joined the room - emit userJoined event
+        events.push( createEvent( 'userJoined', {
+            userId: payload.userId,
+            user: {
+                nickname: payload.displayUsername || payload.username,
+                profile: {
+                    avatarId: payload.avatarId
+                }
+            }
+        }, packet, context.config ) );
     }
 
     if ( packet.event === 'room_state_snapshot' && context.previousState && context.currentState ) {
