@@ -119,14 +119,20 @@ class WavezFmApiAdapter extends AbstractSiteAdapter {
 
             return result;
         } catch ( error ) {
-            if ( this.logger ) {
-                this.logger.error( `[WavezFmApiAdapter.getUserProfile] API ERROR` );
-                this.logger.error( `  Method: client.user.getById` );
-                this.logger.error( `  Parameters: userId="${ userId }", { summary: true }` );
-                this.logger.error( `  Message: ${ error.message }` );
-                this.logger.error( `  Code: ${ error.code }` );
-                this.logger.error( `  Status: ${ error.status }` );
-                this.logger.error( `  Full Error: ${ JSON.stringify( error, null, 2 ) }` );
+            // Log 404 (user not found) at debug level, other errors at error level
+            if ( error.status === 404 ) {
+                if ( this.logger ) {
+                    this.logger.debug( `[WavezFmApiAdapter.getUserProfile] User not found: userId="${ userId }"` );
+                }
+            } else {
+                if ( this.logger ) {
+                    this.logger.error( `[WavezFmApiAdapter.getUserProfile] API ERROR` );
+                    this.logger.error( `  Method: client.user.getById` );
+                    this.logger.error( `  Parameters: userId="${ userId }", { summary: true }` );
+                    this.logger.error( `  Message: ${ error.message }` );
+                    this.logger.error( `  Code: ${ error.code }` );
+                    this.logger.error( `  Status: ${ error.status }` );
+                }
             }
             throw normalizeWavezError( error );
         }

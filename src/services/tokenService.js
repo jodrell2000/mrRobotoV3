@@ -197,16 +197,20 @@ class TokenService {
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
                 return this.services.frameworkSpecification?.formatters
-                    ? this.services.messageService.formatMention( senderUuid, this.services )
-                    : this.services.messageService.formatMention( senderUuid );
+                    ? await this.services.messageService.formatMention( senderUuid, this.services )
+                    : await this.services.messageService.formatMention( senderUuid );
             }
 
             const stateUser = this.services?.stateService?.getUser?.( senderUuid );
             if ( stateUser?.nickname && stateUser.nickname !== senderUuid ) return stateUser.nickname;
 
             if ( this.services?.stateService?.getUserProfile ) {
-                const profile = await this.services.stateService.getUserProfile( senderUuid );
-                if ( profile?.nickname ) return profile.nickname;
+                try {
+                    const profile = await this.services.stateService.getUserProfile( senderUuid );
+                    if ( profile?.nickname ) return profile.nickname;
+                } catch ( error ) {
+                    this.logger.debug( `[TokenService] Could not fetch sender profile for ${ senderUuid }: ${ error.message }` );
+                }
             }
 
             // Compatibility fallback for legacy services
@@ -254,16 +258,20 @@ class TokenService {
             // Use messageService to format the mention
             if ( this.services?.messageService?.formatMention ) {
                 return this.services.frameworkSpecification?.formatters
-                    ? this.services.messageService.formatMention( djId, this.services )
-                    : this.services.messageService.formatMention( djId );
+                    ? await this.services.messageService.formatMention( djId, this.services )
+                    : await this.services.messageService.formatMention( djId );
             }
 
             const stateUser = this.services?.stateService?.getUser?.( djId );
             if ( stateUser?.nickname && stateUser.nickname !== djId ) return stateUser.nickname;
 
             if ( this.services?.stateService?.getUserProfile ) {
-                const profile = await this.services.stateService.getUserProfile( djId );
-                if ( profile?.nickname ) return profile.nickname;
+                try {
+                    const profile = await this.services.stateService.getUserProfile( djId );
+                    if ( profile?.nickname ) return profile.nickname;
+                } catch ( error ) {
+                    this.logger.debug( `[TokenService] Could not fetch DJ profile for ${ djId }: ${ error.message }` );
+                }
             }
 
             // Compatibility fallback for legacy services

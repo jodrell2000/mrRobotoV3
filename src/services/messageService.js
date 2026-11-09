@@ -19,16 +19,18 @@ const messageService = {
   /**
    * Creates a properly formatted mention string for a user UUID
    * @param {string} userUuid - The UUID of the user to mention
-   * @returns {string} Formatted mention string
+   * @param {object} services - Services object
+   * @param {string} nickname - Nickname to use for mention formatting (from event payload)
+   * @returns {Promise<string>} Formatted mention string
    */
-  formatMention: function ( userUuid, services ) {
+  formatMention: async function ( userUuid, services, nickname ) {
     if ( !userUuid ) {
       throw new Error( 'userUuid is required for formatting mentions' );
     }
 
     const frameworkFormatter = services?.frameworkSpecification?.formatters?.formatMention;
     if ( frameworkFormatter ) {
-      return frameworkFormatter( userUuid, services );
+      return await frameworkFormatter( userUuid, services, nickname );
     }
 
     return `<@uid:${ userUuid }>`;

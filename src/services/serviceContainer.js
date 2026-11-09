@@ -312,6 +312,15 @@ services.eventDispatcher.registerHandler( 'trackStarted', async ( event, context
 
 services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context ) => {
   const state = context.services?.stateService?.getState();
+
+  // DEBUG: Log full state structure
+  context.services?.logger?.debug?.(
+    `[EventDispatcher-trackEnded] DEBUG: State object - djs property exists: ${ 'djs' in ( state || {} ) }, djs value: ${ JSON.stringify( state?.djs ) }`
+  );
+  context.services?.logger?.debug?.(
+    `[EventDispatcher-trackEnded] DEBUG: State keys: ${ JSON.stringify( Object.keys( state || {} ) ) }`
+  );
+
   await announceTrackEnded( event, context.services );
   if ( state?.nowPlaying?.playId === event.payload?.playId ) state.nowPlaying = null;
 
@@ -324,6 +333,103 @@ services.eventDispatcher.registerHandler( 'trackEnded', async ( event, context )
     context.services?.logger?.debug?.(
       `[EventDispatcher] Cancelled delayed trackStarted handler for playId ${ playId } (track ended)`
     );
+  }
+
+  // Execute escortme removal for users who were in queue (removeAfterCurrent: false)
+  // Users who were already playing (removeAfterCurrent: true) are removed in playedSong handler
+  if ( context.services?.dataService ) {
+    try {
+      const escortQueue = context.services.dataService.getValue( 'escortQueue' ) || {};
+
+      // Escort removal for queued users - Hang.fm only (disabled on Wavez pending bug fix)
+      const isNotWavez = context.services?.frameworkSpecification?.id !== 'wavezfm';
+      if ( isNotWavez && Object.keys( escortQueue ).length > 0 ) {
+        // Find any DJ in escortme who has removeAfterCurrent: false (was in queue)
+        // and is now no longer in the DJ queue (they finished playing)
+        // Wavez uses 'djQueue', Hang uses 'djs' - try both
+        const djs = state?.djQueue || state?.djs || [];
+
+        // Map to UUIDs/IDs depending on framework
+        // Wavez djQueue has userId, Hang djs has uuid
+        const djUuids = djs.map( dj => dj.userId || dj.uuid );
+
+        context.services?.logger?.info?.(
+          `[EventDispatcher-trackEnded-ESCORT] Current DJ queue: ${ JSON.stringify( djUuids ) }`
+        );
+
+        for ( const uuid of Object.keys( escortQueue ) ) {
+          const escortData = escortQueue[ uuid ];
+
+          context.services?.logger?.info?.(
+            `[EventDispatcher-trackEnded-ESCORT] User ${ uuid }: removeAfterCurrent=${ escortData.removeAfterCurrent }, inQueue=${ djUuids.includes( uuid ) }`
+          );
+
+          // Only process users who had removeAfterCurrent: false (were in queue when escortme was set)
+          if ( !escortData.removeAfterCurrent && !djUuids.includes( uuid ) ) {
+            // User was in queue and is no longer in DJ queue - remove them
+            context.services?.logger?.info?.(
+              `[EventDispatcher-trackEnded-ESCORT] REMOVING: ${ uuid } (was in queue, removeAfterCurrent=false)`
+            );
+
+            // Get DJ info for messaging
+            let djNickname = uuid;
+            try {
+              const allUserData = state?.allUserData || {};
+              djNickname = allUserData[ uuid ]?.userProfile?.nickname || uuid;
+            } catch ( err ) {
+              context.services?.logger?.debug?.( `Could not get DJ nickname: ${ err.message }` );
+            }
+
+            const djMention = context.services?.messageService?.formatMention
+              ? await context.services.messageService.formatMention( uuid, context.services )
+              : `@${ djNickname }`;
+
+            // Clear the escort flag
+            delete escortQueue[ uuid ];
+            context.services.dataService.setValue( 'escortQueue', escortQueue );
+
+            try {
+              // Remove the DJ from the decks
+              const result = context.services?.platformActions
+                ? await context.services.platformActions.removeFromDJQueue( uuid )
+                : await context.services.hangSocketServices?.removeDj?.( context.services, uuid );
+              if ( result && !result.success ) throw new Error( result.error );
+
+              // Notify the room
+              await context.services?.messageService?.sendGroupMessage?.(
+                `👋 ${ djMention } had enabled escortme and has left the decks.`,
+                { services: context.services }
+              );
+
+              context.services?.logger?.info?.( `[EventDispatcher-trackEnded] Escort removal executed for queued user ${ djMention } (${ uuid })` );
+            } catch ( err ) {
+              context.services?.logger?.error?.( `[EventDispatcher-trackEnded] Failed to execute escort removal for ${ uuid }: ${ err.message }` );
+            }
+          }
+        }
+
+        // Cleanup: Remove escort flags for users no longer in the DJ queue
+        // This handles cases where a user left unexpectedly or was removed by mods
+        context.services?.logger?.debug?.(
+          `[EventDispatcher-trackEnded] DEBUG: Cleaning up escort flags for users no longer in queue`
+        );
+        for ( const uuid of Object.keys( escortQueue ) ) {
+          if ( !djUuids.includes( uuid ) ) {
+            context.services?.logger?.debug?.(
+              `[EventDispatcher-trackEnded] DEBUG: Cleaning up escort flag for ${ uuid } (no longer in queue)`
+            );
+            delete escortQueue[ uuid ];
+          }
+        }
+        context.services.dataService.setValue( 'escortQueue', escortQueue );
+      } else {
+        context.services?.logger?.debug?.(
+          `[EventDispatcher-trackEnded] DEBUG: No users in escort queue`
+        );
+      }
+    } catch ( err ) {
+      context.services?.logger?.error?.( `[EventDispatcher-trackEnded] Error processing escortme in trackEnded: ${ err.message }` );
+    }
   }
 } );
 

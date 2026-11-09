@@ -75,7 +75,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( "Hi TestUser, welcome to 'Test Hangout'", { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( "Hi <@uid:123-456>, welcome to 'Test Hangout'", { responseChannel: 'public', services } );
     } );
 
     it( 'should use default template if none in data service', async () => {
@@ -97,7 +97,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, TestUser!", { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( "👋 Welcome to Test Hangout, <@uid:123-456>!", { responseChannel: 'public', services } );
     } );
 
     it( 'should handle missing nickname gracefully', async () => {
@@ -167,7 +167,7 @@ describe( 'userJoined handler', () => {
         await userJoined( message, {}, services );
 
         expect( services.messageService.sendResponse )
-            .toHaveBeenCalledWith( '🎉 Hey TestUser, welcome to the amazing Test Hangout! 🎵', { responseChannel: 'public', services } );
+            .toHaveBeenCalledWith( '🎉 Hey <@uid:123-456>, welcome to the amazing Test Hangout! 🎵', { responseChannel: 'public', services } );
     } );
 
     it( 'should log error if message sending fails', async () => {
@@ -263,7 +263,7 @@ describe( 'userJoined handler', () => {
             fs.existsSync.mockReturnValue( false );
             await userJoined( baseMessage, {}, services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                expect.stringContaining( 'Hi TestDJ' ),
+                expect.stringContaining( 'Hi <@uid:a1b2c3d4-e5f6-7890-abcd-ef1234567890>' ),
                 { responseChannel: 'public', services }
             );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();
@@ -276,7 +276,7 @@ describe( 'userJoined handler', () => {
             } ) );
             await userJoined( baseMessage, {}, services );
             expect( services.messageService.sendResponse ).toHaveBeenCalledWith(
-                `Hey TestDJ, great to see you!`,
+                `Hey <@uid:a1b2c3d4-e5f6-7890-abcd-ef1234567890>, great to see you!`,
                 { responseChannel: 'public', services }
             );
             expect( services.messageService.sendGroupPictureMessage ).not.toHaveBeenCalled();

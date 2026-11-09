@@ -42,6 +42,12 @@ async function runAfkMonitorTick ( services ) {
             services.logger.debug( `[afkMonitor]   ${ entry.nickname || dj.uuid } — exempt from AFK monitor` );
             continue;
         }
+        // Skip AFK monitoring for users with escortme enabled (they'll be removed at the correct time)
+        const escortQueue = services.dataService?.getValue?.( 'escortQueue' ) || {};
+        if ( escortQueue[ dj.uuid ] ) {
+            services.logger.debug( `[afkMonitor]   ${ entry.nickname || dj.uuid } — has escortme enabled, skipping AFK monitoring` );
+            continue;
+        }
         if ( !entry.mostRecent ) {
             services.logger.debug( `[afkMonitor]   ${ entry.nickname || dj.uuid } — no activity recorded yet` );
             continue;
@@ -50,8 +56,8 @@ async function runAfkMonitorTick ( services ) {
         const inactiveMinutes = Math.floor( inactiveMs / 60000 );
         const nickname = entry.nickname || dj.uuid;
         const mention = services.frameworkSpecification?.formatters
-            ? services.messageService.formatMention( dj.uuid, services )
-            : services.messageService.formatMention( dj.uuid );
+            ? await services.messageService.formatMention( dj.uuid, services )
+            : await services.messageService.formatMention( dj.uuid );
         services.logger.debug( `[afkMonitor]   ${ nickname } — last active: ${ entry.mostRecent.toISOString() } (${ ( inactiveMs / 60000 ).toFixed( 1 ) } min ago) warningLevel=${ entry.warningLevel }` );
 
         if ( entry.warningLevel === 3 && inactiveMs >= removeMs ) {

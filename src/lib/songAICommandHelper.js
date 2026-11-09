@@ -132,9 +132,9 @@ async function addToConversationHistory ( userContent, modelContent, dataService
  * @param {Object} options - Optional parameters
  * @param {string} options.senderUuid - UUID of command sender to format as mention
  * @param {string} options.currentDjUuid - UUID of current DJ to format as mention
- * @returns {string} Text with only relevant usernames replaced by mentions
+ * @returns {Promise<string>} Text with only relevant usernames replaced by mentions
  */
-function replaceAllUsernamesWithMentions ( text, services, logger, options = {} ) {
+async function replaceAllUsernamesWithMentions ( text, services, logger, options = {} ) {
     if ( !text || !services?.stateService || !services?.messageService ) {
         return text;
     }
@@ -169,7 +169,7 @@ function replaceAllUsernamesWithMentions ( text, services, logger, options = {} 
                 if ( isSender || isCurrentDj ) {
                     // Use framework-aware mention formatter for sender and DJ
                     // (Hang: <@uid:uuid>, Wavez: @DisplayName)
-                    const mentionFormat = services.messageService.formatMention( userId, services );
+                    const mentionFormat = await services.messageService.formatMention( userId, services );
                     processedText = processedText.replace( nicknameRegex, mentionFormat );
                 }
                 // For other users, leave their plain nickname as-is (don't replace)

@@ -629,11 +629,9 @@ describe( 'playedSong handler', () => {
 
         await playedSong( {}, {}, services );
 
-        // DJ should still be removed (flag takes precedence)
-        expect( services.hangSocketServices.removeDj ).toHaveBeenCalledWith(
-          services,
-          'moved-dj-uuid'
-        );
+        // DJ should NOT be removed in playedSong (removeAfterCurrent: false)
+        // They will be removed in trackEnded event when their song actually ends
+        expect( services.hangSocketServices.removeDj ).not.toHaveBeenCalled();
       } );
     } );
 

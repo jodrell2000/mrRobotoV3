@@ -29,7 +29,7 @@ const framework = {
         owner: 'OWNER',
         host: 'OWNER',
         manager: 'OWNER',
-        cohost: 'MODERATOR',
+        cohost: 'OWNER',
         moderator: 'MODERATOR',
         bouncer: 'MODERATOR',
         user: 'USER',
@@ -50,13 +50,49 @@ const framework = {
         chat: 'wavezHttp'
     },
     formatters: {
-        formatMention ( userId, services ) {
-            const displayName = services?.stateService?.getUser?.( userId )?.nickname ||
-                services?.hangoutState?.usersById?.[ userId ]?.nickname ||
-                services?.config?.CHAT_NAME ||
-                userId;
+        formatMention: async function ( userId, services, nickname ) {
+            // If we received a nickname from the caller (from event payload), use it directly
+            if ( nickname ) {
+                const mentionName = String( nickname ).trim().replace( /\s+/g, ' ' );
+                if ( !mentionName ) return '';
+                if ( /[\s"\\]/.test( mentionName ) ) {
+                    return `@"${ mentionName.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' ) }"`;
+                }
+                return `@${ mentionName }`;
+            }
+
+            // Try to find the user's nickname from state
+            const stateServiceUser = services?.stateService?.getUser?.( userId );
+            const hangoutStateUser = services?.hangoutState?.usersById?.[ userId ];
+            let displayName = stateServiceUser?.nickname || hangoutStateUser?.nickname;
+
+            // If not in state, try fetching from API
+            if ( !displayName && services?.apiAdapter?.getUserProfile ) {
+                try {
+                    const apiUser = await services.apiAdapter.getUserProfile( userId );
+                    if ( apiUser?.nickname ) {
+                        displayName = apiUser.nickname;
+                        services?.logger?.debug?.(
+                            `[formatMention] Fetched nickname "${ displayName }" from API for userId=${ userId }`
+                        );
+                    }
+                } catch ( err ) {
+                    services?.logger?.debug?.(
+                        `[formatMention] Failed to fetch user from API for userId=${ userId }: ${ err.message }`
+                    );
+                }
+            }
+
+            // If still no name found, return empty string
+            if ( !displayName ) {
+                services?.logger?.debug?.(
+                    `[formatMention] Could not find nickname for userId=${ userId } (not in state, not from API, no parameter provided)`
+                );
+                return '';
+            }
+
             const mentionName = String( displayName ).trim().replace( /\s+/g, ' ' );
-            if ( !mentionName ) return '@';
+            if ( !mentionName ) return '';
             if ( /[\s"\\]/.test( mentionName ) ) {
                 return `@"${ mentionName.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' ) }"`;
             }

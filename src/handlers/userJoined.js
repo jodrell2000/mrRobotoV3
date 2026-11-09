@@ -6,7 +6,7 @@ const WELCOME_MESSAGES_PATH = path.join( __dirname, '../../data/welcomeMessages.
 // Track when each user was last welcomed (per hangout) to prevent spamming
 // Format: { 'hangout-name:user-uuid': timestamp }
 const welcomeCooldowns = new Map();
-const WELCOME_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+const WELCOME_COOLDOWN_MS = 30 * 60 * 1000; // 10 minutes
 
 // Track when the last full welcome message was sent per hangout (rate limiting)
 // Format: { 'hangout-name': timestamp }
@@ -84,12 +84,23 @@ function extractUserDataFromPatch ( message ) {
   const avatarId = userDataPatch.value?.userProfile?.avatarId;
   const userUUID = userDataPatch.path.split( '/' )[ 2 ]; // Extract UUID from path like /allUserData/uuid
 
-  return {
+  const userData = {
     userUUID,
     nickname,
     avatarId,
     userDataPatch
   };
+
+  // DEBUG: Log the full patch value to see what fields are available
+  if ( userDataPatch.value ) {
+    const patchValueKeys = Object.keys( userDataPatch.value );
+    const userProfileKeys = userDataPatch.value.userProfile ? Object.keys( userDataPatch.value.userProfile ) : [];
+    console.log( `[extractUserDataFromPatch] Patch value keys: ${ patchValueKeys.join( ', ' ) }` );
+    console.log( `[extractUserDataFromPatch] userProfile keys: ${ userProfileKeys.join( ', ' ) }` );
+    console.log( `[extractUserDataFromPatch] Full patch value:`, JSON.stringify( userDataPatch.value, null, 2 ) );
+  }
+
+  return userData;
 }
 
 /**
@@ -120,19 +131,34 @@ function validateUserData ( userData, services ) {
  * @returns {boolean} True if user is the bot, false otherwise
  */
 function isBot ( userData, state, services ) {
-  // Check if this is the bot's own user (for Wavez, state may have currentUser)
-  if ( state?.currentUser && userData.userUUID === state.currentUser.id ) {
+  services.logger?.debug?.( `[isBot] Checking userData: bot=${ userData.bot }, uuid=${ userData.userUUID }, nickname=${ userData.nickname }` );
+
+  // For Wavez, check the bot flag directly (most reliable)
+  if ( userData.bot === true ) {
+    services.logger.debug( `[isBot] ✓ MATCHED: userData.bot === true` );
     services.logger.debug( `Skipping welcome message for bot user: ${ userData.userUUID } (nickname: ${ userData.nickname })` );
     return true;
+  }
+
+  // For Hang.fm, check the configured BOT_UID
+  if ( services.config?.API_FRAMEWORK === 'hangfm' && services.config?.BOT_UID ) {
+    services.logger?.debug?.( `[isBot] Checking Hang.fm BOT_UID: ${ services.config.BOT_UID } vs ${ userData.userUUID }` );
+    if ( userData.userUUID === services.config.BOT_UID ) {
+      services.logger.debug( `[isBot] ✓ MATCHED: userData.userUUID === BOT_UID` );
+      services.logger.debug( `Skipping welcome message for bot user: ${ userData.userUUID } (nickname: ${ userData.nickname })` );
+      return true;
+    }
   }
 
   // Check by known bot nicknames
   const botNames = [ 'Mrs. Roboto', 'Mrs Roboto', 'MrsRoboto' ];
   if ( botNames.includes( userData.nickname ) ) {
+    services.logger.debug( `[isBot] ✓ MATCHED: nickname matches bot names` );
     services.logger.debug( `Skipping welcome message for bot account: ${ userData.userUUID } (nickname: ${ userData.nickname })` );
     return true;
   }
 
+  services.logger?.debug?.( `[isBot] ✗ NO MATCH - user is not a bot` );
   return false;
 }
 
@@ -193,6 +219,13 @@ function getHangoutName ( services ) {
  * @returns {Promise<{message: string, picture: string|null}|null>}
  */
 async function getPersonalizedWelcome ( userData, services ) {
+  // Safety check: don't return personalized welcome for the bot
+  const botNames = [ 'Mrs. Roboto', 'Mrs Roboto', 'MrsRoboto' ];
+  if ( botNames.includes( userData.nickname ) ) {
+    services.logger?.debug?.( `Skipping personalized welcome for bot: ${ userData.nickname }` );
+    return null;
+  }
+
   try {
     // Try database first (cross-platform)
     if ( services.databaseService && services.databaseService.initialized ) {
@@ -201,8 +234,14 @@ async function getPersonalizedWelcome ( userData, services ) {
 
       if ( welcomeData && welcomeData.messages && welcomeData.messages.length > 0 ) {
         const randomMessage = welcomeData.messages[ Math.floor( Math.random() * welcomeData.messages.length ) ];
+
+        // Format username as mention for the current platform
+        const userMention = services.messageService?.formatMention
+          ? await services.messageService.formatMention( userData.userUUID, services, userData.nickname )
+          : userData.nickname;
+
         const tokenContext = {
-          username: userData.nickname
+          username: userMention
         };
 
         let processedMessage;
@@ -230,8 +269,14 @@ async function getPersonalizedWelcome ( userData, services ) {
     if ( messages.length === 0 ) return null;
 
     const randomMessage = messages[ Math.floor( Math.random() * messages.length ) ];
+
+    // Format username as mention for the current platform
+    const userMention = services.messageService?.formatMention
+      ? await services.messageService.formatMention( userData.userUUID, services, userData.nickname )
+      : userData.nickname;
+
     const tokenContext = {
-      username: userData.nickname
+      username: userMention
     };
 
     let processedMessage;
@@ -257,12 +302,21 @@ async function getPersonalizedWelcome ( userData, services ) {
  * Creates and sends a personalized welcome message
  * @param {Object} userData - User data extracted from patch
  * @param {Object} services - Services container
- * @param {boolean} sendFullMessage - Whether to send the full welcome template (default: true). If false, send simple "Welcome {username}"
+ * @param {boolean} canSendFullMessage - Whether the full welcome is available (not on cooldown). If false, send simple "Welcome {username}"
+ * @returns {boolean} True if a full welcome message was sent, false otherwise (personalized or simple)
  */
-async function sendWelcomeMessage ( userData, services, sendFullMessage = true ) {
-  // Check for per-user personalized welcome first (always sent if it exists)
+async function sendWelcomeMessage ( userData, services, canSendFullMessage = true ) {
+  // Safety check: don't welcome the bot even if it somehow reaches here
+  const botNames = [ 'Mrs. Roboto', 'Mrs Roboto', 'MrsRoboto' ];
+  if ( botNames.includes( userData.nickname ) ) {
+    services.logger?.debug?.( `Safety check: preventing welcome message for bot: ${ userData.nickname }` );
+    return false;
+  }
+
+  // Check for per-user personalized welcome first (always sent if it exists, doesn't count toward full welcome cooldown)
   const personalized = await getPersonalizedWelcome( userData, services );
   if ( personalized ) {
+    services.logger?.debug?.( `[sendWelcomeMessage] Found personalized welcome for ${ userData.nickname }` );
     // Always use adapter-aware response path (sendResponse routes through messagingAdapter)
     if ( typeof services.messageService?.sendResponse === 'function' ) {
       // Include picture URL in message if available (format depends on framework support)
@@ -270,27 +324,27 @@ async function sendWelcomeMessage ( userData, services, sendFullMessage = true )
         ? `${ personalized.message }\n${ personalized.picture }`
         : personalized.message;
       await services.messageService.sendResponse( messageWithPicture, { responseChannel: 'public', services } );
-      return;
+      return false; // Personalized message sent, doesn't count toward full welcome cooldown
     }
 
     // Fallback for legacy systems without sendResponse (should not reach here in normal operation)
     if ( personalized.picture && typeof services.messageService?.sendGroupPictureMessage === 'function' ) {
       await services.messageService.sendGroupPictureMessage( personalized.message, personalized.picture, services );
-      return;
+      return false;
     }
 
     if ( typeof services.messageService?.sendGroupMessage === 'function' ) {
       await services.messageService.sendGroupMessage( personalized.message, { services } );
-      return;
+      return false;
     }
-    return;
+    return false;
   }
 
-  // If no personalized welcome and sendFullMessage is false, send simple greeting
-  if ( !sendFullMessage ) {
+  // If no personalized welcome and canSendFullMessage is false, send simple greeting
+  if ( !canSendFullMessage ) {
     const simpleMessage = `Welcome ${ userData.nickname }`;
     await services.messageService.sendResponse( simpleMessage, { responseChannel: 'public', services } );
-    return;
+    return false; // Simple message sent, doesn't count toward full welcome cooldown
   }
 
   // Get welcome message template from data service, fallback to default if not found
@@ -300,10 +354,21 @@ async function sendWelcomeMessage ( userData, services, sendFullMessage = true )
     messageTemplate = services.dataService.getValue( 'welcomeMessage' ) || "👋 Welcome to {hangoutName}, {username}!";
   }
 
-  // Prepare context for token replacement
+  // Prepare context for token replacement with mention format for username
+  const userMention = services.messageService?.formatMention
+    ? await services.messageService.formatMention( userData.userUUID, services, userData.nickname )
+    : userData.nickname;
+
+  services.logger?.debug?.( `[sendWelcomeMessage] Token preparation:` );
+  services.logger?.debug?.( `  - userData.userUUID: ${ userData.userUUID }` );
+  services.logger?.debug?.( `  - userData.nickname: ${ userData.nickname }` );
+  services.logger?.debug?.( `  - userMention (from formatMention): ${ userMention }` );
+
   const tokenContext = {
-    username: userData.nickname
+    username: userMention
   };
+
+  services.logger?.debug?.( `[sendWelcomeMessage] About to replace tokens in template with username: ${ tokenContext.username }` );
 
   // Use TokenService if available for more comprehensive token replacement
   let personalizedMessage;
@@ -317,8 +382,9 @@ async function sendWelcomeMessage ( userData, services, sendFullMessage = true )
       .replace( '{hangoutName}', hangoutName );
   }
 
-  // Send the personalized welcome message via the adapter-aware response layer
+  // Send the full welcome message via the adapter-aware response layer
   await services.messageService.sendResponse( personalizedMessage, { responseChannel: 'public', services } );
+  return true; // Full message sent, counts toward cooldown
 }
 
 /**
@@ -347,6 +413,15 @@ async function userJoined ( message, state, services ) {
     // Validate required user data
     if ( !validateUserData( userData, services ) ) {
       return;
+    }
+
+    // Check if user is already in the room
+    const allUserData = state.allUserData || {};
+    const userAlreadyInRoom = allUserData[ userData.userUUID ];
+    if ( userAlreadyInRoom ) {
+      services.logger.debug(
+        `[userJoined] Duplicate user_joined event for ${ userData.nickname } (${ userData.userUUID }) - already in room`
+      );
     }
 
     // Upsert DJ in database (only if databaseService is available and initialized)
@@ -381,6 +456,8 @@ async function userJoined ( message, state, services ) {
     }
 
     // Skip welcome message for the bot itself
+    services.logger?.debug?.( `[userJoined] About to check isBot. userData keys: ${ Object.keys( userData ).join( ', ' ) }` );
+    services.logger?.debug?.( `[userJoined] userData.bot = ${ userData.bot }` );
     if ( isBot( userData, state, services ) ) {
       return;
     }
@@ -398,20 +475,20 @@ async function userJoined ( message, state, services ) {
       return;
     }
 
-    // Check if full welcome message can be sent (2-minute cooldown per hangout)
-    const sendFullMessage = canSendFullWelcome( hangoutName );
-    if ( !sendFullMessage ) {
+    // Check if full welcome message can be sent (2-minute cooldown per hangout, only for non-personalized welcomes)
+    const canSendFullMessage = canSendFullWelcome( hangoutName );
+    if ( !canSendFullMessage ) {
       services.logger.debug( `Full welcome message on cooldown for ${ hangoutName }, sending simple greeting instead` );
     }
 
-    // Send welcome message
-    await sendWelcomeMessage( userData, services, sendFullMessage );
+    // Send welcome message and check if it was a full welcome (true) or personalized/simple (false)
+    const wasFullWelcomeSent = await sendWelcomeMessage( userData, services, canSendFullMessage );
 
     // Record this welcome for cooldown tracking
     recordWelcome( userData.userUUID, hangoutName );
 
-    // Record full welcome if it was sent
-    if ( sendFullMessage ) {
+    // Record full welcome cooldown only if a full message was actually sent (not for personalized or simple)
+    if ( wasFullWelcomeSent ) {
       recordFullWelcome( hangoutName );
     }
 
@@ -436,15 +513,55 @@ async function handleUserJoinedEvent ( event, context ) {
     return;
   }
 
+  // Skip if this is a bot joining (check bot flag in event payload)
+  if ( event.payload?.bot === true ) {
+    services.logger?.debug?.( `handleUserJoinedEvent: skipping bot user (userId=${ userId })` );
+    return;
+  }
+
   try {
     // Get full user data from stateService if not already in event payload
     let user = userObj;
-    if ( !user || !user.nickname ) {
-      user = services.stateService?.getUser?.( userId );
+    services.logger?.debug?.( `[handleUserJoinedEvent] User retrieval:` );
+    services.logger?.debug?.( `  - userObj from event.payload.user: ${ userObj ? 'present' : 'missing' }` );
+    if ( userObj ) {
+      services.logger?.debug?.( `    - userObj.nickname: ${ userObj.nickname }` );
+      services.logger?.debug?.( `    - userObj.id: ${ userObj.id }` );
     }
 
     if ( !user || !user.nickname ) {
-      services.logger?.debug?.( `handleUserJoinedEvent: no user data found for ${ userId }` );
+      services.logger?.debug?.( `  - userObj missing/incomplete, fetching from stateService.getUser(${ userId })` );
+      user = services.stateService?.getUser?.( userId );
+      if ( user ) {
+        services.logger?.debug?.( `    - Retrieved user.nickname: ${ user.nickname }` );
+        services.logger?.debug?.( `    - Retrieved user.id: ${ user.id }` );
+      } else {
+        services.logger?.debug?.( `    - stateService.getUser returned null/undefined` );
+      }
+    }
+
+    // If still no user data, try fetching from API
+    if ( !user || !user.nickname ) {
+      services.logger?.debug?.( `  - No user data in state, attempting API lookup for userId=${ userId }` );
+      try {
+        if ( services.apiAdapter?.getUserProfile ) {
+          const apiUser = await services.apiAdapter.getUserProfile( userId );
+          if ( apiUser ) {
+            services.logger?.debug?.( `    - API returned user: nickname=${ apiUser.nickname || 'missing' }` );
+            user = apiUser;
+          } else {
+            services.logger?.debug?.( `    - API returned null/undefined` );
+          }
+        } else {
+          services.logger?.debug?.( `    - apiAdapter.getUserProfile not available` );
+        }
+      } catch ( err ) {
+        services.logger?.error?.( `Failed to fetch user from API: ${ err.message }` );
+      }
+    }
+
+    if ( !user || !user.nickname ) {
+      services.logger?.debug?.( `handleUserJoinedEvent: no user data found for ${ userId } (not in state, not in API)` );
       return;
     }
 
@@ -487,6 +604,43 @@ async function handleUserJoinedEvent ( event, context ) {
       return;
     }
 
+    // Skip welcome message for the bot itself
+    services.logger?.debug?.( `[handleUserJoinedEvent] Bot detection checks:` );
+    services.logger?.debug?.( `  - userId: ${ userId }` );
+    services.logger?.debug?.( `  - user.nickname: ${ user.nickname }` );
+    services.logger?.debug?.( `  - event.payload?.bot: ${ event.payload?.bot }` );
+    services.logger?.debug?.( `  - API_FRAMEWORK: ${ services.config?.API_FRAMEWORK }` );
+    services.logger?.debug?.( `  - BOT_UID: ${ services.config?.BOT_UID }` );
+
+    const state = services.stateService?._getCurrentState?.();
+    services.logger?.debug?.( `  - currentUser.id: ${ state?.currentUser?.id }` );
+    services.logger?.debug?.( `  - metadata.bot.id: ${ state?.metadata?.bot?.id }` );
+
+    const botNames = [ 'Mrs. Roboto', 'Mrs Roboto', 'MrsRoboto' ];
+
+    // Check bot flag first (most reliable for Wavez)
+    if ( event.payload?.bot === true ) {
+      services.logger?.debug?.( `[handleUserJoinedEvent] ✓ MATCHED: event.payload.bot === true` );
+      services.logger?.debug?.( `Skipping welcome message for bot user: ${ userId } (nickname: ${ user.nickname })` );
+      return;
+    }
+
+    // For Hang.fm, check the configured BOT_UID
+    if ( services.config?.API_FRAMEWORK === 'hangfm' && services.config?.BOT_UID === userId ) {
+      services.logger?.debug?.( `[handleUserJoinedEvent] ✓ MATCHED: BOT_UID check` );
+      services.logger?.debug?.( `Skipping welcome message for bot user: ${ userId } (nickname: ${ user.nickname })` );
+      return;
+    }
+
+    // Check by known bot nicknames
+    if ( botNames.includes( user.nickname ) ) {
+      services.logger?.debug?.( `[handleUserJoinedEvent] ✓ MATCHED: nickname in botNames` );
+      services.logger?.debug?.( `Skipping welcome message for bot account: ${ userId } (nickname: ${ user.nickname })` );
+      return;
+    }
+
+    services.logger?.debug?.( `[handleUserJoinedEvent] ✗ NO MATCH - proceeding with welcome` );
+
     // Check if welcome message feature is enabled
     if ( !services.featuresService?.isFeatureEnabled?.( 'welcomeMessage' ) ) {
       services.logger?.debug?.( 'Welcome message feature is disabled, skipping welcome message' );
@@ -500,20 +654,21 @@ async function handleUserJoinedEvent ( event, context ) {
       return;
     }
 
-    // Check if full welcome message can be sent (2-minute cooldown per hangout)
-    const sendFullMessage = canSendFullWelcome( hangoutName );
-    if ( !sendFullMessage ) {
+    // Check if full welcome message can be sent (2-minute cooldown per hangout, only for non-personalized welcomes)
+    const canSendFullMessage = canSendFullWelcome( hangoutName );
+    if ( !canSendFullMessage ) {
       services.logger?.debug?.( `Full welcome message on cooldown for ${ hangoutName }, sending simple greeting instead` );
     }
 
-    // Send welcome message
-    await sendWelcomeMessage( { userUUID: userId, nickname: user.nickname, avatarId: user.profile?.avatarId }, services, sendFullMessage );
+    // Send welcome message and check if it was a full welcome (true) or personalized/simple (false)
+    services.logger?.debug?.( `Sending welcome for userId=${ userId }, nickname=${ user.nickname }` );
+    const wasFullWelcomeSent = await sendWelcomeMessage( { userUUID: userId, nickname: user.nickname, avatarId: user.profile?.avatarId }, services, canSendFullMessage );
 
     // Record this welcome for cooldown tracking
     recordWelcome( userId, hangoutName );
 
-    // Record full welcome if it was sent
-    if ( sendFullMessage ) {
+    // Record full welcome cooldown only if a full message was actually sent (not for personalized or simple)
+    if ( wasFullWelcomeSent ) {
       recordFullWelcome( hangoutName );
     }
 

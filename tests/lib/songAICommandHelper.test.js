@@ -411,7 +411,7 @@ describe( 'songAICommandHelper', () => {
     describe( 'replaceAllUsernamesWithMentions', () => {
         const mockLogger = { warn: jest.fn() };
 
-        it( 'should only format sender as mention when senderUuid provided', () => {
+        it( 'should only format sender as mention when senderUuid provided', async () => {
             const text = 'Gaz, you picked a great song!';
             const mockServices = {
                 stateService: {
@@ -420,16 +420,16 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-gaz' } );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-gaz' } );
 
             expect( result ).toBe( 'Gaz, you picked a great song!'.replace( 'Gaz', '<@uid:uuid-gaz>' ) );
         } );
 
-        it( 'should not format username as mention when no options provided', () => {
+        it( 'should not format username as mention when no options provided', async () => {
             const text = 'Gaz, you picked a great song!';
             const mockServices = {
                 stateService: {
@@ -438,16 +438,16 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toBe( 'Gaz, you picked a great song!' );
         } );
 
-        it( 'should only format specified users as mentions, not others', () => {
+        it( 'should only format specified users as mentions, not others', async () => {
             const text = 'Kelsi and Alice both loved this track. Alice really enjoyed it, and Kelsi agrees!';
             const mockServices = {
                 stateService: {
@@ -457,12 +457,12 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
             // Only Kelsi is the sender, Alice should stay plain
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-kelsi' } );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-kelsi' } );
 
             expect( result ).toContain( '<@uid:uuid-kelsi>' );
             expect( result ).toContain( 'Alice' ); // Alice should not be formatted as mention
@@ -471,7 +471,7 @@ describe( 'songAICommandHelper', () => {
             expect( ( result.match( /uuid-alice/g ) || [] ).length ).toBe( 0 );
         } );
 
-        it( 'should not replace partial matches (word boundaries)', () => {
+        it( 'should not replace partial matches (word boundaries)', async () => {
             const text = 'This is a Garfield cat, not Gaz!';
             const mockServices = {
                 stateService: {
@@ -480,18 +480,18 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { currentDjUuid: 'uuid-gaz' } );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { currentDjUuid: 'uuid-gaz' } );
 
             // Garfield should NOT be replaced, only Gaz
             expect( result ).toContain( 'Garfield' );
             expect( result ).toContain( '<@uid:uuid-gaz>' );
         } );
 
-        it( 'should handle empty text gracefully', () => {
+        it( 'should handle empty text gracefully', async () => {
             const mockServices = {
                 stateService: {
                     getUsers: jest.fn().mockReturnValue( [
@@ -499,16 +499,16 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( '', mockServices, mockLogger );
+            const result = await replaceAllUsernamesWithMentions( '', mockServices, mockLogger );
 
             expect( result ).toBe( '' );
         } );
 
-        it( 'should handle null text gracefully', () => {
+        it( 'should handle null text gracefully', async () => {
             const mockServices = {
                 stateService: {
                     getUsers: jest.fn().mockReturnValue( [
@@ -516,25 +516,25 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( null, mockServices, mockLogger );
+            const result = await replaceAllUsernamesWithMentions( null, mockServices, mockLogger );
 
             expect( result ).toBe( null );
         } );
 
-        it( 'should handle missing stateService gracefully', () => {
+        it( 'should handle missing stateService gracefully', async () => {
             const text = 'Hello Alice!';
             const mockServices = {};
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toBe( text );
         } );
 
-        it( 'should handle users without nickname gracefully', () => {
+        it( 'should handle users without nickname gracefully', async () => {
             const text = 'Hello Alice and Bob!';
             const mockServices = {
                 stateService: {
@@ -544,18 +544,18 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-alice' } );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-alice' } );
 
             // Should format Alice as mention but not error on Bob without nickname
             expect( result ).toContain( '<@uid:uuid-alice>' );
             expect( result ).toContain( 'Hello' );
         } );
 
-        it( 'should escape special regex characters in usernames', () => {
+        it( 'should escape special regex characters in usernames', async () => {
             const text = 'Hello User_Name, you rock!';
             const mockServices = {
                 stateService: {
@@ -564,28 +564,28 @@ describe( 'songAICommandHelper', () => {
                     ] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-special' } );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger, { senderUuid: 'uuid-special' } );
 
             expect( result ).toContain( '<@uid:uuid-special>' );
         } );
 
-        it( 'should handle errors gracefully and return original text', () => {
+        it( 'should handle errors gracefully and return original text', async () => {
             const text = 'Hello Alice!';
             const mockServices = {
                 stateService: {
                     getUsers: jest.fn().mockReturnValue( [] )
                 },
                 messageService: {
-                    formatMention: jest.fn( ( userId ) => `<@uid:${ userId }>` )
+                    formatMention: jest.fn( ( userId ) => Promise.resolve( `<@uid:${ userId }>` ) )
                 }
             };
 
             // Should return original text unchanged
-            const result = replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
+            const result = await replaceAllUsernamesWithMentions( text, mockServices, mockLogger );
 
             expect( result ).toBe( text );
         } );

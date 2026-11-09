@@ -28,7 +28,7 @@ async function handleEchoCommand ( commandParams ) {
       isPrivateMessage: context?.fullMessage?.isPrivateMessage,
       sender: context?.sender,
       services,
-    context
+      context
     } );
     return {
       success: false,
@@ -42,8 +42,8 @@ async function handleEchoCommand ( commandParams ) {
     : null;
 
   const senderMention = services.frameworkSpecification?.formatters
-    ? messageService.formatMention( senderUuid, services )
-    : messageService.formatMention( senderUuid );
+    ? await messageService.formatMention( senderUuid, services )
+    : await messageService.formatMention( senderUuid );
   const response = `🔊 Echo: ${ args } (from ${ senderMention })`;
   await messageService.sendResponse( response, {
     responseChannel: actualResponseChannel,

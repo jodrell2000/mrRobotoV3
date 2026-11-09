@@ -58,11 +58,11 @@ describe( 'Wavez.fm W1 framework', () => {
     test( 'does not elevate unknown Wavez roles', () => {
         expect( framework.resolveCommandPermissions( 'host' ) ).toBe( 'OWNER' );
         expect( framework.resolveCommandPermissions( 'manager' ) ).toBe( 'OWNER' );
-        expect( framework.resolveCommandPermissions( 'cohost' ) ).toBe( 'MODERATOR' );
+        expect( framework.resolveCommandPermissions( 'cohost' ) ).toBe( 'OWNER' );
         expect( framework.resolveCommandPermissions( 'new-role' ) ).toBe( 'USER' );
     } );
 
-    test( 'formats Wavez mentions using display names', () => {
+    test( 'formats Wavez mentions using display names', async () => {
         const services = {
             config: { CHAT_NAME: 'Fallback Bot' },
             stateService: {
@@ -70,10 +70,11 @@ describe( 'Wavez.fm W1 framework', () => {
             }
         };
 
-        expect( framework.formatters.formatMention( 'user-1', services ) ).toBe( '@"I ❤️ the 80s Bot"' );
-        expect( framework.formatters.formatMention( 'user-2', {
+        expect( await framework.formatters.formatMention( 'user-1', services ) ).toBe( '@"I ❤️ the 80s Bot"' );
+        // When no user data is available, return empty string (never fallback to bot name)
+        expect( await framework.formatters.formatMention( 'user-2', {
             config: { CHAT_NAME: 'MrsRoboto' }
-        } ) ).toBe( '@MrsRoboto' );
+        } ) ).toBe( '' );
     } );
 } );
 

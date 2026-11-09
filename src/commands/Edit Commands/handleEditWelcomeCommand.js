@@ -1,8 +1,4 @@
 const { logger } = require( '../../lib/logging.js' );
-const fs = require( 'fs' );
-const path = require( 'path' );
-
-const WELCOME_MESSAGES_PATH = path.join( __dirname, '../../../data/welcomeMessages.json' );
 
 function isValidImageUrl ( url ) {
     try {
@@ -19,13 +15,24 @@ function isValidImageUrl ( url ) {
     }
 }
 
-function loadWelcomeMessages () {
-    if ( !fs.existsSync( WELCOME_MESSAGES_PATH ) ) return {};
-    return JSON.parse( fs.readFileSync( WELCOME_MESSAGES_PATH, 'utf8' ) );
-}
-
-function saveWelcomeMessages ( data ) {
-    fs.writeFileSync( WELCOME_MESSAGES_PATH, JSON.stringify( data, null, 2 ), 'utf8' );
+/**
+ * Get the site name and botUserId for storing welcome messages in the database
+ * @param {string} uuid - User UUID
+ * @param {Object} services - Services object
+ * @returns {{site: string, botUserId: number|null}} Site name and botUserId
+ */
+function getSiteAndBotUserId ( uuid, services ) {
+    const site = services.config?.API_FRAMEWORK === 'wavezfm' ? 'wavezfm' : 'hang.fm';
+    if ( !services.databaseService?.initialized ) {
+        return { site, botUserId: null };
+    }
+    try {
+        const botUserId = services.databaseService.getOrCreateBotUser( site, uuid );
+        return { site, botUserId };
+    } catch ( err ) {
+        logger.error( `Failed to get botUserId for ${ uuid }: ${ err.message }` );
+        return { site, botUserId: null };
+    }
 }
 
 function normalizeWhitespace ( str ) {
@@ -204,21 +211,46 @@ async function handleEditWelcomeCommand ( commandParams ) {
         const subcommand = parts[ 0 ].toLowerCase();
 
         if ( subcommand === 'list' ) {
-            const welcomeData = loadWelcomeMessages();
-            const uuids = Object.keys( welcomeData );
-            if ( uuids.length === 0 ) {
-                return await sendResponse( '📋 No users have custom welcome messages.', services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            let response = '**📋 Users with custom welcome messages:**\n\n';
-            uuids.forEach( uuid => {
-                const nickname = getNickname( uuid, services );
-                const entry = welcomeData[ uuid ];
-                const msgCount = ( entry.messages || [] ).length;
-                const imgCount = ( entry.pictures || [] ).filter( p => p ).length;
-                const display = nickname !== uuid ? `${ nickname } (${ uuid })` : uuid;
-                response += `• ${ display } - ${ msgCount } message(s), ${ imgCount } image(s)\n`;
-            } );
-            return await sendSuccessResponse( response, services, context );
+            try {
+                // Get all unique bot_user_ids with welcome data
+                const allMessages = services.databaseService.db.prepare(
+                    'SELECT DISTINCT bot_user_id FROM welcome_messages'
+                ).all();
+                const allPictures = services.databaseService.db.prepare(
+                    'SELECT DISTINCT bot_user_id FROM welcome_pictures'
+                ).all();
+                const botUserIds = new Set( [ ...allMessages, ...allPictures ].map( r => r.bot_user_id ) );
+
+                if ( botUserIds.size === 0 ) {
+                    return await sendResponse( '📋 No users have custom welcome messages.', services, context );
+                }
+
+                let response = '**📋 Users with custom welcome messages:**\n\n';
+                for ( const botUserId of botUserIds ) {
+                    // Get site_ids for this bot_user_id to display user info
+                    const siteId = services.databaseService.db.prepare(
+                        'SELECT site_specific_id FROM site_ids WHERE bot_user_id = ? LIMIT 1'
+                    ).get( botUserId );
+                    const uuid = siteId?.site_specific_id || `(ID: ${ botUserId })`;
+                    const nickname = getNickname( uuid, services );
+
+                    const msgCount = services.databaseService.db.prepare(
+                        'SELECT COUNT(*) as count FROM welcome_messages WHERE bot_user_id = ?'
+                    ).get( botUserId ).count;
+                    const imgCount = services.databaseService.db.prepare(
+                        'SELECT COUNT(*) as count FROM welcome_pictures WHERE bot_user_id = ?'
+                    ).get( botUserId ).count;
+
+                    const display = nickname !== uuid ? `${ nickname } (${ uuid })` : uuid;
+                    response += `• ${ display } - ${ msgCount } message(s), ${ imgCount } image(s)\n`;
+                }
+                return await sendSuccessResponse( response, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error listing welcome messages: ${ err.message }`, services, context );
+            }
         }
 
         if ( subcommand === 'show' ) {
@@ -230,35 +262,54 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !uuid ) {
                 return await sendResponse( notFoundMessage( identifier, services ), services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            const entry = welcomeData[ uuid ];
-            if ( !entry ) {
-                return await sendResponse( `❌ No custom welcome messages found for "${ identifier }".`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            const nickname = getNickname( uuid, services );
-            const messages = entry.messages || [];
-            const pictures = ( entry.pictures || [] ).filter( p => p );
 
-            let response = `**Welcome messages for ${ nickname }:**\n\n`;
-            if ( messages.length > 0 ) {
-                response += `**Messages:** (${ messages.length })\n`;
-                messages.forEach( ( msg, i ) => {
-                    const display = msg.length > 100 ? msg.substring( 0, 100 ) + '...' : msg;
-                    response += `  ${ i + 1 }. ${ display }\n`;
-                } );
-                response += '\n';
-            } else {
-                response += '**Messages:** None\n\n';
+            try {
+                const { site, botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( `❌ No custom welcome messages found for "${ identifier }".`, services, context );
+                }
+
+                const messages = services.databaseService.db.prepare(
+                    'SELECT message FROM welcome_messages WHERE bot_user_id = ? ORDER BY created_at DESC'
+                ).all( botUserId ).map( r => r.message );
+
+                const pictures = services.databaseService.db.prepare(
+                    'SELECT picture FROM welcome_pictures WHERE bot_user_id = ? ORDER BY created_at DESC'
+                ).all( botUserId ).map( r => r.picture );
+
+                if ( messages.length === 0 && pictures.length === 0 ) {
+                    return await sendResponse( `❌ No custom welcome messages found for "${ identifier }".`, services, context );
+                }
+
+                const nickname = getNickname( uuid, services );
+                let response = `**Welcome messages for ${ nickname }:**\n\n`;
+
+                if ( messages.length > 0 ) {
+                    response += `**Messages:** (${ messages.length })\n`;
+                    messages.forEach( ( msg, i ) => {
+                        const display = msg.length > 100 ? msg.substring( 0, 100 ) + '...' : msg;
+                        response += `  ${ i + 1 }. ${ display }\n`;
+                    } );
+                    response += '\n';
+                } else {
+                    response += '**Messages:** None\n\n';
+                }
+
+                if ( pictures.length > 0 ) {
+                    response += `**Images:** (${ pictures.length })\n`;
+                    pictures.forEach( ( img, i ) => {
+                        response += `  ${ i + 1 }. ${ img }\n`;
+                    } );
+                } else {
+                    response += '**Images:** None';
+                }
+                return await sendSuccessResponse( response, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error retrieving welcome messages: ${ err.message }`, services, context );
             }
-            if ( pictures.length > 0 ) {
-                response += `**Images:** (${ pictures.length })\n`;
-                pictures.forEach( ( img, i ) => {
-                    response += `  ${ i + 1 }. ${ img }\n`;
-                } );
-            } else {
-                response += '**Images:** None';
-            }
-            return await sendSuccessResponse( response, services, context );
         }
 
         if ( subcommand === 'addmessage' ) {
@@ -273,17 +324,32 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !message || message.trim().length === 0 ) {
                 return await sendResponse( `❌ Message cannot be empty.`, services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            if ( !welcomeData[ uuid ] ) welcomeData[ uuid ] = { messages: [], pictures: [] };
-            if ( !Array.isArray( welcomeData[ uuid ].messages ) ) welcomeData[ uuid ].messages = [];
-            if ( welcomeData[ uuid ].messages.includes( message ) ) {
-                return await sendResponse( `❌ This message already exists for this user.`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            welcomeData[ uuid ].messages.push( message );
-            saveWelcomeMessages( welcomeData );
-            logger.info( `Welcome message added for ${ uuid } by ${ context?.sender }` );
-            const nickname = getNickname( uuid, services );
-            return await sendSuccessResponse( `✅ Welcome message added for ${ nickname }.`, services, context );
+
+            try {
+                const { botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( '❌ Failed to create welcome message storage.', services, context );
+                }
+
+                // Check if message already exists
+                const existing = services.databaseService.db.prepare(
+                    'SELECT id FROM welcome_messages WHERE bot_user_id = ? AND message = ?'
+                ).get( botUserId, message );
+
+                if ( existing ) {
+                    return await sendResponse( `❌ This message already exists for this user.`, services, context );
+                }
+
+                services.databaseService.addWelcomeMessage( botUserId, message );
+                logger.info( `Welcome message added for ${ uuid } by ${ context?.sender }` );
+                const nickname = getNickname( uuid, services );
+                return await sendSuccessResponse( `✅ Welcome message added for ${ nickname }.`, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error adding welcome message: ${ err.message }`, services, context );
+            }
         }
 
         if ( subcommand === 'removemessage' ) {
@@ -298,19 +364,27 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !message || message.trim().length === 0 ) {
                 return await sendResponse( `❌ Message cannot be empty.`, services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            if ( !welcomeData[ uuid ] || !Array.isArray( welcomeData[ uuid ].messages ) ) {
-                return await sendResponse( `❌ No messages found for this user.`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            const index = welcomeData[ uuid ].messages.indexOf( message );
-            if ( index === -1 ) {
-                return await sendResponse( `❌ Message not found. Only exact matches are removed.`, services, context );
+
+            try {
+                const { botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( `❌ No messages found for this user.`, services, context );
+                }
+
+                const changes = services.databaseService.removeWelcomeMessage( botUserId, message );
+                if ( changes === 0 ) {
+                    return await sendResponse( `❌ Message not found. Only exact matches are removed.`, services, context );
+                }
+
+                logger.info( `Welcome message removed for ${ uuid } by ${ context?.sender }` );
+                const nickname = getNickname( uuid, services );
+                return await sendSuccessResponse( `✅ Welcome message removed for ${ nickname }.`, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error removing welcome message: ${ err.message }`, services, context );
             }
-            welcomeData[ uuid ].messages.splice( index, 1 );
-            saveWelcomeMessages( welcomeData );
-            logger.info( `Welcome message removed for ${ uuid } by ${ context?.sender }` );
-            const nickname = getNickname( uuid, services );
-            return await sendSuccessResponse( `✅ Welcome message removed for ${ nickname }.`, services, context );
         }
 
         if ( subcommand === 'addimage' ) {
@@ -325,17 +399,32 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !uuid ) {
                 return await sendResponse( notFoundMessage( identifier, services ), services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            if ( !welcomeData[ uuid ] ) welcomeData[ uuid ] = { messages: [], pictures: [] };
-            if ( !Array.isArray( welcomeData[ uuid ].pictures ) ) welcomeData[ uuid ].pictures = [];
-            if ( welcomeData[ uuid ].pictures.includes( imageUrl ) ) {
-                return await sendResponse( `❌ This image URL already exists for this user.`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            welcomeData[ uuid ].pictures.push( imageUrl );
-            saveWelcomeMessages( welcomeData );
-            logger.info( `Welcome image added for ${ uuid } by ${ context?.sender }` );
-            const nickname = getNickname( uuid, services );
-            return await sendSuccessResponse( `✅ Welcome image added for ${ nickname }.`, services, context );
+
+            try {
+                const { botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( '❌ Failed to create welcome image storage.', services, context );
+                }
+
+                // Check if image already exists
+                const existing = services.databaseService.db.prepare(
+                    'SELECT id FROM welcome_pictures WHERE bot_user_id = ? AND picture = ?'
+                ).get( botUserId, imageUrl );
+
+                if ( existing ) {
+                    return await sendResponse( `❌ This image URL already exists for this user.`, services, context );
+                }
+
+                services.databaseService.addWelcomePicture( botUserId, imageUrl );
+                logger.info( `Welcome image added for ${ uuid } by ${ context?.sender }` );
+                const nickname = getNickname( uuid, services );
+                return await sendSuccessResponse( `✅ Welcome image added for ${ nickname }.`, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error adding welcome image: ${ err.message }`, services, context );
+            }
         }
 
         if ( subcommand === 'removeimage' ) {
@@ -347,19 +436,27 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !uuid ) {
                 return await sendResponse( notFoundMessage( identifier, services ), services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            if ( !welcomeData[ uuid ] || !Array.isArray( welcomeData[ uuid ].pictures ) ) {
-                return await sendResponse( `❌ No images found for this user.`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            const index = welcomeData[ uuid ].pictures.indexOf( imageUrl );
-            if ( index === -1 ) {
-                return await sendResponse( `❌ Image URL not found. Only exact matches are removed.`, services, context );
+
+            try {
+                const { botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( `❌ No images found for this user.`, services, context );
+                }
+
+                const changes = services.databaseService.removeWelcomePicture( botUserId, imageUrl );
+                if ( changes === 0 ) {
+                    return await sendResponse( `❌ Image not found. Only exact URL matches are removed.`, services, context );
+                }
+
+                logger.info( `Welcome image removed for ${ uuid } by ${ context?.sender }` );
+                const nickname = getNickname( uuid, services );
+                return await sendSuccessResponse( `✅ Welcome image removed for ${ nickname }.`, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error removing welcome image: ${ err.message }`, services, context );
             }
-            welcomeData[ uuid ].pictures.splice( index, 1 );
-            saveWelcomeMessages( welcomeData );
-            logger.info( `Welcome image removed for ${ uuid } by ${ context?.sender }` );
-            const nickname = getNickname( uuid, services );
-            return await sendSuccessResponse( `✅ Welcome image removed for ${ nickname }.`, services, context );
         }
 
         if ( subcommand === 'remove' ) {
@@ -371,14 +468,34 @@ async function handleEditWelcomeCommand ( commandParams ) {
             if ( !uuid ) {
                 return await sendResponse( notFoundMessage( identifier, services ), services, context );
             }
-            const welcomeData = loadWelcomeMessages();
-            if ( !welcomeData[ uuid ] ) {
-                return await sendResponse( `❌ No custom welcome data found for "${ identifier }".`, services, context );
+            if ( !services.databaseService?.initialized ) {
+                return await sendResponse( '❌ Database service not available.', services, context );
             }
-            delete welcomeData[ uuid ];
-            saveWelcomeMessages( welcomeData );
-            logger.info( `Welcome data removed for ${ uuid } by ${ context?.sender }` );
-            return await sendSuccessResponse( `✅ All custom welcome data removed for "${ identifier }".`, services, context );
+
+            try {
+                const { botUserId } = getSiteAndBotUserId( uuid, services );
+                if ( !botUserId ) {
+                    return await sendResponse( `❌ No custom welcome data found for "${ identifier }".`, services, context );
+                }
+
+                // Delete all messages and pictures for this bot user
+                const msgChanges = services.databaseService.db.prepare(
+                    'DELETE FROM welcome_messages WHERE bot_user_id = ?'
+                ).run( botUserId ).changes;
+                const picChanges = services.databaseService.db.prepare(
+                    'DELETE FROM welcome_pictures WHERE bot_user_id = ?'
+                ).run( botUserId ).changes;
+
+                if ( msgChanges === 0 && picChanges === 0 ) {
+                    return await sendResponse( `❌ No custom welcome data found for "${ identifier }".`, services, context );
+                }
+
+                logger.info( `All welcome data removed for ${ uuid } by ${ context?.sender }` );
+                const nickname = getNickname( uuid, services );
+                return await sendSuccessResponse( `✅ All welcome data removed for ${ nickname }.`, services, context );
+            } catch ( err ) {
+                return await sendResponse( `❌ Error removing welcome data: ${ err.message }`, services, context );
+            }
         }
 
         if ( subcommand === 'linkhang' ) {

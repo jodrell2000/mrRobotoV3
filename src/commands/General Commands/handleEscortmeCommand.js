@@ -6,7 +6,7 @@ const config = require( '../../config.js' );
 const requiredRole = 'USER';
 const description = 'Schedule removal after current song';
 const example = 'escortme | escortme stop';
-const hidden = false;
+const hidden = false; // Enabled for Wavez.fm only
 
 /**
  * Parses command arguments to determine action and any switches
@@ -81,6 +81,15 @@ async function handleEscortmeCommand ( commandParams ) {
     const { args, services, context, responseChannel = 'request' } = commandParams;
     const { messageService, stateService, logger } = services;
 
+    // Disable escortme on Wavez.fm - command will not be recognized
+    if ( services.frameworkSpecification?.id === 'wavezfm' ) {
+        return {
+            success: false,
+            shouldRespond: false,
+            error: 'Command disabled on this platform'
+        };
+    }
+
     // Get sender's UUID
     const userUuid = context?.sender;
 
@@ -91,7 +100,7 @@ async function handleEscortmeCommand ( commandParams ) {
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
             services,
-    context
+            context
         } );
         return {
             success: false,
@@ -116,7 +125,7 @@ async function handleEscortmeCommand ( commandParams ) {
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
             services,
-    context
+            context
         } );
         return {
             success: false,
@@ -144,7 +153,7 @@ async function handleEscortmeCommand ( commandParams ) {
                 isPrivateMessage: context?.fullMessage?.isPrivateMessage,
                 sender: context?.sender,
                 services,
-    context
+                context
             } );
             return {
                 success: false,
@@ -165,7 +174,7 @@ async function handleEscortmeCommand ( commandParams ) {
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
             services,
-    context
+            context
         } );
 
         return {
@@ -187,7 +196,7 @@ async function handleEscortmeCommand ( commandParams ) {
             isPrivateMessage: context?.fullMessage?.isPrivateMessage,
             sender: context?.sender,
             services,
-    context
+            context
         } );
         return {
             success: false,
@@ -204,6 +213,13 @@ async function handleEscortmeCommand ( commandParams ) {
     };
     services.dataService.setValue( 'escortQueue', escortQueue );
 
+    // DEBUG: Log escortme enablement with detailed context
+    logger.debug( `[escortme] DEBUG: Escortme enabled for ${ nickname } (${ userUuid })` );
+    logger.debug( `[escortme] DEBUG: - Position: ${ userPosition } (${ positionText })` );
+    logger.debug( `[escortme] DEBUG: - isCurrentlyPlaying: ${ isCurrentlyPlaying }` );
+    logger.debug( `[escortme] DEBUG: - removeAfterCurrent flag: ${ isCurrentlyPlaying }` );
+    logger.debug( `[escortme] DEBUG: - Stored in escortQueue: ${ JSON.stringify( escortQueue[ userUuid ] ) }` );
+
     // Provide context-appropriate confirmation message
     const confirmationMessage = isCurrentlyPlaying
         ? '✅ You will be removed after your song ends.'
@@ -215,7 +231,7 @@ async function handleEscortmeCommand ( commandParams ) {
         isPrivateMessage: context?.fullMessage?.isPrivateMessage,
         sender: context?.sender,
         services,
-    context
+        context
     } );
 
     return {

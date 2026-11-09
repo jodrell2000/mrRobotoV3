@@ -279,29 +279,54 @@ async function playedSong ( message, state, services ) {
       }
     }
 
-    // Phase 6: Execute escort removals - remove DJ if they have escortme enabled
-    if ( services.hangSocketServices && services.dataService && services.messageService ) {
+    // Phase 6: Execute escort removals for currently-playing users
+    // (Users in queue are handled in trackEnded event handler)
+    if ( services.dataService && services.messageService && ( services.platformActions || services.hangSocketServices ) ) {
       try {
-        const djs = services.stateService?._getDjs?.() || [];
+        // Use the state object directly to get current DJ queue (handles both frameworks)
+        // Fall back to _getDjs() for backward compatibility
+        const state = services.stateService?.getState?.();
+        const djs = state?.djQueue || state?.djs || services.stateService?._getDjs?.() || [];
+        const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+
+        // DEBUG: Log escort check details
+        services.logger.debug( `[playedSong-Phase6] DEBUG: Checking for escort removals (removeAfterCurrent: true)` );
+        services.logger.debug( `[playedSong-Phase6] DEBUG: Current DJ queue length: ${ djs.length }` );
+        services.logger.debug( `[playedSong-Phase6] DEBUG: Escort queue users: ${ JSON.stringify( Object.keys( escortQueue ) ) }` );
+
         if ( djs.length > 0 ) {
           const currentDj = djs[ 0 ]; // Position 0 = currently playing
-          const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+          // Wavez uses userId, Hang uses uuid
+          const currentDjId = currentDj.userId || currentDj.uuid;
 
-          if ( currentDj && escortQueue[ currentDj.uuid ] ) {
-            // Current DJ has escortme enabled - remove them
+          // DEBUG: Log current DJ info
+          services.logger.debug( `[playedSong-Phase6] DEBUG: Current DJ at position 0: ${ currentDjId }` );
+
+          if ( escortQueue[ currentDjId ] ) {
+            const escortData = escortQueue[ currentDjId ];
+            services.logger.debug( `[playedSong-Phase6] DEBUG: Current DJ has escort flag: ${ JSON.stringify( escortData ) }` );
+            services.logger.debug( `[playedSong-Phase6] DEBUG: removeAfterCurrent value: ${ escortData.removeAfterCurrent }` );
+          } else {
+            services.logger.debug( `[playedSong-Phase6] DEBUG: Current DJ (${ currentDjId }) has NO escort flag` );
+          }
+
+          if ( currentDj && escortQueue[ currentDjId ] && escortQueue[ currentDjId ].removeAfterCurrent ) {
+            // Current DJ has escortme enabled AND was playing when escortme was set
+            services.logger.debug( `[playedSong-Phase6] DEBUG: TRIGGER: Removing DJ with removeAfterCurrent=true` );
+
             const djMention = services.frameworkSpecification?.formatters
-              ? services.messageService.formatMention( currentDj.uuid, services )
-              : services.messageService.formatMention( currentDj.uuid );
+              ? await services.messageService.formatMention( currentDjId, services )
+              : await services.messageService.formatMention( currentDjId );
 
             // Clear the escort flag BEFORE removal to prevent double-removal
-            delete escortQueue[ currentDj.uuid ];
+            delete escortQueue[ currentDjId ];
             services.dataService.setValue( 'escortQueue', escortQueue );
 
             try {
               // Remove the DJ from the decks
               const result = services.platformActions
-                ? await services.platformActions.removeFromDJQueue( currentDj.uuid )
-                : await services.hangSocketServices.removeDj( services, currentDj.uuid );
+                ? await services.platformActions.removeFromDJQueue( currentDjId )
+                : await services.hangSocketServices.removeDj( services, currentDjId );
               if ( result && !result.success ) throw new Error( result.error );
 
               // Notify the room
@@ -310,14 +335,16 @@ async function playedSong ( message, state, services ) {
                 { services }
               );
 
-              services.logger.info( `[playedSong] Escort removal executed for DJ ${ djMention } (${ currentDj.uuid })` );
+              services.logger.info( `[playedSong-Phase6] Escort removal executed for DJ ${ djMention } (${ currentDjId })` );
             } catch ( err ) {
-              services.logger.error( `[playedSong] Failed to execute escort removal for ${ djMention }: ${ err.message }` );
+              services.logger.error( `[playedSong-Phase6] Failed to execute escort removal for ${ djMention }: ${ err.message }` );
             }
+          } else {
+            services.logger.debug( `[playedSong-Phase6] DEBUG: No removal - condition not met` );
           }
         }
       } catch ( err ) {
-        services.logger.error( `[playedSong] Error processing escort removals: ${ err.message }` );
+        services.logger.error( `[playedSong-Phase6] Error processing escort removals: ${ err.message }` );
       }
     }
 
@@ -446,9 +473,17 @@ async function handlePlayedSongEvent ( event, context ) {
     // --- AFK REMOVAL: Process pending AFK DJ removals when song changes ---
     if ( services.afkService && services.platformActions ) {
       try {
+        const escortQueue = services.dataService?.getValue?.( 'escortQueue' ) || {};
         const pendingRemovals = services.afkService.getPendingRemovals();
         for ( const uuid of pendingRemovals ) {
           services.afkService.clearPendingRemoval( uuid );
+
+          // Skip AFK removal if user has escortme enabled (they'll be removed at the correct time)
+          if ( escortQueue[ uuid ] ) {
+            services.logger.debug( `[handlePlayedSongEvent] Skipping AFK removal for ${ uuid } - has escortme enabled` );
+            continue;
+          }
+
           try {
             const snapshot = services.afkService.getActivitySnapshot().find( e => e.uuid === uuid );
             const djName = snapshot?.nickname || uuid;
@@ -473,46 +508,91 @@ async function handlePlayedSongEvent ( event, context ) {
       }
     }
 
-    // --- ESCORT REMOVAL: Remove DJ if they have escortme enabled ---
-    if ( services.dataService && services.messageService && services.platformActions ) {
+    // --- ESCORT REMOVAL: Hang.fm only (Phase 6: currently playing) ---
+    // Escort removals disabled on Wavez.fm pending bug fix
+    const isNotWavez = services.frameworkSpecification?.id !== 'wavezfm';
+
+    if ( isNotWavez && services.dataService && services.messageService && services.platformActions ) {
       try {
         // Use getDjQueue() which handles both frameworks (Hang and Wavez)
         const djQueue = services.stateService?.getDjQueue?.() || [];
+        const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+
+        services.logger?.info?.(
+          `[handlePlayedSongEvent-ESCORT] Checking escort removals: djQueue.length=${ djQueue.length }, escortQueue users=${ JSON.stringify( Object.keys( escortQueue ) ) }`
+        );
+
         if ( djQueue.length > 0 ) {
           const currentDj = djQueue[ 0 ]; // Position 0 = currently playing
-          const escortQueue = services.dataService.getValue( 'escortQueue' ) || {};
+
+          services.logger?.debug?.(
+            `[handlePlayedSongEvent-ESCORT] Current DJ: userId=${ currentDj?.userId }, uuid=${ currentDj?.uuid }`
+          );
 
           // Check using userId field which works for both frameworks
-          if ( currentDj && currentDj.userId && escortQueue[ currentDj.userId ] ) {
-            // Current DJ has escortme enabled - remove them
-            const djMention = services.messageService.formatMention( currentDj.userId, services );
+          if ( currentDj && currentDj.userId ) {
+            if ( escortQueue[ currentDj.userId ] ) {
+              const escortData = escortQueue[ currentDj.userId ];
 
-            // Clear the escort flag BEFORE removal to prevent double-removal
-            delete escortQueue[ currentDj.userId ];
-            services.dataService.setValue( 'escortQueue', escortQueue );
-
-            try {
-              // Try platformActions first (adapter-aware), fallback to hangSocketServices
-              const result = services.platformActions
-                ? await services.platformActions.removeFromDJQueue( currentDj.userId )
-                : services.hangSocketServices && await services.hangSocketServices.removeDj( services, currentDj.userId );
-
-              if ( result && !result.success ) throw new Error( result.error || 'Removal failed' );
-
-              // Notify the room
-              await services.messageService.sendResponse(
-                `👋 ${ djMention } had enabled escortme and has left the decks.`,
-                { responseChannel: 'public', services }
+              services.logger?.info?.(
+                `[handlePlayedSongEvent-ESCORT] Found escort flag for DJ ${ currentDj.userId }: removeAfterCurrent=${ escortData.removeAfterCurrent }`
               );
 
-              services.logger.info( `[handlePlayedSongEvent] Escort removal executed for DJ ${ djMention } (${ currentDj.userId })` );
-            } catch ( err ) {
-              services.logger.error( `[handlePlayedSongEvent] Failed to execute escort removal for ${ djMention }: ${ err.message }` );
+              // Only remove if removeAfterCurrent is true (user was playing when escortme was set)
+              // Users with removeAfterCurrent=false will be removed by trackEnded handler
+              if ( escortData.removeAfterCurrent ) {
+                // Current DJ has escortme enabled AND was playing when command was executed
+                services.logger?.info?.(
+                  `[handlePlayedSongEvent-ESCORT] REMOVING DJ: ${ currentDj.userId } (removeAfterCurrent=true)`
+                );
+
+                const djMention = await services.messageService.formatMention( currentDj.userId, services );
+
+                // Clear the escort flag BEFORE removal to prevent double-removal
+                delete escortQueue[ currentDj.userId ];
+                services.dataService.setValue( 'escortQueue', escortQueue );
+
+                try {
+                  // Try platformActions first (adapter-aware), fallback to hangSocketServices
+                  const result = services.platformActions
+                    ? await services.platformActions.removeFromDJQueue( currentDj.userId )
+                    : services.hangSocketServices && await services.hangSocketServices.removeDj( services, currentDj.userId );
+
+                  if ( result && !result.success ) throw new Error( result.error || 'Removal failed' );
+
+                  // Notify the room
+                  await services.messageService.sendResponse(
+                    `👋 ${ djMention } had enabled escortme and has left the decks.`,
+                    { responseChannel: 'public', services }
+                  );
+
+                  services.logger.info( `[handlePlayedSongEvent-ESCORT] Removal successful for DJ ${ djMention } (${ currentDj.userId })` );
+                } catch ( err ) {
+                  services.logger.error( `[handlePlayedSongEvent-ESCORT] Failed to remove DJ ${ djMention }: ${ err.message }` );
+                }
+              } else {
+                // User is queued, will be removed when track ends
+                services.logger?.info?.(
+                  `[handlePlayedSongEvent-ESCORT] DJ ${ currentDj.userId } has removeAfterCurrent=false, will be removed in trackEnded`
+                );
+              }
+            } else {
+              services.logger?.debug?.(
+                `[handlePlayedSongEvent-ESCORT] Current DJ ${ currentDj.userId } not in escort queue`
+              );
             }
+          } else {
+            services.logger?.warn?.(
+              `[handlePlayedSongEvent-ESCORT] Current DJ missing userId: ${ JSON.stringify( currentDj ) }`
+            );
           }
+        } else {
+          services.logger?.debug?.(
+            `[handlePlayedSongEvent-ESCORT] DJ queue is empty`
+          );
         }
       } catch ( err ) {
-        services.logger.error( `[handlePlayedSongEvent] Error processing escort removals: ${ err.message }` );
+        services.logger.error( `[handlePlayedSongEvent-ESCORT] Error processing escort removals: ${ err.message }` );
       }
     }
 

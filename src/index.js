@@ -191,24 +191,30 @@ services.logger.info( '======================================= Application Start
     }
 
     // Fetch bot's nickname using BOT_UID and hangUserService
+    // Note: For Wavez.fm, this is skipped because BOT_UID is Hang.fm-specific
+    // and the real bot ID comes from socket state after connection is established
     services.logger.debug( '🔍 About to fetch bot nickname' );
-    try {
-      const profileResult = services.platformActions
-        ? await services.platformActions.getUserProfile( services.config.BOT_UID )
-        : null;
-      if ( profileResult?.supported === false || profileResult?.success === false ) {
-        throw new Error( profileResult.error );
+    if ( services.frameworkSpecification?.id !== 'wavezfm' ) {
+      try {
+        const profileResult = services.platformActions
+          ? await services.platformActions.getUserProfile( services.config.BOT_UID )
+          : null;
+        if ( profileResult?.supported === false || profileResult?.success === false ) {
+          throw new Error( profileResult.error );
+        }
+        let botNickname = profileResult?.data?.nickname ||
+          ( profileResult ? profileResult.data?.data?.nickname : undefined );
+        if ( !botNickname ) {
+          const nicknameResult = await services.platformActions.getUserNicknameByUuid( services.config.BOT_UID );
+          if ( nicknameResult?.success !== false ) botNickname = nicknameResult?.data;
+        }
+        services.setState( 'botNickname', botNickname );
+        services.logger.info( `🤖 Bot nickname resolved and stored: ${ botNickname }` );
+      } catch ( err ) {
+        services.logger.warn( `⚠️ Could not resolve bot nickname: ${ err.message }` );
       }
-      let botNickname = profileResult?.data?.nickname ||
-        ( profileResult ? profileResult.data?.data?.nickname : undefined );
-      if ( !botNickname ) {
-        const nicknameResult = await services.platformActions.getUserNicknameByUuid( services.config.BOT_UID );
-        if ( nicknameResult?.success !== false ) botNickname = nicknameResult?.data;
-      }
-      services.setState( 'botNickname', botNickname );
-      services.logger.info( `🤖 Bot nickname resolved and stored: ${ botNickname }` );
-    } catch ( err ) {
-      services.logger.warn( `⚠️ Could not resolve bot nickname: ${ err.message }` );
+    } else {
+      services.logger.debug( 'ℹ️ Skipping bot nickname lookup for Wavez.fm (will be fetched after socket connection)' );
     }
 
     services.logger.debug( '🤖 About to create Bot instance' );
@@ -401,10 +407,17 @@ services.logger.info( '======================================= Application Start
     // Send startup message to group
     services.logger.debug( '📤 Preparing to send startup message...' );
     try {
-      const botMention = services.config.BOT_UID
+      // Get the correct bot ID based on framework
+      let botIdForMention = services.config.BOT_UID;
+      if ( services.frameworkSpecification?.id === 'wavezfm' ) {
+        const state = services.stateService?.getState?.();
+        botIdForMention = state?.metadata?.bot?.id || botIdForMention;
+      }
+
+      const botMention = botIdForMention
         ? services.frameworkSpecification?.formatters
-          ? services.messageService.formatMention( services.config.BOT_UID, services )
-          : services.messageService.formatMention( services.config.BOT_UID )
+          ? await services.messageService.formatMention( botIdForMention, services )
+          : await services.messageService.formatMention( botIdForMention )
         : services.config.CHAT_NAME || services.getState( 'botNickname' ) || 'Bot';
       services.logger.debug( `📤 Sending startup message with bot mention: ${ botMention }` );
 

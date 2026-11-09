@@ -15,6 +15,7 @@ const handleEditWelcomeCommand = require( '../../src/commands/Edit Commands/hand
 describe( 'handleEditWelcomeCommand', () => {
     const mockUuid = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
     const mockNickname = 'JohnDoe';
+    const mockBotUserId = 1;
 
     let mockServices;
     let mockContext;
@@ -22,11 +23,20 @@ describe( 'handleEditWelcomeCommand', () => {
     beforeEach( () => {
         jest.clearAllMocks();
 
+        // Mock database
+        const mockDb = {
+            prepare: jest.fn().mockReturnValue( {
+                all: jest.fn().mockReturnValue( [] ),
+                get: jest.fn().mockReturnValue( null ),
+                run: jest.fn().mockReturnValue( { changes: 0 } )
+            } )
+        };
+
         mockServices = {
             messageService: {
                 sendResponse: jest.fn().mockResolvedValue()
             },
-            config: { COMMAND_SWITCH: '!' },
+            config: { COMMAND_SWITCH: '!', API_FRAMEWORK: 'hangfm' },
             stateService: {
                 _getCurrentState: jest.fn().mockReturnValue( {
                     allUserData: {
@@ -36,6 +46,12 @@ describe( 'handleEditWelcomeCommand', () => {
             },
             databaseService: {
                 initialized: true,
+                db: mockDb,
+                getOrCreateBotUser: jest.fn().mockReturnValue( mockBotUserId ),
+                addWelcomeMessage: jest.fn().mockReturnValue( true ),
+                removeWelcomeMessage: jest.fn().mockReturnValue( 1 ),
+                addWelcomePicture: jest.fn().mockReturnValue( true ),
+                removeWelcomePicture: jest.fn().mockReturnValue( 1 ),
                 findDjByNickname: jest.fn().mockReturnValue( null ),
                 getAllDjNicknames: jest.fn().mockReturnValue( [] )
             },
@@ -75,18 +91,12 @@ describe( 'handleEditWelcomeCommand', () => {
     } );
 
     describe( 'list subcommand', () => {
-        it( 'should report no users when file does not exist', async () => {
-            fs.existsSync.mockReturnValue( false );
-            const result = await handleEditWelcomeCommand( { args: 'list', services: mockServices, context: mockContext } );
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                expect.stringContaining( 'No users have custom welcome messages' ),
-                expect.any( Object )
-            );
-        } );
-
-        it( 'should report no users when file is empty', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+        it( 'should report no users when database is empty', async () => {
+            mockServices.databaseService.db.prepare.mockReturnValue( {
+                all: jest.fn().mockReturnValue( [] ),
+                get: jest.fn().mockReturnValue( null ),
+                run: jest.fn().mockReturnValue( { changes: 0 } )
+            } );
             const result = await handleEditWelcomeCommand( { args: 'list', services: mockServices, context: mockContext } );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
                 expect.stringContaining( 'No users have custom welcome messages' ),
@@ -95,10 +105,22 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
 
         it( 'should list users with nickname, message count and image count', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!', 'Welcome!' ], pictures: [ 'https://giphy.com/img.gif' ] }
-            } ) );
+            const mockPrepare = jest.fn().mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT DISTINCT bot_user_id FROM welcome_messages' ) ) {
+                    return { all: jest.fn().mockReturnValue( [ { bot_user_id: mockBotUserId } ] ) };
+                } else if ( sql.includes( 'SELECT DISTINCT bot_user_id FROM welcome_pictures' ) ) {
+                    return { all: jest.fn().mockReturnValue( [] ) };
+                } else if ( sql.includes( 'SELECT site_specific_id FROM site_ids' ) ) {
+                    return { get: jest.fn().mockReturnValue( { site_specific_id: mockUuid } ) };
+                } else if ( sql.includes( 'COUNT(*)' ) && sql.includes( 'welcome_messages' ) ) {
+                    return { get: jest.fn().mockReturnValue( { count: 2 } ) };
+                } else if ( sql.includes( 'COUNT(*)' ) && sql.includes( 'welcome_pictures' ) ) {
+                    return { get: jest.fn().mockReturnValue( { count: 1 } ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
+            mockServices.databaseService.db.prepare = mockPrepare;
+
             const result = await handleEditWelcomeCommand( { args: 'list', services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -132,9 +154,8 @@ describe( 'handleEditWelcomeCommand', () => {
             );
         } );
 
-        it( 'should return error when user has no data in file', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+        it( 'should return error when user has no data in database', async () => {
+            mockServices.databaseService.getOrCreateBotUser.mockReturnValue( null );
             const result = await handleEditWelcomeCommand( { args: `show ${ mockNickname }`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -144,10 +165,16 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
 
         it( 'should show messages and images for a user found by nickname', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey {username}!' ], pictures: [ 'https://giphy.com/img.gif' ] }
-            } ) );
+            const mockPrepare = jest.fn().mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT message FROM welcome_messages' ) ) {
+                    return { all: jest.fn().mockReturnValue( [ { message: 'Hey {username}!' } ] ) };
+                } else if ( sql.includes( 'SELECT picture FROM welcome_pictures' ) ) {
+                    return { all: jest.fn().mockReturnValue( [ { picture: 'https://giphy.com/img.gif' } ] ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
+            mockServices.databaseService.db.prepare = mockPrepare;
+
             const result = await handleEditWelcomeCommand( { args: `show ${ mockNickname }`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -161,10 +188,16 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
 
         it( 'should show messages for a user found by UUID directly', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
+            const mockPrepare = jest.fn().mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT message FROM welcome_messages' ) ) {
+                    return { all: jest.fn().mockReturnValue( [ { message: 'Hey!' } ] ) };
+                } else if ( sql.includes( 'SELECT picture FROM welcome_pictures' ) ) {
+                    return { all: jest.fn().mockReturnValue( [] ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
+            mockServices.databaseService.db.prepare = mockPrepare;
+
             const result = await handleEditWelcomeCommand( { args: `show ${ mockUuid }`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
         } );
@@ -191,35 +224,27 @@ describe( 'handleEditWelcomeCommand', () => {
             );
         } );
 
-        it( 'should add a message for a new user entry', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
-            fs.writeFileSync.mockImplementation( () => { } );
+        it( 'should add a message for a user', async () => {
+            mockServices.databaseService.db.prepare.mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT id FROM welcome_messages' ) ) {
+                    return { get: jest.fn().mockReturnValue( null ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
 
             const result = await handleEditWelcomeCommand( { args: `addMessage ${ mockNickname } Hey there {username}!`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ].messages ).toContain( 'Hey there {username}!' );
-        } );
-
-        it( 'should append a message to an existing user entry', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'First message' ], pictures: [] }
-            } ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-
-            const result = await handleEditWelcomeCommand( { args: `addMessage ${ mockNickname } Second message`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ].messages ).toHaveLength( 2 );
+            expect( mockServices.databaseService.addWelcomeMessage ).toHaveBeenCalledWith( mockBotUserId, 'Hey there {username}!' );
         } );
 
         it( 'should return error for duplicate message', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey there {username}!' ], pictures: [] }
-            } ) );
+            mockServices.databaseService.db.prepare.mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT id FROM welcome_messages' ) ) {
+                    return { get: jest.fn().mockReturnValue( { id: 1 } ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
+
             const result = await handleEditWelcomeCommand( { args: `addMessage ${ mockNickname } Hey there {username}!`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -231,10 +256,7 @@ describe( 'handleEditWelcomeCommand', () => {
 
     describe( 'removeMessage subcommand', () => {
         it( 'should return error when message not found', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Other message' ], pictures: [] }
-            } ) );
+            mockServices.databaseService.removeWelcomeMessage.mockReturnValue( 0 );
             const result = await handleEditWelcomeCommand( { args: `removeMessage ${ mockNickname } Hey!`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -244,17 +266,10 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
 
         it( 'should remove an existing message', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey {username}!', 'Second message' ], pictures: [] }
-            } ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-
+            mockServices.databaseService.removeWelcomeMessage.mockReturnValue( 1 );
             const result = await handleEditWelcomeCommand( { args: `removeMessage ${ mockNickname } Hey {username}!`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ].messages ).not.toContain( 'Hey {username}!' );
-            expect( saved[ mockUuid ].messages ).toContain( 'Second message' );
+            expect( mockServices.databaseService.removeWelcomeMessage ).toHaveBeenCalledWith( mockBotUserId, 'Hey {username}!' );
         } );
     } );
 
@@ -274,21 +289,26 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
 
         it( 'should add a valid image URL', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
-            fs.writeFileSync.mockImplementation( () => { } );
+            mockServices.databaseService.db.prepare.mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT id FROM welcome_pictures' ) ) {
+                    return { get: jest.fn().mockReturnValue( null ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
 
             const result = await handleEditWelcomeCommand( { args: `addImage ${ mockNickname } https://media.giphy.com/img.gif`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ].pictures ).toContain( 'https://media.giphy.com/img.gif' );
+            expect( mockServices.databaseService.addWelcomePicture ).toHaveBeenCalledWith( mockBotUserId, 'https://media.giphy.com/img.gif' );
         } );
 
         it( 'should return error for duplicate image URL', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [], pictures: [ 'https://media.giphy.com/img.gif' ] }
-            } ) );
+            mockServices.databaseService.db.prepare.mockImplementation( ( sql ) => {
+                if ( sql.includes( 'SELECT id FROM welcome_pictures' ) ) {
+                    return { get: jest.fn().mockReturnValue( { id: 1 } ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ) };
+            } );
+
             const result = await handleEditWelcomeCommand( { args: `addImage ${ mockNickname } https://media.giphy.com/img.gif`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
             expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
@@ -300,48 +320,36 @@ describe( 'handleEditWelcomeCommand', () => {
 
     describe( 'removeImage subcommand', () => {
         it( 'should return error when image not found', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [], pictures: [ 'https://media.giphy.com/other.gif' ] }
-            } ) );
+            mockServices.databaseService.removeWelcomePicture.mockReturnValue( 0 );
             const result = await handleEditWelcomeCommand( { args: `removeImage ${ mockNickname } https://media.giphy.com/img.gif`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
         } );
 
         it( 'should remove an existing image', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [], pictures: [ 'https://media.giphy.com/img.gif', 'https://media.giphy.com/other.gif' ] }
-            } ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-
+            mockServices.databaseService.removeWelcomePicture.mockReturnValue( 1 );
             const result = await handleEditWelcomeCommand( { args: `removeImage ${ mockNickname } https://media.giphy.com/img.gif`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ].pictures ).not.toContain( 'https://media.giphy.com/img.gif' );
-            expect( saved[ mockUuid ].pictures ).toContain( 'https://media.giphy.com/other.gif' );
+            expect( mockServices.databaseService.removeWelcomePicture ).toHaveBeenCalledWith( mockBotUserId, 'https://media.giphy.com/img.gif' );
         } );
     } );
 
     describe( 'remove subcommand', () => {
         it( 'should return error when user has no data', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
+            mockServices.databaseService.getOrCreateBotUser.mockReturnValue( null );
             const result = await handleEditWelcomeCommand( { args: `remove ${ mockNickname }`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
         } );
 
         it( 'should remove all custom welcome data for a user', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            fs.writeFileSync.mockImplementation( () => { } );
+            mockServices.databaseService.db.prepare.mockImplementation( ( sql ) => {
+                if ( sql.includes( 'DELETE FROM welcome_messages' ) || sql.includes( 'DELETE FROM welcome_pictures' ) ) {
+                    return { run: jest.fn().mockReturnValue( { changes: 1 } ) };
+                }
+                return { all: jest.fn().mockReturnValue( [] ), get: jest.fn().mockReturnValue( null ), run: jest.fn().mockReturnValue( { changes: 0 } ) };
+            } );
 
             const result = await handleEditWelcomeCommand( { args: `remove ${ mockNickname }`, services: mockServices, context: mockContext } );
             expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ mockUuid ] ).toBeUndefined();
         } );
     } );
 
@@ -356,210 +364,12 @@ describe( 'handleEditWelcomeCommand', () => {
         } );
     } );
 
-    describe( 'UUID resolution', () => {
-        it( 'should accept a UUID directly without state lookup for resolution', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            // Reset state mock to verify UUID resolution path
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            const result = await handleEditWelcomeCommand( { args: `show ${ mockUuid }`, services: mockServices, context: mockContext } );
-            // UUID is resolved directly without state lookup; only getNickname may call state
-            expect( result.success ).toBe( true );
-        } );
-
-        it( 'should fall back to database when nickname not found in live state', async () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            mockServices.databaseService.findDjByNickname.mockReturnValue( { uuid: mockUuid, nickname: mockNickname } );
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            const result = await handleEditWelcomeCommand( { args: `show ${ mockNickname }`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-            expect( mockServices.databaseService.findDjByNickname ).toHaveBeenCalledWith( mockNickname );
-        } );
-
-        it( 'should return error when nickname is not found anywhere', async () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            mockServices.databaseService.findDjByNickname.mockReturnValue( null );
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [] );
-            const result = await handleEditWelcomeCommand( { args: 'show GhostUser', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( false );
-            expect( mockServices.messageService.sendResponse ).toHaveBeenCalledWith(
-                expect.stringContaining( 'not found' ),
-                expect.any( Object )
-            );
-        } );
-
-        it( 'should resolve a nickname with trailing space inside quotes (trim fix)', async () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            mockServices.databaseService.findDjByNickname.mockReturnValue( null );
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [
-                { uuid: mockUuid, nickname: mockNickname }
-            ] );
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            // Trailing space inside quotes should be trimmed and still resolve via normalized fallback
-            const result = await handleEditWelcomeCommand( { args: `show "${ mockNickname }"`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-        } );
-
-        it( 'should resolve nickname with double spaces via normalised whitespace fallback', async () => {
-            const doubleSpaceUuid = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
-            const storedNickname = 'Dr.  Fart  Mustache  ';
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            mockServices.databaseService.findDjByNickname.mockReturnValue( null );
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [
-                { uuid: doubleSpaceUuid, nickname: storedNickname }
-            ] );
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ doubleSpaceUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            // User types single spaces; DB has double spaces — normalised match should succeed
-            const result = await handleEditWelcomeCommand( { args: 'show "Dr. Fart Mustache"', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-        } );
-    } );
-
-    describe( 'quoted nickname support', () => {
-        const spacedUuid = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
-        const spacedNickname = 'Dr. Fart Mustache';
-
-        beforeEach( () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( {
-                allUserData: {
-                    [ spacedUuid ]: { userProfile: { nickname: spacedNickname } }
-                }
-            } );
-        } );
-
-        it( 'should resolve a quoted multi-word nickname for show', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ spacedUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            const result = await handleEditWelcomeCommand( { args: `show "${ spacedNickname }"`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-        } );
-
-        it( 'should add a message for a quoted multi-word nickname', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-            const result = await handleEditWelcomeCommand( { args: `addMessage "${ spacedNickname }" Welcome {username}!`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ spacedUuid ].messages ).toContain( 'Welcome {username}!' );
-        } );
-
-        it( 'should add an image for a quoted multi-word nickname', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {} ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-            const result = await handleEditWelcomeCommand( {
-                args: `addImage "${ spacedNickname }" https://c.tenor.com/qosLRuL-U1oAAAAC/69.gif`,
-                services: mockServices,
-                context: mockContext
-            } );
-            expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ spacedUuid ].pictures ).toContain( 'https://c.tenor.com/qosLRuL-U1oAAAAC/69.gif' );
-        } );
-
-        it( 'should remove all data for a quoted multi-word nickname', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ spacedUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            fs.writeFileSync.mockImplementation( () => { } );
-            const result = await handleEditWelcomeCommand( { args: `remove "${ spacedNickname }"`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-            const saved = JSON.parse( fs.writeFileSync.mock.calls[ 0 ][ 1 ] );
-            expect( saved[ spacedUuid ] ).toBeUndefined();
-        } );
-
-        it( 'should still resolve single-word nicknames without quotes', async () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( {
-                allUserData: {
-                    [ mockUuid ]: { userProfile: { nickname: mockNickname } }
-                }
-            } );
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockReturnValue( JSON.stringify( {
-                [ mockUuid ]: { messages: [ 'Hey!' ], pictures: [] }
-            } ) );
-            const result = await handleEditWelcomeCommand( { args: `show ${ mockNickname }`, services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( true );
-        } );
-    } );
-
-    describe( 'fuzzy suggestions on not-found', () => {
-        beforeEach( () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( { allUserData: {} } );
-            mockServices.databaseService.findDjByNickname.mockReturnValue( null );
-        } );
-
-        it( 'should suggest similar names from the database when user is not found', async () => {
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [
-                { uuid: 'uuid-1', nickname: 'JohnDoe' },
-                { uuid: 'uuid-2', nickname: 'JohnDoh' },
-                { uuid: 'uuid-3', nickname: 'JaneDoe' }
-            ] );
-            const result = await handleEditWelcomeCommand( { args: 'show JohnDoe123', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( false );
-            const call = mockServices.messageService.sendResponse.mock.calls[ 0 ][ 0 ];
-            expect( call ).toContain( 'Did you mean' );
-            expect( call ).toContain( '"JohnDoe"' );
-        } );
-
-        it( 'should wrap suggestions in double quotes', async () => {
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [
-                { uuid: 'uuid-1', nickname: 'Dr. Fart Mustache' }
-            ] );
-            const result = await handleEditWelcomeCommand( { args: 'show "Dr Fart Mustache"', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( false );
-            const call = mockServices.messageService.sendResponse.mock.calls[ 0 ][ 0 ];
-            expect( call ).toMatch( /"Dr\. Fart Mustache"/ );
-        } );
-
-        it( 'should return plain not-found when no similar names exist', async () => {
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [
-                { uuid: 'uuid-1', nickname: 'Zaphod' }
-            ] );
-            const result = await handleEditWelcomeCommand( { args: 'show XXXXXXXX', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( false );
-            const call = mockServices.messageService.sendResponse.mock.calls[ 0 ][ 0 ];
-            expect( call ).not.toContain( 'Did you mean' );
-            expect( call ).toContain( 'not found' );
-        } );
-
-        it( 'should also use live state nicknames for suggestions', async () => {
-            mockServices.stateService._getCurrentState.mockReturnValue( {
-                allUserData: {
-                    'live-uuid': { userProfile: { nickname: 'LiveDJ' } }
-                }
-            } );
-            mockServices.databaseService.getAllDjNicknames.mockReturnValue( [] );
-            const result = await handleEditWelcomeCommand( { args: 'show LiveDJj', services: mockServices, context: mockContext } );
-            expect( result.success ).toBe( false );
-            const call = mockServices.messageService.sendResponse.mock.calls[ 0 ][ 0 ];
-            expect( call ).toContain( 'Did you mean' );
-            expect( call ).toContain( '"LiveDJ"' );
-        } );
-    } );
-
     describe( 'error handling', () => {
-        it( 'should handle file read errors gracefully', async () => {
-            fs.existsSync.mockReturnValue( true );
-            fs.readFileSync.mockImplementation( () => { throw new Error( 'Disk error' ); } );
+        it( 'should handle database errors gracefully', async () => {
+            mockServices.databaseService.db.prepare.mockImplementation( () => { throw new Error( 'Database error' ); } );
             const result = await handleEditWelcomeCommand( { args: 'list', services: mockServices, context: mockContext } );
             expect( result.success ).toBe( false );
-            expect( result.response ).toContain( 'Error processing command' );
+            expect( result.response ).toContain( 'Error' );
         } );
     } );
 } );

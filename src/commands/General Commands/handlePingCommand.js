@@ -18,8 +18,8 @@ async function handlePingCommand ( commandParams ) {
   const { services, context, responseChannel = 'request' } = commandParams;
   const { messageService, config } = services;
   const botMention = services.frameworkSpecification?.formatters
-    ? messageService.formatMention( config.BOT_UID, services )
-    : messageService.formatMention( config.BOT_UID );
+    ? await messageService.formatMention( config.BOT_UID, services )
+    : await messageService.formatMention( config.BOT_UID );
   const response = `🏓 Pong! ${ botMention } is alive and responding.`;
   await messageService.sendResponse( response, {
     responseChannel,
